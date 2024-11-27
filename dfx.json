@@ -1,0 +1,26 @@
+{
+  "canisters": {
+    "AxiaSystem_backend": {
+      "main": "src/AxiaSystem_backend/main.mo",
+      "type": "motoko"
+    },
+    "AxiaSystem_frontend": {
+      "dependencies": [
+        "AxiaSystem_backend"
+      ],
+      "source": [
+        "src/AxiaSystem_frontend/dist"
+      ],
+      "type": "assets",
+      "workspace": "AxiaSystem_frontend"
+    }
+  },
+  "defaults": {
+    "build": {
+      "args": "",
+      "packtool": ""
+    }
+  },
+  "output_env_file": ".env",
+  "version": 1
+}
