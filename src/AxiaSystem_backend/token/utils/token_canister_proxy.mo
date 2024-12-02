@@ -22,38 +22,45 @@ module {
         attachTokensToUser: (Nat, Principal, Nat) -> async Result.Result<(), Text>;
     };
 
-    private let tokenCanister : TokenCanisterInterface = actor("be2us-64aaa-aaaaa-qaabq-cai");
+    // Proxy class for inter-canister calls
+    public class TokenCanisterProxy(canisterId: Principal) {
+        private let tokenCanisterProxy: TokenCanisterInterface = actor(Principal.toText(canisterId));
 
+        // Get all tokens
+        public func getAllTokens(): async [Token] {
+            await tokenCanisterProxy.getAllTokens()
+        };
 
-    public func getAllTokens(): async [Token] {
-        await tokenCanister.getAllTokens()
+        // Get a specific token by ID
+        public func getToken(tokenId: Nat): async ?Token {
+            await tokenCanisterProxy.getToken(tokenId)
+        };
+
+        // Update a token's metadata
+        public func updateToken(updatedToken: Token): async Result.Result<(), Text> {
+            try {
+                await tokenCanisterProxy.updateToken(updatedToken)
+            } catch (error) {
+                #err("Failed to update token: " # Error.message(error))
+            }
+        };
+
+        // Mint new tokens
+        public func mintTokens(userId: Principal, amount: Nat): async Result.Result<(), Text> {
+            try {
+                await tokenCanisterProxy.mintTokens(userId, amount)
+            } catch (error) {
+                #err("Failed to mint tokens: " # Error.message(error))
+            }
+        };
+
+        // Attach tokens to a user
+        public func attachTokensToUser(tokenId: Nat, userId: Principal, amount: Nat): async Result.Result<(), Text> {
+            try {
+                await tokenCanisterProxy.attachTokensToUser(tokenId, userId, amount)
+            } catch (error) {
+                #err("Failed to attach tokens: " # Error.message(error))
+            }
+        };
     };
-
-    public func getToken(tokenId: Nat): async ?Token {
-        await tokenCanister.getToken(tokenId)
-    };
-
-    public func updateToken(updatedToken: Token): async Result.Result<(), Text> {
-        try {
-            await tokenCanister.updateToken(updatedToken)
-        } catch (error) {
-            #err("Failed to update token: " # Error.message(error))
-        }
-    };
-
-    public func mintTokens(userId: Principal, amount: Nat): async Result.Result<(), Text> {
-        try {
-            await tokenCanister.mintTokens(userId, amount)
-        } catch (error) {
-            #err("Failed to mint tokens: " # Error.message(error))
-        }
-    };
-
-    public func attachTokensToUser(tokenId: Nat, userId: Principal, amount: Nat): async Result.Result<(), Text> {
-        try {
-            await tokenCanister.attachTokensToUser(tokenId, userId, amount)
-        } catch (error) {
-            #err("Failed to attach tokens: " # Error.message(error))
-        }
-    };
-}
+};

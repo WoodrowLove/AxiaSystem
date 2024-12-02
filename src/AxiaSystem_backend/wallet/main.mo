@@ -7,14 +7,17 @@ import TokenCanisterProxy "../token/utils/token_canister_proxy";
 
 actor WalletCanister {
     private let userProxy = UserCanisterProxy.UserCanisterProxyManager(Principal.fromText("user-canister-id"));
+    private let tokenCanisterProxy = TokenCanisterProxy.TokenCanisterProxy(Principal.fromText("token-canister-id"));
     private let tokenProxy = {
-        getAllTokens = TokenCanisterProxy.getAllTokens;
-        getToken = TokenCanisterProxy.getToken;
-        updateToken = TokenCanisterProxy.updateToken;
-        mintTokens = TokenCanisterProxy.mintTokens;
-        attachTokensToUser = TokenCanisterProxy.attachTokensToUser;
+        getAllTokens = tokenCanisterProxy.getAllTokens;
+        getToken = tokenCanisterProxy.getToken;
+        updateToken = tokenCanisterProxy.updateToken;
+        mintTokens = tokenCanisterProxy.mintTokens;
+        attachTokensToUser = tokenCanisterProxy.attachTokensToUser;
     };
     private let walletManager = WalletModule.WalletManager(userProxy, tokenProxy);
+
+
 
     public func createWallet(userId: Principal, initialBalance: Nat): async Result.Result<WalletModule.Wallet, Text> {
         await walletManager.createWallet(userId, initialBalance)
