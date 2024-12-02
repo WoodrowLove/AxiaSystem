@@ -13,12 +13,25 @@
       ],
       "type": "assets",
       "workspace": "AxiaSystem_frontend"
+    },
+    "token": {
+      "type": "motoko",
+      "main": "src/AxiaSystem_backend/token/main.mo"
+    },
+    "user": {
+      "type": "motoko",
+      "main": "src/AxiaSystem_backend/user/main.mo",
+      "dependencies": ["token"]
+    },
+    "wallet": {
+      "main": "src/AxiaSystem_backend/wallet/main.mo",
+      "type": "motoko"
     }
   },
   "defaults": {
     "build": {
       "args": "",
-      "packtool": ""
+      "packtool": "mops sources"
     }
   },
   "output_env_file": ".env",

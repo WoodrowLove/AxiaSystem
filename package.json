@@ -14,5 +14,11 @@
   "type": "module",
   "workspaces": [
     "src/AxiaSystem_frontend"
-  ]
+  ],
+  "dependencies": {
+    "juno": "^0.0.3"
+  },
+  "devDependencies": {
+    "@junobuild/config": "^0.0.17"
+  }
 }
