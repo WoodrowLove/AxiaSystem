@@ -30,6 +30,7 @@ module {
     public class TokenEvents() {
         private var events: [Event] = [];
         private var nextEventId: Nat = 1;
+        
 
         public func addEvent(
             tokenId: Nat,
