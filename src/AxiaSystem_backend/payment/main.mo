@@ -2,45 +2,161 @@ import PaymentModule "./modules/payment_module";
 import WalletCanisterProxy "../wallet/utils/wallet_canister_proxy";
 import UserCanisterProxy "../user/utils/user_canister_proxy";
 import TokenCanisterProxy "../token/utils/token_canister_proxy";
+import EventManager "heartbeat/event_manager.mo";
+import EventTypes "heartbeat/event_types.mo";
 import Principal "mo:base/Principal";
 import Result "mo:base/Result";
 import Nat "mo:base/Nat";
 import Text "mo:base/Text";
+import Error "mo:base/Error";
+import Array "mo:base/Array";
 
 actor PaymentCanister {
     // Instantiate proxies for inter-canister communication
-    private let walletProxy = WalletCanisterProxy.WalletCanisterProxy(Principal.fromText("wallet-canister-id"));
-    private let userProxy = UserCanisterProxy.UserCanisterProxyManager(Principal.fromText("user-canister-id"));
-    private let tokenProxy = TokenCanisterProxy;
+    private let walletProxy = WalletCanisterProxy.WalletCanisterProxy(Principal.fromText("bw4dl-smaaa-aaaaa-qaacq-cai"));
+    private let userProxy = UserCanisterProxy.UserCanisterProxyManager(Principal.fromText("br5f7-7uaaa-aaaaa-qaaca-cai"));
+    private let tokenProxy = TokenCanisterProxy.TokenCanisterProxy(Principal.fromText("be2us-64aaa-aaaaa-qaabq-cai"));
 
     // Initialize the Payment Manager
     private let paymentManager = PaymentModule.PaymentManager(walletProxy, userProxy, tokenProxy);
 
     // Initiate a payment
     public func initiatePayment(
-        sender: Principal,
-        receiver: Principal,
-        amount: Nat,
-        tokenId: ?Nat
-    ): async Result.Result<PaymentModule.Payment, Text> {
-        await paymentManager.initiatePayment(sender, receiver, amount, tokenId);
-    };
+    sender: Principal,
+    receiver: Principal,
+    amount: Nat,
+    tokenId: ?Nat,
+    description: ?Text
+): async Result.Result<PaymentModule.PaymentTransaction, Text> {
+    try {
+        let result = await paymentManager.initiatePayment(sender, receiver, amount, tokenId, description);
+        switch result {
+            case (#ok(transaction)) {
+                LoggingUtils.logInfo(
+                    "PaymentCanister",
+                    "Payment initiated successfully. Transaction ID: " # Nat.toText(transaction.id),
+                    ?sender
+                );
+                #ok(transaction)
+            };
+            case (#err(e)) {
+                LoggingUtils.logError("PaymentCanister", "Failed to initiate payment: " # e, ?sender);
+                #err(e)
+            };
+        }
+    } catch (error) {
+        #err("Failed to initiate payment: " # Error.message(error))
+    }
+};
 
     // Get the status of a payment
     public func getPaymentStatus(paymentId: Nat): async Result.Result<Text, Text> {
-        await paymentManager.getPaymentStatus(paymentId);
+        try {
+            await paymentManager.getPaymentStatus(paymentId);
+        } catch (error) {
+            #err("Failed to get payment status: " # Error.message(error))
+        }
     };
 
     // Retrieve payment history for a user
-    public func getPaymentHistory(userId: Principal): async Result.Result<[PaymentModule.Payment], Text> {
-        let history = await paymentManager.getPaymentHistory(userId);
-        switch (history) {
-            case (#ok(payments)) {
-                #ok(Array.tabulate(payments.size(), func(i) = payments[i]));
-            };
-            case (#err(error)) {
-                #err(error);
-            };
+    public func getPaymentHistory(userId: Principal): async Result.Result<[PaymentModule.PaymentTransaction], Text> {
+        try {
+            let history = await paymentManager.getPaymentHistory(userId);
+            #ok(history)
+        } catch (error) {
+            #err("Failed to fetch payment history: " # Error.message(error))
         }
     };
+
+    // Retrieve all payments with optional filters (e.g., status or date range)
+    public func getAllPayments(
+    user: Principal,
+    filterByStatus: ?Text,
+    fromDate: ?Nat,
+    toDate: ?Nat
+): async Result.Result<[PaymentModule.PaymentTransaction], Text> {
+    try {
+        let result = await paymentManager.getAllPayments();
+        let filteredPayments = Array.filter<PaymentModule.PaymentTransaction>(result, func(tx: PaymentModule.PaymentTransaction): Bool {
+            let matchesStatus = switch (filterByStatus) {
+                case (?status) tx.status == status;
+                case null true;
+            };
+            let matchesFromDate = switch (fromDate) {
+                case (?from) tx.timestamp >= from;
+                case null true;
+            };
+            let matchesToDate = switch (toDate) {
+                case (?to) tx.timestamp <= to;
+                case null true;
+            };
+            matchesStatus and matchesFromDate and matchesToDate
+        });
+
+        LoggingUtils.logInfo("PaymentCanister", "Filtered payments fetched successfully", null);
+        #ok(filteredPayments)
+    } catch (error) {
+        LoggingUtils.logError("PaymentCanister", "Failed to fetch all payments: " # Error.message(error), null);
+        #err("Failed to fetch all payments")
+    }
+};
+
+    // Reverse a payment
+    public func reversePayment(paymentId: Nat): async Result.Result<(), Text> {
+    try {
+        let result = await paymentManager.reversePayment(paymentId);
+        switch result {
+            case (#ok(())) {
+                LoggingUtils.logInfo("PaymentCanister", "Payment reversed successfully. ID: " # Nat.toText(paymentId), null);
+                #ok(())
+            };
+            case (#err(e)) {
+                LoggingUtils.logError("PaymentCanister", "Failed to reverse payment: " # e, null);
+                #err(e)
+            };
+        }
+    } catch (error) {
+        LoggingUtils.logError("PaymentCanister", "Unexpected error while reversing payment: " # Error.message(error), null);
+        #err("Failed to reverse payment: " # Error.message(error))
+    }
+};
+
+    // Optional: Synchronize balances for a user
+    public func synchronizeBalances(
+        sender: Principal,
+        receiver: Principal,
+        tokenId: Nat,
+        amount: Nat
+    ): async Result.Result<(), Text> {
+        try {
+            let result = await paymentManager.synchronizeBalances(sender, receiver, tokenId, amount);
+            switch result {
+                case (#ok(_)) {
+                    #ok(())
+                };
+                case (#err(e)) {
+                    #err("Failed to synchronize balances: " # e)
+                };
+            }
+        } catch (error) {
+            #err("Failed to synchronize balances: " # Error.message(error))
+        }
+    };
+
+    // Instantiate the Event Manager
+private let eventManager = EventManager.EventManager();
+
+// Listener for PaymentProcessed events
+public func onPaymentProcessed(event: EventTypes.Event) : async () {
+    switch (event.payload) {
+        case (#PaymentProcessed { userId; amount; walletId }) {
+            Debug.print("Payment processed for user: " # Principal.toText(userId) # ", Amount: " # Nat.toText(amount));
+        };
+        case (_) {}; // Ignore other events
+    };
+};
+
+// Register the listener
+await eventManager.subscribe(#PaymentProcessed, onPaymentProcessed);
+
 };
