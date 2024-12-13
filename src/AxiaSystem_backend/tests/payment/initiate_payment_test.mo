@@ -2,6 +2,7 @@ import M "mo:matchers/Matchers";
 import T "mo:matchers/Testable";
 import Suite "mo:matchers/Suite";
 import Principal "mo:base/Principal";
+import Result "mo:base/Result";
 import PaymentModule "../../payment/modules/payment_module";
 import WalletCanisterProxy "../../wallet/utils/wallet_canister_proxy";
 import LoggingUtils "../../utils/logging_utils";

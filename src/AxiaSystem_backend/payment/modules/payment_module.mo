@@ -6,6 +6,8 @@ import Time "mo:base/Time";
 import Array "mo:base/Array";
 import Text "mo:base/Text";
 import Option "mo:base/Option";
+import Nat64 "mo:base/Nat64";
+import Error "mo:base/Error";
 import LoggingUtils "../../utils/logging_utils";
 import WalletCanisterProxy "../../wallet/utils/wallet_canister_proxy";
 import UserCanisterProxy "../../user/utils/user_canister_proxy";
@@ -35,14 +37,46 @@ module {
          private let eventManager = EventManager.EventManager();
 
         // Emit event helper
-        private func emitEvent(eventType: Text, payload: EventTypes.EventPayload) : async () {
-            let event = {
-                id = Int.abs(Time.now());
-                eventType = eventType;
-                payload = payload;
-            };
-            await EventManager.emit(event);
-        };
+        private func emitEvent(eventType: EventTypes.EventType, payload: EventTypes.EventPayload) : async () {
+    let event : EventTypes.Event = {
+        id = Int.abs(Time.now());
+        eventType = eventType;
+        payload = payload;
+    };
+    await eventManager.emit(event);
+};
+
+// Validate custom payment rules
+public func validateCustomRules(
+    sender: Principal,
+    amount: Nat,
+    tokenId: ?Nat
+) : Result.Result<(), Text> {
+    // Example Rule: Payment amount must not exceed a certain limit
+    if (amount > 10_000_000) {
+        return #err("Payment amount exceeds the maximum limit of 10,000,000.");
+    };
+
+    // Example Rule: Specific users are not allowed to make payments
+    let blacklistedUsers: [Principal] = [
+        Principal.fromText("aaaaa-aa"),
+        Principal.fromText("bbbbb-bb"),
+    ];
+    if (Array.find<Principal>(blacklistedUsers, func (user : Principal) : Bool { user == sender }) != null) {
+    return #err("Sender is not authorized to make payments.");
+};
+
+    // Example Rule: Only specific tokens are allowed
+let allowedTokenIds: [Nat] = [1, 2, 3]; // Define valid token IDs
+if (tokenId != null and Array.find<Nat>(allowedTokenIds, func (id : Nat) : Bool { id == Option.get(tokenId, 0) }) == null) {
+    return #err("Token ID is not allowed for this transaction.");
+};
+
+    // Add more rules as necessary
+
+    // If all checks pass
+    #ok(())
+};
 
         // Initiate a payment
 public func initiatePayment(
@@ -184,11 +218,12 @@ public func initiatePayment(
             );
 
             // Emit event for payment completion
-            await emitEvent("PaymentCompleted", #PaymentProcessed {
-                userId = payment.sender;
-                amount = payment.amount;
-                walletId = Principal.toText(payment.sender)
-            });
+            // Emit event for payment completion
+await emitEvent(#PaymentProcessed, #PaymentProcessed {
+    userId = payment.sender;
+    amount = payment.amount;
+    walletId = Principal.toText(payment.sender)
+});
 
             #ok(());
         };
@@ -248,8 +283,8 @@ public func initiatePayment(
 
             // Emit a "PaymentReversed" event
             await emitEvent(
-                "PaymentReversed",
-                #PaymentProcessed {
+                #PaymentReversed,
+                #PaymentReversed {
                     userId = payment.sender;
                     amount = payment.amount;
                     walletId = Principal.toText(payment.sender)
@@ -282,11 +317,10 @@ public func initiatePayment(
     );
 
     // Emit event for payment history retrieval (optional)
-    await emitEvent("PaymentHistoryRetrieved", #PaymentHistory {
-        userId = userId;
-        transactionCount = Array.size(userTransactions)
-    });
-
+await emitEvent(#PaymentHistoryRetrieved, #PaymentHistoryRetrieved {
+    userId = userId;
+    transactionCount = Array.size(userTransactions)
+});
     userTransactions
 };
 
@@ -308,9 +342,9 @@ public func initiatePayment(
     );
 
     // Emit event for all payments retrieval (optional)
-    await emitEvent("AllPaymentsRetrieved", #AllPayments {
-        totalTransactions = Array.size(transactions)
-    });
+await emitEvent(#AllPaymentsRetrieved, #AllPaymentsRetrieved {
+    totalTransactions = Array.size(transactions)
+});
 
     transactions
 };
@@ -328,13 +362,13 @@ public func initiatePayment(
 public func processTimeouts(timeoutThreshold: Nat): async Result.Result<(), Text> {
     LoggingUtils.logInfo(logStore, "PaymentModule", "Processing timed-out payments", null);
 
-    let now = Nat64.toNat(Time.now());
-    let updatedTransactions = Array.map<PaymentTransaction, PaymentTransaction>(transactions, func(tx: PaymentTransaction): PaymentTransaction {
-        if (tx.status == "Pending" and (now - Nat64.toNat(tx.timestamp)) > timeoutThreshold) {
-            LoggingUtils.logInfo(logStore, "PaymentModule", "Marking payment as failed due to timeout: ID = " # Nat.toText(tx.id), null);
-            { tx with status = "Failed" }
-        } else tx
-    });
+    let now = Nat64.fromIntWrap(Time.now());
+let updatedTransactions = Array.map<PaymentTransaction, PaymentTransaction>(transactions, func(tx: PaymentTransaction): PaymentTransaction {
+    if (tx.status == "Pending" and now > Nat64.fromIntWrap(tx.timestamp) and (now - Nat64.fromIntWrap(tx.timestamp) > Nat64.fromNat(timeoutThreshold))) {
+        LoggingUtils.logInfo(logStore, "PaymentModule", "Marking payment as failed due to timeout: ID = " # Nat.toText(tx.id), null);
+        { tx with status = "Failed" }
+    } else tx
+});
 
     transactions := updatedTransactions;
     #ok(())
@@ -399,6 +433,7 @@ public func timeoutPendingPayments(): async Result.Result<Nat, Text> {
     let timeoutDuration: Int = 10_000_000_000; // Example: 10 seconds in nanoseconds
 
     var removedCount: Nat = 0;
+    var timedOutTransactions: [PaymentTransaction] = [];
 
     transactions := Array.filter<PaymentTransaction>(transactions, func(tx: PaymentTransaction): Bool {
         if (tx.status == "Pending" and (currentTime - tx.timestamp) > timeoutDuration) {
@@ -409,19 +444,22 @@ public func timeoutPendingPayments(): async Result.Result<Nat, Text> {
                 null
             );
 
-            // Emit event for timed-out payment
-            await emitEvent("PaymentTimedOut", #PaymentProcessed {
-                userId = tx.sender;
-                amount = tx.amount;
-                walletId = Principal.toText(tx.sender)
-            });
-
             removedCount += 1;
+            timedOutTransactions := Array.append(timedOutTransactions, [tx]);
             false; // Remove this transaction from the list
         } else {
             true; // Retain this transaction
         }
     });
+
+    // Emit events for timed-out payments after filtering
+    for (tx in timedOutTransactions.vals()) {
+        await emitEvent(#PaymentTimedOut, #PaymentTimedOut {
+            userId = tx.sender;
+            amount = tx.amount;
+            walletId = Principal.toText(tx.sender)
+        });
+    };
 
     LoggingUtils.logInfo(
         logStore,
@@ -431,6 +469,105 @@ public func timeoutPendingPayments(): async Result.Result<Nat, Text> {
     );
 
     #ok(removedCount)
+};
+
+// Synchronize balances for a user
+public func synchronizeBalances(
+    sender: Principal,
+    receiver: Principal,
+    tokenId: Nat,
+    amount: Nat
+): async Result.Result<(), Text> {
+    LoggingUtils.logInfo(
+        logStore,
+        "PaymentModule",
+        "Attempting to synchronize balances. Sender: " # Principal.toText(sender) # ", Receiver: " # Principal.toText(receiver) # ", Amount: " # Nat.toText(amount),
+        ?sender
+    );
+
+    try {
+        // Verify sender's balance
+        let senderBalanceResult = await walletProxy.getBalance(sender, tokenId);
+        switch (senderBalanceResult) {
+            case (#ok(senderBalance)) {
+                if (senderBalance < amount) {
+                    LoggingUtils.logError(
+                        logStore,
+                        "PaymentModule",
+                        "Insufficient balance for sender: " # Principal.toText(sender),
+                        ?sender
+                    );
+                    return #err("Insufficient balance for sender");
+                };
+            };
+            case (#err(e)) {
+                LoggingUtils.logError(
+                    logStore,
+                    "PaymentModule",
+                    "Failed to get sender balance: " # e,
+                    ?sender
+                );
+                return #err("Failed to get sender balance: " # e);
+            };
+        };
+
+        // Deduct from sender
+        let deductResult = await walletProxy.deductBalance(sender, tokenId, amount);
+        switch (deductResult) {
+            case (#err(e)) {
+                LoggingUtils.logError(
+                    logStore,
+                    "PaymentModule",
+                    "Failed to deduct balance from sender: " # e,
+                    ?sender
+                );
+                return #err("Failed to deduct balance from sender: " # e);
+            };
+            case (#ok(_)) {};
+        };
+
+        // Add to receiver
+        let addResult = await walletProxy.addBalance(receiver, tokenId, amount);
+        switch (addResult) {
+            case (#err(e)) {
+                // If adding to receiver fails, refund the sender
+                ignore await walletProxy.addBalance(sender, tokenId, amount);
+                LoggingUtils.logError(
+                    logStore,
+                    "PaymentModule",
+                    "Failed to add balance to receiver: " # e,
+                    ?receiver
+                );
+                return #err("Failed to add balance to receiver: " # e);
+            };
+            case (#ok(_)) {};
+        };
+
+        LoggingUtils.logInfo(
+            logStore,
+            "PaymentModule",
+            "Balances synchronized successfully",
+            ?sender
+        );
+
+        // Emit event for balance synchronization
+        await emitEvent(#BalancesSynchronized, #BalancesSynchronized {
+            senderId = sender;
+            receiverId = receiver;
+            amount = amount;
+            tokenId = tokenId
+        });
+
+        #ok(())
+    } catch (error) {
+        LoggingUtils.logError(
+            logStore,
+            "PaymentModule",
+            "Unexpected error while synchronizing balances: " # Error.message(error),
+            ?sender
+        );
+        #err("Failed to synchronize balances: " # Error.message(error))
+    }
 };
 
     };

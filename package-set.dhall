@@ -8,6 +8,16 @@ let additions =
      , repo = "https://github.com/kritzcreek/motoko-matchers"
      , version = "v1.3.0"
      , dependencies = [] : List Text
+     },
+     { name = "uuid"
+     , repo = "https://github.com/aviate-labs/uuid.mo"
+     , version = "v0.2.0"
+     , dependencies = [ "base", "encoding" ]
+     },
+     { name = "encoding"
+     , repo = "https://github.com/aviate-labs/encoding.mo"
+     , version = "v0.3.1"
+     , dependencies = [ "base" ]
      }] : List Package
 
 let overrides =

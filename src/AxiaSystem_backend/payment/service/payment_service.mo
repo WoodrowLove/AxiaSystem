@@ -6,10 +6,14 @@ import LoggingUtils "../../utils/logging_utils";
 import Principal "mo:base/Principal";
 import Nat "mo:base/Nat";
 import Result "mo:base/Result";
+import Time "mo:base/Time";
+import Option "mo:base/Option";
+import Array "mo:base/Array";
+import Error "mo:base/Error";
 
 module {
     public class PaymentService(
-        paymentManager: PaymentModule.PaymentManagerInterface,
+        paymentManager: PaymentModule.PaymentManager,
         walletProxy: WalletCanisterProxy.WalletCanisterProxy,
         _tokenProxy: TokenCanisterProxy.TokenCanisterProxy,
         _userProxy: UserCanisterProxy.UserCanisterProxyManager
@@ -17,7 +21,7 @@ module {
         private let logStore = LoggingUtils.init();
 
         // Initiate a Payment
-       public func initiatePayment(
+    public func initiatePayment(
     sender: Principal,
     receiver: Principal,
     amount: Nat,
@@ -54,7 +58,25 @@ module {
                     "Payment initiation failed due to timeout. Retrying...",
                     ?sender
                 );
-                return timeoutPendingPayments(); // Optional: Trigger timeout cleanup on failure
+                let timeoutResult = await timeoutPendingPayments();
+                switch (timeoutResult) {
+                    case (#ok(transactionId)) {
+                        let timeoutTransaction : PaymentModule.PaymentTransaction = {
+                            id = transactionId;
+                            sender = sender;
+                            receiver = receiver;
+                            amount = amount;
+                            tokenId = tokenId;
+                            timestamp = Time.now();
+                            status = "Failed";
+                            description = ?("Payment timed out. " # Option.get(description, ""));
+                        };
+                        return #ok(timeoutTransaction);
+                    };
+                    case (#err(timeoutError)) {
+                        return #err("Timeout handling failed: " # timeoutError);
+                    };
+                };
             } else {
                 LoggingUtils.logError(
                     logStore,
@@ -155,7 +177,7 @@ module {
         };
 
         // Get All Payments
-        public func getAllPayments(): async Result.Result<[PaymentModule.PaymentTransaction], Text> {
+       public func getAllPayments(): async Result.Result<[PaymentModule.PaymentTransaction], Text> {
     LoggingUtils.logInfo(
         logStore,
         "PaymentService",
@@ -163,27 +185,25 @@ module {
         null
     );
 
-    let result = await paymentManager.getAllPayments();
-    switch (result) {
-        case (#ok(transactions)) {
-            LoggingUtils.logInfo(
-                logStore,
-                "PaymentService",
-                "Successfully retrieved all payments. Total: " # Nat.toText(Array.size(transactions)),
-                null
-            );
-            return #ok(transactions);
-        };
-        case (#err(e)) {
-            LoggingUtils.logError(
-                logStore,
-                "PaymentService",
-                "Failed to retrieve payments: " # e,
-                null
-            );
-            return #err("Failed to retrieve payments: " # e);
-        };
-    };
+    try {
+        let transactions = await paymentManager.getAllPayments();
+        LoggingUtils.logInfo(
+            logStore,
+            "PaymentService",
+            "Successfully retrieved all payments. Total: " # Nat.toText(Array.size(transactions)),
+            null
+        );
+        #ok(transactions)
+    } catch (e) {
+        let errorMsg = "Failed to retrieve payments: " # Error.message(e);
+        LoggingUtils.logError(
+            logStore,
+            "PaymentService",
+            errorMsg,
+            null
+        );
+        #err(errorMsg)
+    }
 };
 
 

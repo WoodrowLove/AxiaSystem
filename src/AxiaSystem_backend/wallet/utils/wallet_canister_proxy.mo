@@ -27,6 +27,9 @@ module {
     deleteWallet: (ownerId: Principal) -> async Result.Result<(), Text>;
     creditWallet: (userId: Principal, amount: Nat, tokenId: Nat) -> async Result.Result<Nat, Text>;
     debitWallet: (userId: Principal, amount: Nat, tokenId: Nat) -> async Result.Result<Nat, Text>;
+    getBalance: (userId: Principal, tokenId: Nat) -> async Result.Result<Nat, Text>;
+    addBalance: (userId: Principal, tokenId: Nat, amount: Nat) -> async Result.Result<Nat, Text>;
+    deductBalance: (userId: Principal, tokenId: Nat, amount: Nat) -> async Result.Result<Nat, Text>;
   };
 
   public class WalletCanisterProxy(walletCanisterId: Principal) {
@@ -92,5 +95,33 @@ public func creditWallet(userId: Principal, amount: Nat, tokenId: Nat): async Re
       #err("Failed to debit wallet: " # Error.message(e))
     }
   };
+
+  // Get balance for a specific user and token
+    public func getBalance(userId: Principal, tokenId: Nat): async Result.Result<Nat, Text> {
+        try {
+            await walletCanister.getBalance(userId, tokenId)
+        } catch (e) {
+            #err("Failed to get balance: " # Error.message(e))
+        }
+    };
+
+// Add balance for a specific user and token
+    public func addBalance(userId: Principal, tokenId: Nat, amount: Nat): async Result.Result<Nat, Text> {
+        try {
+            await walletCanister.addBalance(userId, tokenId, amount)
+        } catch (e) {
+            #err("Failed to add balance: " # Error.message(e))
+        }
+    };
+
+    // Deduct balance for a specific user and token
+    public func deductBalance(userId: Principal, tokenId: Nat, amount: Nat): async Result.Result<Nat, Text> {
+        try {
+            await walletCanister.deductBalance(userId, tokenId, amount)
+        } catch (e) {
+            #err("Failed to deduct balance: " # Error.message(e))
+        }
+    };
+
 }
 }
