@@ -7,7 +7,7 @@ import Blob "mo:base/Blob";
 import Result "mo:base/Result";
 import Array "mo:base/Array";
 import Principal "mo:base/Principal";
-import TokenCanisterProxy "../../token/utils/TokenCanisterProxy";
+import TokenCanisterProxy "../../token/utils/token_canister_proxy";
 
 module {
     // Define the user structure
@@ -44,7 +44,7 @@ module {
         private var users: [User] = [];
         private var sessions: [Session] = [];
         // Create an instance of TokenCanisterProxy
-        private var tokenProxy: ? TokenCanisterProxy.TokenCanisterProxy = null;
+        private var _tokenProxy: ? TokenCanisterProxy.TokenCanisterProxy = null;
 
         // Create a new user
         public func createUser(
@@ -63,7 +63,7 @@ module {
                 case (#err(walletError)) {
                     return #err("Failed to create wallet: " # walletError);
                 };
-                case (#ok(walletAddress)) {
+                case (#ok(_walletAddress)) {
                     let newUser: User = {
                         id = userId;
                         username = username;
