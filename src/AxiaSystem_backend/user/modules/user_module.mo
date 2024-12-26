@@ -8,7 +8,7 @@ import Nat8 "mo:base/Nat8";
 import Int "mo:base/Int";
 import Nat "mo:base/Nat";
 import Nat32 "mo:base/Nat32";
-import Hash "mo:base/Hash";
+import _Hash "mo:base/Hash";
 import Text "mo:base/Text";
 import Char "mo:base/Char";
 import Iter "mo:base/Iter";
@@ -28,7 +28,7 @@ module {
         createdAt: Int;
         updatedAt: Int;
         icpWallet: ?Text; // Placeholder for ICP wallet address
-        xrplWallet: ?Text; // Placeholder for XRPL wallet address
+        //xrplWallet: ?Text; // Placeholder for XRPL wallet address
         tokens: Trie.Trie<Nat, Nat>;
     };
 
@@ -44,7 +44,7 @@ module {
     public class UserManager() : UserManagerInterface {
         private var users: [User] = [];
         private let logStore = LoggingUtils.init();
-    private var eventLog: [Text] = [];
+        private var _eventLog: [Text] = [];
     
 
         // Create a new user
@@ -91,7 +91,7 @@ let walletCanister = actor(Principal.toText(Principal.fromText("bkyz2-fmaaa-aaaa
                 createdAt = Time.now();
                 updatedAt = Time.now();
                 icpWallet = ?walletAddress; // Assign wallet address
-                xrplWallet = null; // Placeholder for XRPL integration
+                // xrplWallet = null; // Placeholder for XRPL integration
                 tokens = Trie.empty();
             };
 
@@ -124,7 +124,7 @@ let walletCanister = actor(Principal.toText(Principal.fromText("bkyz2-fmaaa-aaaa
                 createdAt = user.createdAt;
                 updatedAt = Time.now();  // Changed this line
                 icpWallet = user.icpWallet;
-                xrplWallet = user.xrplWallet;
+                //xrplWallet = user.xrplWallet;
                 tokens = user.tokens;
             };
         updatedUser := ?updated;
@@ -199,7 +199,7 @@ public func resetPassword(userId: Principal, newPassword: Text): async Result.Re
                 createdAt = user.createdAt;
                 updatedAt = Time.now();
                 icpWallet = user.icpWallet;
-                xrplWallet = user.xrplWallet;
+               // xrplWallet = user.xrplWallet;
                 tokens = user.tokens;
             };
             updatedUser := ?updated;
@@ -257,68 +257,38 @@ public func attachTokensToUser(tokenId: Nat, userId: Principal, amount: Nat, tok
     switch (userOpt) {
         case null #err("User not found");
         case (?user) {
-            // Custom hash function for Nat
-            func natHash(n: Nat): Hash.Hash {
-                Text.hash(Nat.toText(n))
-            };
-
-            let currentAmount = Trie.get(user.tokens, { hash = natHash(tokenId); key = tokenId }, Nat.equal);
-            let newAmount = amount + Option.get(currentAmount, 0);
+            // Update user's token balance
+            let currentAmount = Trie.get(user.tokens, { key = tokenId; hash = customHash(tokenId) }, Nat.equal);
+            let newAmount = Option.get(currentAmount, 0) + amount;
             let updatedTokens = Trie.put(
-                user.tokens, 
-                { hash = natHash(tokenId); key = tokenId }, 
+                user.tokens,
+                { key = tokenId; hash = customHash(tokenId) },
                 Nat.equal,
                 newAmount
             ).0;
-            
-            // Create an updated user with the new tokens
-            let updatedUser: User = {
-                user with
-                tokens = updatedTokens;
-                updatedAt = Time.now();
-            };
-            
-            // Update the user using the existing updateUser function
-            let updateResult = await updateUser(userId, ?updatedUser.username, ?updatedUser.email, ?updatedUser.hashedPassword);
-            
-            switch (updateResult) {
+
+            // Create updated user object
+            let updatedUser = { user with tokens = updatedTokens; updatedAt = Time.now() };
+
+            // Update user state
+            let userUpdateResult = await updateUser(user.id, ?updatedUser.username, ?updatedUser.email, ?updatedUser.hashedPassword);
+            switch (userUpdateResult) {
+                case (#err(e)) #err("Failed to update user: " # e);
                 case (#ok(_)) {
-                    // Update the token
+                    // Update token state
                     let tokenOpt = tokenState.getToken(tokenId);
-                    
                     switch (tokenOpt) {
-                        case null #err("Token not found ");
+                        case null #err("Token not found: ID " # Nat.toText(tokenId));
                         case (?token) {
-                            let updatedToken = {
-                                token with
-                                totalSupply = token.totalSupply + amount
-                            };
+                            let updatedToken = { token with totalSupply = token.totalSupply + amount };
                             let tokenUpdateResult = tokenState.updateToken(updatedToken);
                             switch (tokenUpdateResult) {
-                                case (#ok(_)) {
-                                    LoggingUtils.logInfo(
-                                        logStore,
-                                        "UserModule",
-                                        "Token " # Nat.toText(tokenId) # " attached to user " # Principal.toText(userId),
-                                        null
-                                    );
-                                    eventLog := Array.append(eventLog, ["Token " # Nat.toText(tokenId) # " attached to user " # Principal.toText(userId)]);
-                                    #ok(())
-                                };
-                                case (#err(e)) {
-                                    LoggingUtils.logError(
-                                        logStore,
-                                        "UserModule",
-                                        "Failed to attach token " # Nat.toText(tokenId) # " to user " # Principal.toText(userId) # ": " # e,
-                                        null
-                                    );
-                                    #err("User update successful, but token update failed: " # e)
-                                };
+                                case (#err(e)) #err("User updated, but failed to update token: " # e);
+                                case (#ok(_)) #ok(());
                             };
                         };
                     };
                 };
-                case (#err(e)) #err("Failed to update user: " # e);
             };
         };
     };

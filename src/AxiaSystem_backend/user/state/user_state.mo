@@ -7,11 +7,13 @@ import Blob "mo:base/Blob";
 import Result "mo:base/Result";
 import Array "mo:base/Array";
 import Principal "mo:base/Principal";
+import Trie "mo:base/Trie";
 import TokenCanisterProxy "../../token/utils/token_canister_proxy";
+import SharedTypes "../../shared_types";
 
 module {
     // Define the user structure
-    public type User = {
+   /* public type User = {
         id : Principal;
         username : Text;
         email : Text;
@@ -20,7 +22,7 @@ module {
         updatedAt : Time.Time;
         isActive : Bool;
         isVerified : Bool;
-    };
+    };*/
 
     public type Session = {
         userId: Principal;
@@ -41,7 +43,7 @@ module {
 
 
     public class UserState() {
-        private var users: [User] = [];
+        private var users: [SharedTypes.User] = [];
         private var sessions: [Session] = [];
         // Create an instance of TokenCanisterProxy
         private var _tokenProxy: ? TokenCanisterProxy.TokenCanisterProxy = null;
@@ -53,8 +55,8 @@ module {
     email: Text,
     passwordHash: Text,
     createWallet: (Principal) -> async Result.Result<Text, Text> // Wallet creation API
-): async Result.Result<User, Text> {
-    switch (Array.find<User>(users, func(user: User): Bool {
+): async Result.Result<SharedTypes.User, Text> {
+    switch (Array.find<SharedTypes.User>(users, func(user: SharedTypes.User): Bool {
         user.id == userId or user.email == email
     })) {
         case (null) {
@@ -64,15 +66,17 @@ module {
                     return #err("Failed to create wallet: " # walletError);
                 };
                 case (#ok(_walletAddress)) {
-                    let newUser: User = {
+                    let newUser: SharedTypes.User = {
                         id = userId;
                         username = username;
                         email = email;
-                        passwordHash = passwordHash;
+                        hashedPassword = passwordHash;
                         createdAt = Time.now();
                         updatedAt = Time.now();
                         isActive = true;
                         isVerified = false;
+                        icpWallet = ?_walletAddress;
+                        tokens = Trie.empty();
                     };
                     users := Array.append(users, [newUser]);
                     return #ok(newUser);
@@ -87,18 +91,18 @@ module {
 
 
         // Retrieve a user by ID
-        public func getUserById(userId: Principal): Result.Result<User, Text> {
-            switch (Array.find<User>(users, func(user: User): Bool {
-                user.id == userId
-            })) {
-                case (?user) #ok(user);
-                case null #err("User not found.");
-            }
-        };
+        public func getUserById(userId: Principal): async Result.Result<SharedTypes.User, Text> {
+    switch (Array.find<SharedTypes.User>(users, func(user: SharedTypes.User): Bool {
+        user.id == userId
+    })) {
+        case (?user) #ok(user);
+        case null #err("User not found.");
+    }
+};
 
         // Retrieve a user by email
-        public func getUserByEmail(email: Text): Result.Result<User, Text> {
-            switch (Array.find<User>(users, func(user: User): Bool {
+        public func getUserByEmail(email: Text): Result.Result<SharedTypes.User, Text> {
+            switch (Array.find<SharedTypes.User>(users, func(user: SharedTypes.User): Bool {
                 user.email == email
             })) {
                 case (?user) #ok(user);
@@ -106,45 +110,49 @@ module {
             }
         };
 
-        public func updateUser(userId: Principal, username: ?Text, email: ?Text): Result.Result<User, Text> {
-            var userFound = false;
+        public func updateUser(userId: Principal, username: ?Text, email: ?Text, tokens: ?Trie.Trie<Nat, Nat>): async Result.Result<SharedTypes.User, Text> {
+    var userFound = false;
 
-            users := Array.map<User, User>(users, func(user: User): User {
-                if (user.id == userId) {
-                    userFound := true;
-                    {
-                        user with
-                        username = switch (username) {
-                            case (?newUsername) newUsername;
-                            case null user.username;
-                        };
-                        email = switch (email) {
-                            case (?newEmail) newEmail;
-                            case null user.email;
-                        };
-                        updatedAt = Time.now()
-                    }
-                } else {
-                    user
-                }
-            });
-
-            if (userFound) {
-                let userResult = getUserById(userId);
-                switch (userResult) {
-                    case (#ok(user)) #ok(user);
-                    case (#err(error)) #err("User not found after update: " # error);
-                }
-            } else {
-                #err("User not found.")
+    users := Array.map<SharedTypes.User, SharedTypes.User>(users, func(user: SharedTypes.User): SharedTypes.User {
+        if (user.id == userId) {
+            userFound := true;
+            {
+                user with
+                username = switch (username) {
+                    case (?newUsername) newUsername;
+                    case null user.username;
+                };
+                email = switch (email) {
+                    case (?newEmail) newEmail;
+                    case null user.email;
+                };
+                tokens = switch (tokens) {
+                    case (?newTokens) newTokens;
+                    case null user.tokens;
+                };
+                updatedAt = Time.now()
             }
-        };
+        } else {
+            user
+        }
+    });
+
+    if (userFound) {
+        let userResult = await getUserById(userId);
+        switch (userResult) {
+            case (#ok(user)) #ok(user);
+            case (#err(error)) #err("User not found after update: " # error);
+        }
+    } else {
+        #err("User not found.")
+    }
+};
 
         // Deactivate a user
         public func deactivateUser(userId: Principal): Result.Result<(), Text> {
             var userFound = false;
 
-            users := Array.map<User, User>(users, func(user: User): User {
+            users := Array.map<SharedTypes.User, SharedTypes.User>(users, func(user: SharedTypes.User): SharedTypes.User {
                 if (user.id == userId) {
                     userFound := true;
                     { user with isActive = false; updatedAt = Time.now() }
@@ -164,7 +172,7 @@ module {
         public func verifyUser(userId: Principal): Result.Result<(), Text> {
             var userFound = false;
 
-            users := Array.map<User, User>(users, func(user: User): User {
+            users := Array.map<SharedTypes.User, SharedTypes.User>(users, func(user: SharedTypes.User): SharedTypes.User {
                 if (user.id == userId) {
                     userFound := true;
                     { user with isVerified = true; updatedAt = Time.now() }
@@ -183,7 +191,7 @@ module {
         // Delete a user
         public func deleteUser(userId: Principal): Result.Result<(), Text> {
             let initialSize = Array.size(users);
-            users := Array.filter<User>(users, func(user: User): Bool {
+            users := Array.filter<SharedTypes.User>(users, func(user: SharedTypes.User): Bool {
                 user.id != userId
             });
 
@@ -195,7 +203,7 @@ module {
         };
 
         // List all users (for admin purposes)
-        public func listAllUsers(): [User] {
+        public func listAllUsers(): [SharedTypes.User] {
             users
         };
 
@@ -254,8 +262,8 @@ module {
     };
 };
         
-         public func filterUsersByStatus(isActive: Bool): [User] {
-            Array.filter<User>(users, func(user: User): Bool {
+         public func filterUsersByStatus(isActive: Bool): [SharedTypes.User] {
+            Array.filter<SharedTypes.User>(users, func(user: SharedTypes.User): Bool {
                 user.isActive == isActive
             })
         };
@@ -278,7 +286,7 @@ public func attachTokensToUser(
     amount: Nat,
     updateTokenSupply: (Nat, Nat) -> async Result.Result<(), Text> // Token module API
 ): async Result.Result<(), Text> {
-    switch (Array.find<User>(users, func(user: User): Bool { user.id == userId })) {
+    switch (Array.find<SharedTypes.User>(users, func(user: SharedTypes.User): Bool { user.id == userId })) {
         case (null) {
             return #err("User not found.");
         };
@@ -291,11 +299,11 @@ public func attachTokensToUser(
                 };
                 case (#ok(_)) {
                     // Attach token to user
-                    let updatedUser: User = {
+                    let updatedUser: SharedTypes.User = {
                         user with
                         updatedAt = Time.now()
                     };
-                    users := Array.map<User, User>(users, func(existingUser: User): User {
+                    users := Array.map<SharedTypes.User, SharedTypes.User>(users, func(existingUser: SharedTypes.User): SharedTypes.User {
                         if (existingUser.id == userId) updatedUser else existingUser
                     });
                     return #ok(());

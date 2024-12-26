@@ -207,3 +207,18 @@ public func initializeEventListeners() : async () {
     
 };
 }
+
+
+/* Things to update;
+    1.	Event-Driven Automation:
+	•	Expand the event subscription logic to trigger automated workflows, such as notifying users or triggering additional inter-canister calls.
+	2.	Improved Test Coverage:
+	•	Extend runTests to include additional test cases for edge scenarios (e.g., invalid inputs, network failures).
+	3.	Parameter Validation:
+	•	Add validation for inputs like paymentId, amount, and tokenId to prevent invalid calls from propagating.
+	4.	Dynamic Canister IDs:
+	•	Allow dynamic updates to canister IDs (e.g., via a configuration method) to enhance flexibility in multi-environment deployments.
+	5.	Batch Operations:
+	•	Introduce batch operations (e.g., bulk payment initiation or retrieval) for scalability in high-transaction environments.
+	6.	Expose Metrics:
+	•	Add methods to expose system metrics (e.g., total transactions, failed payments) for monitoring and debugging. */
