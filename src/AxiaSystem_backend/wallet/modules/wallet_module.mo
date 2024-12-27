@@ -7,7 +7,7 @@ import Principal "mo:base/Principal";
 import Time "mo:base/Time";
 import Array "mo:base/Array";
 import Debug "mo:base/Debug";
-import Nat64 "mo:base/Nat64";
+import _Nat64 "mo:base/Nat64";
 import UserCanisterProxy "../../user/utils/user_canister_proxy";
 import TokenCanisterProxy "../../token/utils/token_canister_proxy";
 import EventManager "../../heartbeat/event_manager";
@@ -143,7 +143,7 @@ public func deleteWallet(userId: Principal): async Result.Result<(), Text> {
     let userIdKey = { key = userId; hash = Principal.hash(userId) };
 
     switch (Trie.find(wallets, userIdKey, Principal.equal)) {
-        case (?wallet) {
+        case (?_wallet) {
             let (newWallets, _) = Trie.remove(wallets, userIdKey, Principal.equal);
             wallets := newWallets;
 

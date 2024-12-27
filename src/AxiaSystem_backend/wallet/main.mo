@@ -8,6 +8,7 @@ import TokenCanisterProxy "../token/utils/token_canister_proxy";
 import Text "mo:base/Text";
 import Nat "mo:base/Nat";
 import Int "mo:base/Int";
+import EventManager "../heartbeat/event_manager";
 
 actor WalletCanister {
     private let userProxy = UserCanisterProxy.UserCanisterProxyManager(Principal.fromText("user-canister-id"));
@@ -22,8 +23,9 @@ actor WalletCanister {
     };
 
     private let walletManager = WalletModule.WalletManager(userProxy, tokenProxy);
-    private let walletService = WalletService.WalletService(walletManager);
+    private let walletService = WalletService.WalletService(walletManager, EventManager.EventManager());
 
+    
     // Create a wallet for a user
     public func createWallet(userId: Principal, initialBalance: Nat): async Result.Result<WalletModule.Wallet, Text> {
         await walletService.createWallet(userId, initialBalance);

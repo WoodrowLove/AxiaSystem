@@ -5,7 +5,7 @@ import Time "mo:base/Time";
 import Iter "mo:base/Iter";
 import Nat64 "mo:base/Nat64";
 import Principal "mo:base/Principal";
-import Int "mo:base/Int";
+import _Int "mo:base/Int";
 
 module {
     public class EventManager() {
@@ -54,22 +54,22 @@ public func emitWalletEvent(
     walletId: Principal,
     eventType: EventTypes.EventType,
     details: Text,
-    timestamp: ?Nat64
+    balance: Nat
 ) : async () {
     let event: EventTypes.Event = {
-        id = Nat64.fromNat(Int.abs(Time.now()));
+        id = Nat64.fromIntWrap(Time.now()); // Correct timestamp conversion
         eventType = eventType;
         payload = switch (eventType) {
             case (#WalletUpdated) {
                 #WalletUpdated({
                     walletId = Principal.toText(walletId);
-                    balance = 0; // Replace with actual balance
+                    balance = balance; // Actual balance passed
                 })
             };
             case (#WalletDeleted) {
                 #WalletDeleted({
                     walletId = Principal.toText(walletId);
-                    ownerId = walletId;
+                    ownerId = walletId; // Ensure ownerId is set properly
                 })
             };
             case (_) {
@@ -83,7 +83,7 @@ public func emitWalletEvent(
     await emit(event);
 };
 
-        public func emitWalletCreated(userId: Principal, details: Text) : async () {
+        public func emitWalletCreated(userId: Principal, _details: Text) : async () {
     let event: EventTypes.Event = {
         id = Nat64.fromIntWrap(Time.now()); // Convert Time to Nat64
         eventType = #WalletCreated;
@@ -96,7 +96,7 @@ public func emitWalletEvent(
     await emit(event);
 };
 
-        public func emitWalletUpdated(userId: Principal, details: Text) : async () {
+        public func emitWalletUpdated(userId: Principal, _details: Text) : async () {
     let event: EventTypes.Event = {
         id = Nat64.fromIntWrap(Time.now()); // Convert Time to Nat64
         eventType = #WalletUpdated;
@@ -108,7 +108,7 @@ public func emitWalletEvent(
     await emit(event);
 };
 
-        public func emitWalletDeleted(userId: Principal, details: Text) : async () {
+        public func emitWalletDeleted(userId: Principal, _details: Text) : async () {
     let event: EventTypes.Event = {
         id = Nat64.fromIntWrap(Time.now()); // Convert Time to Nat64
         eventType = #WalletDeleted;
