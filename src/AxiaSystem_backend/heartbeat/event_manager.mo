@@ -1,8 +1,11 @@
 import EventTypes "../heartbeat/event_types";
 import Array "mo:base/Array";
 import HashMap "mo:base/HashMap";
-import _Time "mo:base/Time";
+import Time "mo:base/Time";
 import Iter "mo:base/Iter";
+import Nat64 "mo:base/Nat64";
+import Principal "mo:base/Principal";
+import Int "mo:base/Int";
 
 module {
     public class EventManager() {
@@ -45,6 +48,77 @@ module {
                 await emit(event);
             };
         };
+
+// Emit wallet-related events
+public func emitWalletEvent(
+    walletId: Principal,
+    eventType: EventTypes.EventType,
+    details: Text,
+    timestamp: ?Nat64
+) : async () {
+    let event: EventTypes.Event = {
+        id = Nat64.fromNat(Int.abs(Time.now()));
+        eventType = eventType;
+        payload = switch (eventType) {
+            case (#WalletUpdated) {
+                #WalletUpdated({
+                    walletId = Principal.toText(walletId);
+                    balance = 0; // Replace with actual balance
+                })
+            };
+            case (#WalletDeleted) {
+                #WalletDeleted({
+                    walletId = Principal.toText(walletId);
+                    ownerId = walletId;
+                })
+            };
+            case (_) {
+                #WalletEventGeneric({
+                    walletId = Principal.toText(walletId);
+                    details = details;
+                })
+            };
+        };
+    };
+    await emit(event);
+};
+
+        public func emitWalletCreated(userId: Principal, details: Text) : async () {
+    let event: EventTypes.Event = {
+        id = Nat64.fromIntWrap(Time.now()); // Convert Time to Nat64
+        eventType = #WalletCreated;
+        payload = #WalletCreated({
+            walletId = Principal.toText(userId);
+            ownerId = userId; // Add ownerId field
+            initialBalance = 0; // Replace with the actual initial balance
+        });
+    };
+    await emit(event);
+};
+
+        public func emitWalletUpdated(userId: Principal, details: Text) : async () {
+    let event: EventTypes.Event = {
+        id = Nat64.fromIntWrap(Time.now()); // Convert Time to Nat64
+        eventType = #WalletUpdated;
+        payload = #WalletUpdated({
+            walletId = Principal.toText(userId);
+            balance = 0; // Replace with the actual wallet balance
+        });
+    };
+    await emit(event);
+};
+
+        public func emitWalletDeleted(userId: Principal, details: Text) : async () {
+    let event: EventTypes.Event = {
+        id = Nat64.fromIntWrap(Time.now()); // Convert Time to Nat64
+        eventType = #WalletDeleted;
+        payload = #WalletDeleted({
+            walletId = Principal.toText(userId);
+            ownerId = userId; // Add ownerId field
+        });
+    };
+    await emit(event);
+};
 
         // Utility function to log all subscribed event types (for debugging)
         public query func listSubscribedEventTypes(): async [EventTypes.EventType] {
