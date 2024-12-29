@@ -42,6 +42,7 @@ module {
         tokenId: Nat;
         amount: Nat;
         lockedBy: Principal;
+        owner: Principal;
     };
 
 
@@ -98,6 +99,15 @@ module {
         timestamp: Nat;
     };
 
+    //Subscription Type
+     public type Subscription = {
+        id: Nat;
+        userId: Principal;
+        startDate: Int;
+        endDate: Int;
+        status: Text; // e.g., "active", "expired"
+    };
+
     // TokenStateType
     public type TokenState = {
         getNextTokenId: () -> Nat;
@@ -139,14 +149,21 @@ module {
     };
 
      // UserCanisterInterface
-    public type UserCanisterInterface = actor {
-        getUserById: (userId: Principal) -> async Result.Result<User, Text>;
-        createUser: (username: Text, email: Text, passwordHash: Text) -> async Result.Result<User, Text>;
-        attachWalletToUser: (userId: Principal, walletId: Nat) -> async Result.Result<(), Text>;
-        detachWalletFromUser: (userId: Principal) -> async Result.Result<(), Text>;
-        deactivateUser: (userId: Principal) -> async Result.Result<(), Text>;
-        listAllUsers: () -> async Result.Result<[User], Text>;
-    };
+    // Define the interface for the user canister
+public type UserCanisterInterface = actor {
+    getUserById: (userId: Principal) -> async Result.Result<User, Text>;
+    createUser: (username: Text, email: Text, passwordHash: Text) -> async Result.Result<User, Text>;
+    attachWalletToUser: (userId: Principal, walletId: Nat) -> async Result.Result<(), Text>;
+    detachWalletFromUser: (userId: Principal) -> async Result.Result<(), Text>;
+    deactivateUser: (userId: Principal) -> async Result.Result<(), Text>;
+    listAllUsers: () -> async Result.Result<[User], Text>;
+    attachTokensToUser: (tokenId: Nat, userId: Principal, amount: Nat, tokenCanisterPrincipal: Principal) -> async Result.Result<(), Text>;
+    updateUser: (userId: Principal, newUsername: ?Text, newEmail: ?Text, newPassword: ?Text) -> async Result.Result<User, Text>;
+    resetPassword: (userId: Principal, newPassword: Text) -> async Result.Result<User, Text>;
+    validateSession: (token: Text) -> async Result.Result<Session, Text>;
+    getSession: (sessionToken: Text) -> async Result.Result<Session, Text>;
+    deleteUser: (userId: Principal) -> async Result.Result<(), Text>;
+};
 
     public type TokenManagerInterface = {
         createToken : (Text, Text, Nat, Nat, Principal) -> async Result.Result<Token, Text>;
@@ -205,5 +222,15 @@ module {
         getAllPayments: (user: Principal, filterByStatus: ?Text, fromDate: ?Nat, toDate: ?Nat) -> async Result.Result<[Payment], Text>;
         reversePayment: (paymentId: Nat) -> async Result.Result<(), Text>;
         timeoutPendingPayments: () -> async Result.Result<Nat, Text>;
+    };
+
+    public type SubscriptionManager = actor {
+        createSubscription: (Principal, Int) -> async Result.Result<Nat, Text>;
+        unsubscribeUser: (Nat) -> async Result.Result<(), Text>;
+        getAllSubscriptions: () -> async [(Nat, Principal)];
+        isSubscribed: (Principal) -> async Result.Result<Bool, Text>;
+        validateSubscription: (Principal) -> async Result.Result<(), Text>;
+        expireSubscriptions: () -> async Result.Result<Nat, Text>;
+        getSubscriptionDetails: (Principal) -> async Result.Result<Subscription, Text>;
     };
 }

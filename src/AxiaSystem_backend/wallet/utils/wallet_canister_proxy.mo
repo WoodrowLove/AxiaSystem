@@ -31,6 +31,7 @@ module {
         getBalance: (userId: Principal, tokenId: Nat) -> async Result.Result<Nat, Text>;
         addBalance: (userId: Principal, tokenId: Nat, amount: Nat) -> async Result.Result<Nat, Text>;
         deductBalance: (userId: Principal, tokenId: Nat, amount: Nat) -> async Result.Result<Nat, Text>;
+        getWalletBalance : (Principal) -> async Result.Result<Nat, Text>;
     };
 
     public class WalletCanisterProxy(walletCanisterId: Principal) {
@@ -137,5 +138,14 @@ module {
                 #err("Failed to deduct balance: " # Error.message(e))
             }
         };
+
+        // Get wallet balance
+public func getWalletBalance(userId: Principal): async Result.Result<Nat, Text> {
+    try {
+        await walletCanister.getWalletBalance(userId)
+    } catch (e) {
+        #err("Failed to get wallet balance: " # Error.message(e))
+    }
+};
     }
 }

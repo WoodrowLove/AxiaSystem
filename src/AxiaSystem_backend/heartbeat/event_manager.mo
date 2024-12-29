@@ -6,6 +6,7 @@ import Iter "mo:base/Iter";
 import Nat64 "mo:base/Nat64";
 import Principal "mo:base/Principal";
 import _Int "mo:base/Int";
+import Nat "mo:base/Nat";
 
 module {
     public class EventManager() {
@@ -124,5 +125,71 @@ public func emitWalletEvent(
         public query func listSubscribedEventTypes(): async [EventTypes.EventType] {
             Iter.toArray(listeners.keys());
         };
+
+        // Emit event for subscription creation
+public func emitSubscriptionCreated(userId: Principal, subscriptionId: Nat): async () {
+    let event: EventTypes.Event = {
+        id = Nat64.fromIntWrap(Time.now());
+        eventType = #SubscriptionCreated;
+        payload = #SubscriptionCreated({
+            userId = Principal.toText(userId);
+            subscriptionId = Nat.toText(subscriptionId);
+        });
+    };
+    await emit(event);
+};
+
+// Emit event for subscription removal
+public func emitSubscriptionRemoved(subscriptionId: Nat): async () {
+    let event: EventTypes.Event = {
+        id = Nat64.fromIntWrap(Time.now());
+        eventType = #SubscriptionRemoved;
+        payload = #SubscriptionRemoved({
+            subscriptionId = Nat.toText(subscriptionId);
+        });
+    };
+    await emit(event);
+};
+
+
+// Emit event for payment status retrieval
+public func emitPaymentStatusRetrieved(paymentId: Nat, status: Text): async () {
+    let event: EventTypes.Event = {
+        id = Nat64.fromIntWrap(Time.now());
+        eventType = #PaymentStatusRetrieved;
+        payload = #PaymentStatusRetrieved({
+            paymentId = Nat.toText(paymentId);
+            status = status;
+        });
+    };
+    await emit(event);
+};
+
+// Emit event for payment updates
+public func emitPaymentUpdated(userId: Principal, paymentId: Nat, status: Text): async () {
+    let event: EventTypes.Event = {
+        id = Nat64.fromIntWrap(Time.now());
+        eventType = #PaymentUpdated;
+        payload = #PaymentUpdated({
+            userId = Principal.toText(userId);
+            paymentId = Nat.toText(paymentId);
+            status = status;
+        });
+    };
+    await emit(event);
+};
+
+// Emit payment-related events
+public func emitPaymentEvent(
+    eventType: EventTypes.EventType,
+    payload: EventTypes.EventPayload
+): async () {
+    let event: EventTypes.Event = {
+        id = Nat64.fromIntWrap(Time.now());
+        eventType = eventType;
+        payload = payload;
+    };
+    await emit(event);
+}
     };
 };

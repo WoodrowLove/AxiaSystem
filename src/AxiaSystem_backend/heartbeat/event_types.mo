@@ -20,7 +20,18 @@ module {
         #TokensLocked;
         #TokensUnlocked;
         #TokensBurned;
-        #WalletEventGeneric; // Added this new variant
+        #WalletEventGeneric;
+        #EscrowCreated;
+        #EscrowReleased;
+        #EscrowCanceled;
+        #SubscriptionCreated;  // Emitted when a subscription is created
+        #SubscriptionRemoved;  // Emitted when a subscription is removed
+        #PaymentStatusRetrieved; // Emitted when payment status is retrieved
+        #PaymentUpdated;  // Emitted when a payment update is broadcasted
+        #PendingPaymentsMonitored;
+        #PaymentsReconciled;
+        #InsufficientFunds;
+
     };
 
     public type Event = {
@@ -47,6 +58,16 @@ module {
         #TokensUnlocked : { tokenId: Nat; amount: Nat; owner: Principal };
         #TokensBurned : { tokenId: Nat; amount: Nat };
         #WalletEventGeneric : { walletId: Text; details: Text }; // Added this new variant
+        #EscrowCreated : { escrowId: Nat; sender: Principal; receiver: Principal; tokenId: Nat; amount: Nat };
+        #EscrowReleased : {};
+        #EscrowCanceled : {};
+        #SubscriptionCreated : { userId: Text; subscriptionId: Text };
+        #SubscriptionRemoved : { subscriptionId: Text };
+        #PaymentStatusRetrieved : { paymentId: Text; status: Text };
+        #PaymentUpdated : { userId: Text; paymentId: Text; status: Text };
+        #PendingPaymentsMonitored : { timeoutCount : Nat };
+        #PaymentsReconciled : { discrepancyCount : Nat };
+        #InsufficientFunds : { userId : Text; tokenId : Nat64; requiredAmount : Nat64; currentBalance : Nat64 };
     };
 
     public func equal(x: EventType, y: EventType): Bool {
@@ -71,7 +92,18 @@ module {
             case (#TokensLocked) { 13 };
             case (#TokensUnlocked) { 14 };
             case (#TokensBurned) { 15 }; 
-            case (#WalletEventGeneric) { 16 }; // Added this new case
+            case (#WalletEventGeneric) { 16 }; 
+            case (#EscrowCreated) { 17 };
+            case (#EscrowReleased) { 18 };
+            case (#EscrowCanceled) { 19 };
+            case (#SubscriptionCreated) { 20 };
+            case (#SubscriptionRemoved) { 21 };
+            case (#PaymentStatusRetrieved) { 22 };
+            case (#PaymentUpdated) { 23 };
+            case (#PendingPaymentsMonitored) { 24 };
+            case (#PaymentsReconciled) { 25 };
+            case (#InsufficientFunds) { 26 };
+
         }
     };
 }
