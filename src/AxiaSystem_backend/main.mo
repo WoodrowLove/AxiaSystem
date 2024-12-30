@@ -19,6 +19,9 @@ import Text "mo:base/Text";
 import _EscrowService "escrow/services/escrow_service";
 import EscrowModule "escrow/modules/escrow_module";
 import SplitPaymentProxy "./payment_split/utils/split_payment_proxy";
+import PayoutProxy "./payout/utils/payout_proxy";
+import PayoutModule "./payout/modules/payout_module";
+import PayoutService "./payout/services/payout_service";
 
 actor AxiaSystem_backend {
     // Initialize proxies for all canisters
@@ -34,6 +37,13 @@ actor AxiaSystem_backend {
 
     // Initialize event manager for the heartbeat
     private let eventManager = EventManager.EventManager();
+
+    // Initialize Payout Proxy
+private let _payoutProxy = PayoutProxy.PayoutProxy(Principal.fromText("YOUR_PAYOUT_CANISTER_ID"));
+
+// Initialize Payout Manager and Service
+private let _payoutManager = PayoutModule.PayoutManager(walletProxy, eventManager);
+private let payoutService = PayoutService.createPayoutService(walletProxy, eventManager);
 
     // Exposed APIs to connect with frontend or other services
 
@@ -392,6 +402,47 @@ public shared func listEscrows(): async [EscrowModule.EscrowState] {
     public shared func validateSplitPayment(paymentId: Nat): async Result.Result<(), Text> {
         await splitPaymentProxy.validateSplitPayment(paymentId);
     };
+
+    // Global Exposed APIs for Payout Canister
+
+// Initiate a Payout
+public shared func initiatePayout(
+    recipients: [Principal],
+    amounts: [Nat],
+    description: ?Text
+): async Result.Result<Text, Text> {
+    let result = await payoutService.initiatePayout(recipients, amounts, description);
+    switch (result) {
+        case (#ok(payout)) {
+            #ok("Payout initiated successfully. ID: " # Nat.toText(payout.id))
+        };
+        case (#err(error)) {
+            #err("Failed to initiate payout: " # error)
+        };
+    };
+};
+
+// Execute a Payout
+public shared func executePayout(payoutId: Nat): async Result.Result<(), Text> {
+    await payoutService.executePayout(payoutId)
+};
+
+public shared func getPayoutDetails(payoutId: Nat): async Result.Result<PayoutModule.Payout, Text> {
+    await async {
+        payoutService.getPayoutDetails(payoutId)
+    }
+};
+
+// Get All Payouts
+public query func getAllPayouts(): async [PayoutModule.Payout] {
+    payoutService.getAllPayouts()
+};
+
+// Cancel a Payout
+public shared func cancelPayout(payoutId: Nat): async Result.Result<(), Text> {
+    await payoutService.cancelPayout(payoutId);
+};
+
 };
 
 

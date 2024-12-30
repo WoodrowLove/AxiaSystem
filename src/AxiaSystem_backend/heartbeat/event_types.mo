@@ -34,6 +34,9 @@ module {
         #SplitPaymentInitiated;
         #SplitPaymentExecuted;
         #SplitPaymentCancelled;
+        #PayoutInitiated;
+        #PayoutExecuted;
+        #PayoutCancelled;
 
     };
 
@@ -74,6 +77,9 @@ module {
         #SplitPaymentInitiated : { splitId: Nat; initiator: Principal;  recipients: [(Principal, Nat)]; totalAmount: Nat; tokenId: Nat; };
         #SplitPaymentExecuted : { splitId: Nat; executor: Principal; recipients: [(Principal, Nat)]; totalAmount: Nat; tokenId: Nat; executionTime: Nat64; };
         #SplitPaymentCancelled : { splitId: Nat; initiator: Principal; cancellationReason: Text; cancellationTime: Nat64; };
+        #PayoutInitiated : { };
+        #PayoutExecuted : { };
+        #PayoutCancelled : { };
     };
 
     public func equal(x: EventType, y: EventType): Bool {
@@ -112,6 +118,9 @@ module {
             case (#SplitPaymentInitiated) { 27 };
             case (#SplitPaymentExecuted) { 28 };
             case (#SplitPaymentCancelled) { 29 };
+            case (#PayoutInitiated) { 30 };
+            case (#PayoutExecuted) { 31 };
+            case (#PayoutCancelled) { 32 };
 
         }
     };
