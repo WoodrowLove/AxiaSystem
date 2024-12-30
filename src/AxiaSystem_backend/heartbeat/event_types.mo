@@ -31,6 +31,9 @@ module {
         #PendingPaymentsMonitored;
         #PaymentsReconciled;
         #InsufficientFunds;
+        #SplitPaymentInitiated;
+        #SplitPaymentExecuted;
+        #SplitPaymentCancelled;
 
     };
 
@@ -68,6 +71,9 @@ module {
         #PendingPaymentsMonitored : { timeoutCount : Nat };
         #PaymentsReconciled : { discrepancyCount : Nat };
         #InsufficientFunds : { userId : Text; tokenId : Nat64; requiredAmount : Nat64; currentBalance : Nat64 };
+        #SplitPaymentInitiated : { splitId: Nat; initiator: Principal;  recipients: [(Principal, Nat)]; totalAmount: Nat; tokenId: Nat; };
+        #SplitPaymentExecuted : { splitId: Nat; executor: Principal; recipients: [(Principal, Nat)]; totalAmount: Nat; tokenId: Nat; executionTime: Nat64; };
+        #SplitPaymentCancelled : { splitId: Nat; initiator: Principal; cancellationReason: Text; cancellationTime: Nat64; };
     };
 
     public func equal(x: EventType, y: EventType): Bool {
@@ -103,6 +109,9 @@ module {
             case (#PendingPaymentsMonitored) { 24 };
             case (#PaymentsReconciled) { 25 };
             case (#InsufficientFunds) { 26 };
+            case (#SplitPaymentInitiated) { 27 };
+            case (#SplitPaymentExecuted) { 28 };
+            case (#SplitPaymentCancelled) { 29 };
 
         }
     };

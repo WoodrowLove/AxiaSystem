@@ -64,6 +64,13 @@
       "main": "src/AxiaSystem_backend/asset_registry/main.mo",
       "type": "motoko",
       "dependencies": ["nft", "user"]
+    },
+    "split_payment": {
+      "type": "motoko",
+      "main": "src/AxiaSystem_backend/split_payment/main.mo",
+      "dependencies": [
+        "wallet"
+      ]
     }
   },
   "defaults": {

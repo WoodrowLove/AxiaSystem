@@ -18,16 +18,19 @@ import Error "mo:base/Error";
 import Text "mo:base/Text";
 import _EscrowService "escrow/services/escrow_service";
 import EscrowModule "escrow/modules/escrow_module";
+import SplitPaymentProxy "./payment_split/utils/split_payment_proxy";
 
 actor AxiaSystem_backend {
     // Initialize proxies for all canisters
-    private let tokenProxy = TokenCanisterProxy.TokenCanisterProxy(Principal.fromText("YOUR_TOKEN_CANISTER_ID"));
-    private let _userProxy = UserCanisterProxy.UserCanisterProxyManager(Principal.fromText("YOUR_USER_CANISTER_ID"));
-    private let walletProxy = WalletCanisterProxy.WalletCanisterProxy(Principal.fromText("YOUR_WALLET_CANISTER_ID"));
-    private let _paymentProxy = PaymentCanisterProxy.PaymentCanisterProxy(Principal.fromText("YOUR_PAYMENT_CANISTER_ID"));
-    private let paymentMonitoringProxy = PaymentMonitoringProxy.PaymentMonitoringProxy(Principal.fromText("YOUR_PAYMENT_MONITORING_CANISTER_ID"));
+    private let tokenProxy = TokenCanisterProxy.TokenCanisterProxy(Principal.fromText("bw4dl-smaaa-aaaaa-qaacq-cai"));
+    private let _userProxy = UserCanisterProxy.UserCanisterProxyManager(Principal.fromText("b77ix-eeaaa-aaaaa-qaada-cai"));
+    private let walletProxy = WalletCanisterProxy.WalletCanisterProxy(Principal.fromText("bnz7o-iuaaa-aaaaa-qaaaa-cai"));
+    private let _paymentProxy = PaymentCanisterProxy.PaymentCanisterProxy(Principal.fromText("bkyz2-fmaaa-aaaaa-qaaaq-cai"));
+    private let paymentMonitoringProxy = PaymentMonitoringProxy.PaymentMonitoringProxy(Principal.fromText("avqkn-guaaa-aaaaa-qaaea-cai"));
     private var localSubscriptions: [(Principal, SubscriptionCanisterProxy.Subscription)] = [];
-    private let escrowCanisterProxy = EscrowCanisterProxy.EscrowCanisterProxy(Principal.fromText("ESCROW_CANISTER_ID"));
+    private let escrowCanisterProxy = EscrowCanisterProxy.EscrowCanisterProxy(Principal.fromText("by6od-j4aaa-aaaaa-qaadq-cai"));
+    // Initialize proxies for all canisters
+    private let splitPaymentProxy = SplitPaymentProxy.SplitPaymentProxy(Principal.fromText("br5f7-7uaaa-aaaaa-qaaca-cai"));
 
     // Initialize event manager for the heartbeat
     private let eventManager = EventManager.EventManager();
@@ -328,5 +331,67 @@ public shared func listEscrows(): async [EscrowModule.EscrowState] {
     }
 };
 
+// Split Payment APIs
+
+    // Initiate a split payment
+    public shared func initiateSplitPayment(
+        sender: Principal,
+        recipients: [Principal],
+        shares: [Nat],
+        totalAmount: Nat,
+        description: ?Text
+    ): async Result.Result<Nat, Text> {
+        await splitPaymentProxy.initiateSplitPayment(sender, recipients, shares, totalAmount, description);
     };
+
+    // Execute a split payment
+    public shared func executeSplitPayment(paymentId: Nat): async Result.Result<(), Text> {
+        await splitPaymentProxy.executeSplitPayment(paymentId);
+    };
+
+    // Cancel a split payment
+    public shared func cancelSplitPayment(paymentId: Nat): async Result.Result<(), Text> {
+        await splitPaymentProxy.cancelSplitPayment(paymentId);
+    };
+
+    // Get details of a split payment
+    public shared func getSplitPaymentDetails(paymentId: Nat): async Result.Result<{
+        id: Nat;
+        sender: Principal;
+        recipients: [Principal];
+        shares: [Nat];
+        totalAmount: Nat;
+        description: ?Text;
+        status: Text;
+        createdAt: Int;
+    }, Text> {
+        await splitPaymentProxy.getSplitPaymentDetails(paymentId);
+    };
+
+    // Retrieve all split payments
+    public shared func getAllSplitPayments(): async [Nat] {
+        await splitPaymentProxy.getAllSplitPayments();
+    };
+
+    // List split payments by status
+    public shared func listSplitPaymentsByStatus(status: Text): async [Nat] {
+        await splitPaymentProxy.listSplitPaymentsByStatus(status);
+    };
+
+    // Retry a failed split payment
+    public shared func retrySplitPayment(paymentId: Nat): async Result.Result<(), Text> {
+        await splitPaymentProxy.retrySplitPayment(paymentId);
+    };
+
+    // Calculate distributed amount
+    public shared func calculateDistributedAmount(paymentId: Nat): async Result.Result<Nat, Text> {
+        await splitPaymentProxy.calculateDistributedAmount(paymentId);
+    };
+
+    // Validate a split payment
+    public shared func validateSplitPayment(paymentId: Nat): async Result.Result<(), Text> {
+        await splitPaymentProxy.validateSplitPayment(paymentId);
+    };
+};
+
 
