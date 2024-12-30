@@ -41,11 +41,7 @@
       "type": "motoko",
       "dependencies": ["payment", "wallet"]
     },
-    "payment_split": {
-      "main": "src/AxiaSystem_backend/payment_split/main.mo",
-      "type": "motoko",
-      "dependencies": ["payment", "wallet"]
-    },
+    
     "payout": {
       "main": "src/AxiaSystem_backend/payout/main.mo",
       "type": "motoko",
@@ -71,7 +67,13 @@
       "dependencies": [
         "wallet"
       ]
-    }
+    },
+    "asset": {
+    "type": "custom",
+    "wasm": "src/asset/.dfx/local/canisters/asset/asset.wasm",
+    "candid": "src/asset/asset.did",
+    "build": "sh build_asset.sh"
+}
   },
   "defaults": {
     "build": {

@@ -37,6 +37,10 @@ module {
         #PayoutInitiated;
         #PayoutExecuted;
         #PayoutCancelled;
+        #AssetRegistered;
+        #AssetTransferred;
+        #AssetDeactivated;
+        #AssetReactivated;
 
     };
 
@@ -77,9 +81,13 @@ module {
         #SplitPaymentInitiated : { splitId: Nat; initiator: Principal;  recipients: [(Principal, Nat)]; totalAmount: Nat; tokenId: Nat; };
         #SplitPaymentExecuted : { splitId: Nat; executor: Principal; recipients: [(Principal, Nat)]; totalAmount: Nat; tokenId: Nat; executionTime: Nat64; };
         #SplitPaymentCancelled : { splitId: Nat; initiator: Principal; cancellationReason: Text; cancellationTime: Nat64; };
-        #PayoutInitiated : { };
-        #PayoutExecuted : { };
-        #PayoutCancelled : { };
+        #PayoutInitiated : { payoutId: Nat; totalAmount: Nat; recipients: [Principal]; description: ?Text; timestamp: Int };
+        #PayoutExecuted : { payoutId: Nat; totalAmount: Nat; recipients: [(Principal, Nat)]; executionTime: Int };
+        #PayoutCancelled : { payoutId: Nat; status: Text; cancellationTime: Int };
+        #AssetRegistered : { assetId: Nat; owner: Principal; metadata: Text; registeredAt: Int };
+        #AssetTransferred : { assetId: Nat; previousOwner: Principal; newOwner: Principal; transferTime: Int };
+        #AssetDeactivated : { assetId: Nat; owner: Principal; deactivatedAt: Int };
+        #AssetReactivated : { assetId: Nat; owner: Principal; reactivatedAt: Int };
     };
 
     public func equal(x: EventType, y: EventType): Bool {
@@ -121,6 +129,10 @@ module {
             case (#PayoutInitiated) { 30 };
             case (#PayoutExecuted) { 31 };
             case (#PayoutCancelled) { 32 };
+            case (#AssetRegistered) { 33 };
+            case (#AssetTransferred) { 34 };
+            case (#AssetDeactivated) { 35 };
+            case (#AssetReactivated) { 36 };
 
         }
     };

@@ -18,10 +18,14 @@ import Error "mo:base/Error";
 import Text "mo:base/Text";
 import _EscrowService "escrow/services/escrow_service";
 import EscrowModule "escrow/modules/escrow_module";
-import SplitPaymentProxy "./payment_split/utils/split_payment_proxy";
+import SplitPaymentProxy "./split_payment/utils/split_payment_proxy";
 import PayoutProxy "./payout/utils/payout_proxy";
 import PayoutModule "./payout/modules/payout_module";
 import PayoutService "./payout/services/payout_service";
+import AssetRegistryProxy "./asset_registry/utils/asset_registry_proxy";
+import AssetRegistryService "./asset_registry/services/asset_registry_service";
+import AssetRegistryModule "./asset_registry/modules/asset_registry_module";
+import AssetProxy "asset/utils/asset_proxy";
 
 actor AxiaSystem_backend {
     // Initialize proxies for all canisters
@@ -34,16 +38,19 @@ actor AxiaSystem_backend {
     private let escrowCanisterProxy = EscrowCanisterProxy.EscrowCanisterProxy(Principal.fromText("by6od-j4aaa-aaaaa-qaadq-cai"));
     // Initialize proxies for all canisters
     private let splitPaymentProxy = SplitPaymentProxy.SplitPaymentProxy(Principal.fromText("br5f7-7uaaa-aaaaa-qaaca-cai"));
-
     // Initialize event manager for the heartbeat
     private let eventManager = EventManager.EventManager();
-
     // Initialize Payout Proxy
 private let _payoutProxy = PayoutProxy.PayoutProxy(Principal.fromText("YOUR_PAYOUT_CANISTER_ID"));
-
 // Initialize Payout Manager and Service
 private let _payoutManager = PayoutModule.PayoutManager(walletProxy, eventManager);
 private let payoutService = PayoutService.createPayoutService(walletProxy, eventManager);
+// Initialize Asset Registry Proxy
+private let _assetRegistryProxy = AssetRegistryProxy.AssetRegistryProxy(Principal.fromText("YOUR_ASSET_REGISTRY_CANISTER_ID"));
+// Initialize Asset Registry Service
+private let assetRegistryService = AssetRegistryService.createAssetRegistryService(eventManager);
+// Asset Canister Proxy
+private let assetProxy = AssetProxy.AssetProxy(Principal.fromText("YOUR_ASSET_CANISTER_ID"));
 
     // Exposed APIs to connect with frontend or other services
 
@@ -441,6 +448,158 @@ public query func getAllPayouts(): async [PayoutModule.Payout] {
 // Cancel a Payout
 public shared func cancelPayout(payoutId: Nat): async Result.Result<(), Text> {
     await payoutService.cancelPayout(payoutId);
+};
+
+// Asset Registry APIs
+
+// Register a new asset
+public func registerAssetInRegistry(
+    owner: Principal,
+    nftId: Nat,
+    metadata: Text
+): async Result.Result<AssetRegistryModule.Asset, Text> {
+    await assetRegistryService.registerAssetInRegistry(owner, nftId, metadata)
+};
+
+// Transfer ownership of an asset
+public func transferAssetInRegistry(
+    assetId: Nat,
+    newOwner: Principal
+): async Result.Result<AssetRegistryModule.Asset, Text> {
+    await assetRegistryService.transferAssetInRegistry(assetId, newOwner);
+};
+
+// Deactivate an asset
+public func deactivateAssetInRegistry(assetId: Nat): async Result.Result<AssetRegistryModule.Asset, Text> {
+    await assetRegistryService.deactivateAssetInRegistry(assetId);
+};
+
+// Reactivate an asset
+public func reactivateAssetInRegistry(assetId: Nat): async Result.Result<AssetRegistryModule.Asset, Text> {
+    await assetRegistryService.reactivateAssetInRegistry(assetId);
+};
+
+// Retrieve asset details by ID
+public func getAssetInRegistry(assetId: Nat): async Result.Result<AssetRegistryModule.Asset, Text> {
+    await assetRegistryService.getAssetInRegistry(assetId);
+};
+
+// Retrieve all assets owned by a specific user
+public func getAssetsByOwnerInRegistry(owner: Principal): async [AssetRegistryModule.Asset] {
+    await assetRegistryService.getAssetsByOwnerInRegistry(owner);
+};
+
+// Retrieve all assets linked to a specific NFT
+public func getAssetsByNFTInRegistry(nftId: Nat): async [AssetRegistryModule.Asset] {
+    await assetRegistryService.getAssetsByNFTInRegistry(nftId);
+};
+
+// Retrieve all assets in the registry
+public func getAllAssetsInRegistry(): async [AssetRegistryModule.Asset] {
+    await assetRegistryService.getAllAssetsInRegistry();
+};
+
+// Retrieve ownership history of an asset
+public func getAssetOwnershipHistoryInRegistry(assetId: Nat): async Result.Result<[Principal], Text> {
+    await assetRegistryService.getAssetOwnershipHistoryInRegistry(assetId);
+};
+
+// Asset Canister APIs
+
+// Register a new asset
+public shared func registerAsset(owner: Principal, metadata: Text): async Result.Result<Nat, Text> {
+    try {
+        let result = await assetProxy.registerAsset(owner, metadata);
+        result
+    } catch (e) {
+        #err("Failed to register asset: " # Error.message(e))
+    }
+};
+
+// Transfer ownership of an asset
+public shared func transferAsset(assetId: Nat, newOwner: Principal): async Result.Result<(), Text> {
+    try {
+        let result = await assetProxy.transferAsset(assetId, newOwner);
+        result
+    } catch (e) {
+        #err("Failed to transfer asset: " # Error.message(e))
+    }
+}; 
+
+// Deactivate an asset
+public shared func deactivateAsset(assetId: Nat): async Result.Result<(), Text> {
+    try {
+        let result = await assetProxy.deactivateAsset(assetId);
+        result
+    } catch (e) {
+        #err("Failed to deactivate asset: " # Error.message(e))
+    }
+}; 
+
+// Reactivate an asset
+public shared func reactivateAsset(assetId: Nat): async Result.Result<(), Text> {
+    try {
+        let result = await assetProxy.reactivateAsset(assetId);
+        result
+    } catch (e) {
+        #err("Failed to reactivate asset: " # Error.message(e))
+    }
+}; 
+
+// Retrieve asset details by ID
+public shared func getAsset(assetId: Nat): async Result.Result<{ id: Nat; owner: Principal; metadata: Text }, Text> {
+    try {
+        let result = await assetProxy.getAsset(assetId);
+        result
+    } catch (e) {
+        #err("Failed to get asset details: " # Error.message(e))
+    }
+}; 
+
+// Retrieve all assets
+public shared func getAllAssets(): async [Nat] {
+    try {
+        await assetProxy.getAllAssets();
+    } catch (_) {
+        []; // Return an empty list in case of error
+    }
+}; 
+
+// Retrieve assets owned by a specific user
+public shared func getAssetsByOwner(owner: Principal): async [Nat] {
+    try {
+        await assetProxy.getAssetsByOwner(owner);
+    } catch (_) {
+        []; // Return an empty list in case of error
+    }
+}; 
+
+// Retrieve all active assets
+public shared func getActiveAssets(): async [Nat] {
+    try {
+        await assetProxy.getActiveAssets();
+    } catch (_) {
+        []; // Return an empty list in case of error
+    }
+};
+
+// Search assets by metadata keyword
+public shared func searchAssetsByMetadata(keyword: Text): async [Nat] {
+    try {
+        await assetProxy.searchAssetsByMetadata(keyword);
+    } catch (_) {
+        []; // Return an empty list in case of error
+    }
+};
+
+// Batch transfer ownership of assets
+public shared func batchTransferAssets(assetIds: [Nat], newOwner: Principal): async Result.Result<[Nat], Text> {
+    try {
+        let result = await assetProxy.batchTransferAssets(assetIds, newOwner);
+        result
+    } catch (e) {
+        #err("Failed to batch transfer assets: " # Error.message(e))
+    }
 };
 
 };

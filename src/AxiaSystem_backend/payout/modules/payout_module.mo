@@ -77,11 +77,13 @@ module {
             );
 
             // Emit event for payout initiation
-            await emitPayoutEvent(#PayoutInitiated, #PayoutInitiated {
-                payoutId = Nat.toText(payout.id);
-                totalAmount = totalAmount;
-                recipients = Array.map(recipients, Principal.toText);
-            });
+await emitPayoutEvent(#PayoutInitiated, #PayoutInitiated {
+    payoutId = payout.id;
+    totalAmount = totalAmount;
+    recipients = recipients;
+    description = payout.description;
+    timestamp = Time.now();
+});
 
             #ok(payout)
         };
@@ -136,15 +138,16 @@ public func executePayout(payoutId: Nat): async Result.Result<(), Text> {
             );
 
             // Emit event for payout completion
-            await emitPayoutEvent(#PayoutExecuted, #PayoutExecuted {
-                payoutId = payoutId;
-                totalAmount = payout.totalAmount;
-                recipients = Array.mapEntries<Principal, (Principal, Nat)>(
-                    payout.recipients,
-                    func(recipient: Principal, i: Nat) : (Principal, Nat) { (recipient, payout.amounts[i]) }
-                );
-                executionTime = Nat64.fromNat(Int.abs(Time.now()));
-            });
+            // Emit event for payout completion
+await emitPayoutEvent(#PayoutExecuted, #PayoutExecuted {
+    payoutId = payoutId;
+    totalAmount = payout.totalAmount;
+    recipients = Array.mapEntries<Principal, (Principal, Nat)>(
+        payout.recipients,
+        func(recipient: Principal, i: Nat) : (Principal, Nat) { (recipient, payout.amounts[i]) }
+    );
+    executionTime = Time.now();
+});
 
             #ok(())
         };
@@ -202,10 +205,11 @@ public func cancelPayout(payoutId: Nat): async Result.Result<(), Text> {
                     );
 
                     // Emit event for payout cancellation
-                    await emitPayoutEvent(#PayoutCancelled, #PayoutCancelled {
-                        payoutId = Nat.toText(payoutId);
-                        status = "Cancelled";
-                    });
+await emitPayoutEvent(#PayoutCancelled, #PayoutCancelled {
+    payoutId = payoutId;
+    status = "Cancelled";
+    cancellationTime = Time.now();
+});
 
                     #ok(())
                 };
