@@ -2,6 +2,9 @@ import TokenCanisterProxy "./token/utils/token_canister_proxy";
 import UserCanisterProxy "./user/utils/user_canister_proxy";
 import WalletCanisterProxy "./wallet/utils/wallet_canister_proxy";
 import PaymentCanisterProxy "./payment/utils/payment_canister_proxy";
+import SubscriptionCanisterProxy "./subscriptions/utils/subscription_canister_proxy";
+import PaymentMonitoringProxy "payment_monitoring/utils/payment_monitoring_proxy";
+import EscrowCanisterProxy "./escrow/utils/escrow_canister_proxy";
 import Principal "mo:base/Principal";
 import Result "mo:base/Result";
 import _List "mo:base/List";
@@ -12,13 +15,19 @@ import _Time "mo:base/Time";
 import Debug "mo:base/Debug";
 import Nat "mo:base/Nat";
 import Error "mo:base/Error";
+import Text "mo:base/Text";
+import _EscrowService "escrow/services/escrow_service";
+import EscrowModule "escrow/modules/escrow_module";
 
 actor AxiaSystem_backend {
     // Initialize proxies for all canisters
     private let tokenProxy = TokenCanisterProxy.TokenCanisterProxy(Principal.fromText("YOUR_TOKEN_CANISTER_ID"));
     private let _userProxy = UserCanisterProxy.UserCanisterProxyManager(Principal.fromText("YOUR_USER_CANISTER_ID"));
     private let walletProxy = WalletCanisterProxy.WalletCanisterProxy(Principal.fromText("YOUR_WALLET_CANISTER_ID"));
-    private let paymentProxy = PaymentCanisterProxy.PaymentCanisterProxy(Principal.fromText("YOUR_PAYMENT_CANISTER_ID"));
+    private let _paymentProxy = PaymentCanisterProxy.PaymentCanisterProxy(Principal.fromText("YOUR_PAYMENT_CANISTER_ID"));
+    private let paymentMonitoringProxy = PaymentMonitoringProxy.PaymentMonitoringProxy(Principal.fromText("YOUR_PAYMENT_MONITORING_CANISTER_ID"));
+    private var localSubscriptions: [(Principal, SubscriptionCanisterProxy.Subscription)] = [];
+    private let escrowCanisterProxy = EscrowCanisterProxy.EscrowCanisterProxy(Principal.fromText("ESCROW_CANISTER_ID"));
 
     // Initialize event manager for the heartbeat
     private let eventManager = EventManager.EventManager();
@@ -104,7 +113,7 @@ if (tokenStatus.size() > 0 and (switch walletStatus { case (#ok(_)) true; case (
         }
     };
 
-    // Heartbeat integration (periodic tasks)
+    /* Heartbeat integration (periodic tasks)
     public func runHeartbeat(): async () {
         Debug.print("Running heartbeat tasks...");
 
@@ -114,8 +123,210 @@ if (tokenStatus.size() > 0 and (switch walletStatus { case (#ok(_)) true; case (
             case (#ok(count)) Debug.print("Timed-out payments processed: " # Nat.toText(count));
             case (#err(error)) Debug.print("Error processing timed-out payments: " # error);
         };
+    }; */
 
-        // Add more periodic tasks (e.g., releasing locked tokens, processing token events)
-    };
+    
+
+// Expose Payment Monitoring APIs
+public func monitorPayment(caller: Principal, paymentId: Nat): async Result.Result<Text, Text> {
+    await paymentMonitoringProxy.monitorPayment(caller, paymentId);
 };
+
+public func monitorPendingPayments(): async Result.Result<Nat, Text> {
+    await paymentMonitoringProxy.monitorPendingPayments();
+};
+
+public func validateWalletBalance(userId: Principal, tokenId: Nat, amount: Nat): async Result.Result<Bool, Text> {
+    await paymentMonitoringProxy.validateWalletBalance(userId, tokenId, amount);
+};
+
+public func reconcilePayments(caller: Principal): async Result.Result<Nat, Text> {
+    await paymentMonitoringProxy.reconcilePayments(caller);
+};
+
+public func subscribeToPayments(userId: Principal): async Result.Result<Nat, Text> {
+    await paymentMonitoringProxy.subscribeToPayments(userId);
+};
+
+public func unsubscribeFromPayments(subscriptionId: Nat): async Result.Result<(), Text> {
+    await paymentMonitoringProxy.unsubscribeFromPayments(subscriptionId);
+};
+
+public func broadcastPaymentUpdate(paymentId: Nat, status: Text): async Result.Result<(), Text> {
+    await paymentMonitoringProxy.broadcastPaymentUpdate(paymentId, status);
+};
+
+public func listSubscriptions(): async Result.Result<[(Nat, Principal)], Text> {
+    await paymentMonitoringProxy.listSubscriptions();
+};
+
+// Extend Heartbeat to handle subscription expiry
+public func runHeartbeat(): async () {
+    Debug.print("Running heartbeat tasks...");
+
+    // Handle payment monitoring-specific tasks
+    try {
+        let expiredCountResult = await paymentMonitoringProxy.monitorPendingPayments();
+        switch expiredCountResult {
+            case (#ok(count)) Debug.print("Expired subscriptions processed: " # Nat.toText(count));
+            case (#err(error)) Debug.print("Error processing expired subscriptions: " # error);
+        };
+    } catch (e) {
+        Debug.print("Error in heartbeat task: " # Error.message(e));
+    };
+
+    // Call the existing runHeartbeat tasks
+    await runHeartbeat();
+};
+
+// Initialize the Subscription Proxy
+private let subscriptionProxy = SubscriptionCanisterProxy.SubscriptionProxy(
+    Principal.fromText("YOUR_SUBSCRIPTION_CANISTER_ID")
+);
+
+// Subscription APIs
+
+// Subscription APIs
+
+// Create a subscription for a user
+// Create a subscription for a user
+public func createSubscription(userId: Principal, duration: Int): async Result.Result<SubscriptionCanisterProxy.Subscription, Text> {
+    try {
+        let result = await subscriptionProxy.createSubscription(userId, duration);
+        result
+    } catch (e) {
+        #err("Failed to create subscription: " # Error.message(e))
+    }
+};
+
+// Check if a user is subscribed
+public func isSubscribed(userId: Principal): async Result.Result<Bool, Text> {
+    try {
+        let result = await subscriptionProxy.isSubscribed(userId);
+        result
+    } catch (e) {
+        #err("Failed to check subscription status: " # Error.message(e));
+    }
+};
+
+// Update an existing subscription
+public func updateSubscription(userId: Principal, newEndDate: Int): async Result.Result<(), Text> {
+    try {
+        let result = await subscriptionProxy.updateSubscription(userId, newEndDate);
+        result
+    } catch (e) {
+        #err("Failed to update subscription: " # Error.message(e));
+    }
+};
+
+
+
+public query func getAllSubscriptions(): async [(Principal, SubscriptionCanisterProxy.Subscription)] {
+    localSubscriptions
+};
+
+// You would need to update localSubscriptions whenever changes occur
+
+// Validate a user's subscription
+public func validateSubscription(userId: Principal): async Result.Result<(), Text> {
+    try {
+        let result = await subscriptionProxy.validateSubscription(userId);
+        result
+    } catch (e) {
+        #err("Failed to validate subscription: " # Error.message(e));
+    }
+};
+
+// Expire outdated subscriptions
+public func expireSubscriptions(): async Result.Result<Nat, Text> {
+    try {
+        let result = await subscriptionProxy.expireSubscriptions();
+        result
+    } catch (e) {
+        #err("Failed to expire subscriptions: " # Error.message(e));
+    }
+};
+
+// Attach a subscription to a user
+public func attachSubscriptionToUser(
+    userId: Principal,
+    subscription: SubscriptionCanisterProxy.Subscription
+): async Result.Result<(), Text> {
+    try {
+        let result = await subscriptionProxy.attachSubscriptionToUser(userId, subscription);
+        result
+    } catch (e) {
+        #err("Failed to attach subscription: " # Error.message(e));
+    }
+};
+
+// Get subscription details for a user
+public func getSubscriptionDetails(userId: Principal): async Result.Result<SubscriptionCanisterProxy.Subscription, Text> {
+    try {
+        let result = await subscriptionProxy.getSubscriptionDetails(userId);
+        result
+    } catch (e) {
+        #err("Failed to retrieve subscription details: " # Error.message(e));
+    }
+};
+
+// Global Escrow APIs
+
+// Create a new escrow
+public shared func createEscrow(
+    sender: Principal,
+    receiver: Principal,
+    tokenId: Nat,
+    amount: Nat,
+    conditions: Text
+): async Result.Result<Nat, Text> {
+    try {
+        await escrowCanisterProxy.createEscrow(sender, receiver, tokenId, amount, conditions);
+    } catch (e) {
+        #err("Failed to create escrow: " # Error.message(e))
+    }
+};
+
+// Release an escrow
+public shared func releaseEscrow(escrowId: Nat): async Result.Result<(), Text> {
+    try {
+        await escrowCanisterProxy.releaseEscrow(escrowId);
+    } catch (e) {
+        #err("Failed to release escrow: " # Error.message(e))
+    }
+};
+
+// Cancel an escrow
+public shared func cancelEscrow(escrowId: Nat): async Result.Result<(), Text> {
+    try {
+        await escrowCanisterProxy.cancelEscrow(escrowId);
+    } catch (e) {
+        #err("Failed to cancel escrow: " # Error.message(e))
+    }
+};
+
+// Get details of a specific escrow
+public shared func getEscrow(escrowId: Nat): async Result.Result<EscrowModule.EscrowState, Text> {
+    try {
+        await escrowCanisterProxy.getEscrow(escrowId);
+    } catch (e) {
+        #err("Failed to get escrow details: " # Error.message(e))
+    }
+};
+
+// List all escrows
+// List all escrows
+public shared func listEscrows(): async [EscrowModule.EscrowState] {
+    try {
+        let result = await escrowCanisterProxy.listEscrows();
+        switch (result) {
+            case (#ok(escrows)) { escrows };
+            case (#err(_)) { [] };
+        }
+    } catch (_e) {
+        []; // Return empty list in case of an error
+    }
+};
+
+    };
 

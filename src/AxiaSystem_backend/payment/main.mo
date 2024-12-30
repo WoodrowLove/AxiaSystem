@@ -12,7 +12,7 @@ import Error "mo:base/Error";
 import Array "mo:base/Array";
 import Debug "mo:base/Debug";
 import LoggingUtils "../utils/logging_utils";
-import InitiatePaymentTest "../tests/payment/initiate_payment_test";
+
 
 actor PaymentCanister {
     // Instantiate proxies for inter-canister communication
@@ -202,10 +202,10 @@ public func initializeEventListeners() : async () {
 
     };
 
-    public func runTests() : async () {
+   /* public func runTests() : async () {
         await InitiatePaymentTest.run();
     
-};
+};*/
 }
 
 

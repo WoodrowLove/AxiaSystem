@@ -157,6 +157,50 @@ public func createSubscription(userId: Principal, duration: Int): async Result.R
                 case (?subscription) #ok(subscription);
             };
         };
+
+        // Prevent overlapping subscriptions for the same user
+public func canCreateSubscription(userId: Principal): async Result.Result<Bool, Text> {
+    switch (subscriptions.get(userId)) {
+        case null #ok(true); // No existing subscription
+        case (?subscription) {
+            if (subscription.endDate < Time.now()) {
+                #ok(true); // Existing subscription expired
+            } else {
+                #err("User already has an active subscription.");
+            }
+        };
+    }
+};
+
+// Retrieve all active subscriptions
+public func getActiveSubscriptions(): async [(Principal, Subscription)] {
+    let activeSubscriptions = Iter.toArray(
+        Iter.filter(
+            subscriptions.entries(),
+            func ((_userId: Principal, subscription: Subscription)): Bool {
+                subscription.status == "Active" and subscription.endDate >= Time.now()
+            }
+        )
+    );
+    activeSubscriptions;
+};
+
+// Cancel a subscription
+public func cancelSubscription(userId: Principal): async Result.Result<(), Text> {
+    switch (subscriptions.remove(userId)) {
+        case null #err("No subscription found for user.");
+        case (?subscription) {
+            LoggingUtils.logInfo(
+                logStore,
+                "SubscriptionManager",
+                "Cancelled subscription for user: " # Principal.toText(userId),
+                ?userId
+            );
+            #ok(())
+        };
+    }
+};
+
     };
 }
 

@@ -39,7 +39,7 @@ module {
         // Emit event helper
         private func emitEvent(eventType: EventTypes.EventType, payload: EventTypes.EventPayload) : async () {
     let event : EventTypes.Event = {
-        id = Int.abs(Time.now());
+        id = Nat64.fromNat(Int.abs(Time.now()));
         eventType = eventType;
         payload = payload;
     };
@@ -156,15 +156,15 @@ public func initiatePayment(
     );
 
     // Emit payment processed event
-    await eventManager.emit({
-        id = transaction.id;
-        eventType = #PaymentProcessed;
-        payload = #PaymentProcessed {
-            userId = sender;
-            amount = amount;
-            walletId = Principal.toText(sender)
-        };
-    });
+await eventManager.emit({
+    id = Nat64.fromNat(transaction.id);
+    eventType = #PaymentProcessed;
+    payload = #PaymentProcessed {
+        userId = sender;
+        amount = amount;
+        walletId = Principal.toText(sender)
+    };
+});
 
     #ok(transaction)
 };

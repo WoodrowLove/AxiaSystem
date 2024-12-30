@@ -26,6 +26,44 @@
     "wallet": {
       "main": "src/AxiaSystem_backend/wallet/main.mo",
       "type": "motoko"
+    },
+    "payment": {
+      "main": "src/AxiaSystem_backend/payment/main.mo",
+      "type": "motoko"
+    },
+    "payment_monitoring": {
+      "main": "src/AxiaSystem_backend/payment_monitoring/main.mo",
+      "type": "motoko",
+      "dependencies": ["payment", "wallet", "user"]
+    },
+    "escrow": {
+      "main": "src/AxiaSystem_backend/escrow/main.mo",
+      "type": "motoko",
+      "dependencies": ["payment", "wallet"]
+    },
+    "payment_split": {
+      "main": "src/AxiaSystem_backend/payment_split/main.mo",
+      "type": "motoko",
+      "dependencies": ["payment", "wallet"]
+    },
+    "payout": {
+      "main": "src/AxiaSystem_backend/payout/main.mo",
+      "type": "motoko",
+      "dependencies": ["payment", "wallet"]
+    },
+    "nft": {
+      "main": "src/AxiaSystem_backend/nft/main.mo",
+      "type": "motoko"
+    },
+    "subscriptions": {
+      "main": "src/AxiaSystem_backend/subscriptions/main.mo",
+      "type": "motoko",
+      "dependencies": ["user", "wallet"]
+    },
+    "asset_registry": {
+      "main": "src/AxiaSystem_backend/asset_registry/main.mo",
+      "type": "motoko",
+      "dependencies": ["nft", "user"]
     }
   },
   "defaults": {
