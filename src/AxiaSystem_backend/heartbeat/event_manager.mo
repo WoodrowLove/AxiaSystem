@@ -122,7 +122,7 @@ public func emitWalletEvent(
 };
 
         // Utility function to log all subscribed event types (for debugging)
-        public query func listSubscribedEventTypes(): async [EventTypes.EventType] {
+        public func listSubscribedEventTypes(): async [EventTypes.EventType] {
             Iter.toArray(listeners.keys());
         };
 

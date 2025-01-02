@@ -214,7 +214,7 @@ public func broadcastPaymentUpdate(paymentId: Nat, status: Text): async Result.R
     #ok(())
 };
 
-public shared func listSubscriptions(): async [(Nat, Principal)] {
+public func listSubscriptions(): async [(Nat, Principal)] {
     await subscriptionManager.getAllSubscriptions()
 };
     };

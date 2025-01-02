@@ -29,28 +29,28 @@ import AssetProxy "asset/utils/asset_proxy";
 
 actor AxiaSystem_backend {
     // Initialize proxies for all canisters
-    private let tokenProxy = TokenCanisterProxy.TokenCanisterProxy(Principal.fromText("bw4dl-smaaa-aaaaa-qaacq-cai"));
-    private let _userProxy = UserCanisterProxy.UserCanisterProxyManager(Principal.fromText("b77ix-eeaaa-aaaaa-qaada-cai"));
-    private let walletProxy = WalletCanisterProxy.WalletCanisterProxy(Principal.fromText("bnz7o-iuaaa-aaaaa-qaaaa-cai"));
-    private let _paymentProxy = PaymentCanisterProxy.PaymentCanisterProxy(Principal.fromText("bkyz2-fmaaa-aaaaa-qaaaq-cai"));
+    private let tokenProxy = TokenCanisterProxy.TokenCanisterProxy(Principal.fromText("ajuq4-ruaaa-aaaaa-qaaga-cai"));
+    private let _userProxy = UserCanisterProxy.UserCanisterProxyManager(Principal.fromText("aovwi-4maaa-aaaaa-qaagq-cai"));
+    private let walletProxy = WalletCanisterProxy.WalletCanisterProxy(Principal.fromText("ahw5u-keaaa-aaaaa-qaaha-cai"));
+    private let _paymentProxy = PaymentCanisterProxy.PaymentCanisterProxy(Principal.fromText("by6od-j4aaa-aaaaa-qaadq-cai"));
     private let paymentMonitoringProxy = PaymentMonitoringProxy.PaymentMonitoringProxy(Principal.fromText("avqkn-guaaa-aaaaa-qaaea-cai"));
     private var localSubscriptions: [(Principal, SubscriptionCanisterProxy.Subscription)] = [];
-    private let escrowCanisterProxy = EscrowCanisterProxy.EscrowCanisterProxy(Principal.fromText("by6od-j4aaa-aaaaa-qaadq-cai"));
+    private let escrowCanisterProxy = EscrowCanisterProxy.EscrowCanisterProxy(Principal.fromText("bw4dl-smaaa-aaaaa-qaacq-cai"));
     // Initialize proxies for all canisters
-    private let splitPaymentProxy = SplitPaymentProxy.SplitPaymentProxy(Principal.fromText("br5f7-7uaaa-aaaaa-qaaca-cai"));
+    private let splitPaymentProxy = SplitPaymentProxy.SplitPaymentProxy(Principal.fromText("a3shf-5eaaa-aaaaa-qaafa-cai"));
     // Initialize event manager for the heartbeat
     private let eventManager = EventManager.EventManager();
     // Initialize Payout Proxy
-private let _payoutProxy = PayoutProxy.PayoutProxy(Principal.fromText("YOUR_PAYOUT_CANISTER_ID"));
+private let _payoutProxy = PayoutProxy.PayoutProxy(Principal.fromText("asrmz-lmaaa-aaaaa-qaaeq-cai"));
 // Initialize Payout Manager and Service
 private let _payoutManager = PayoutModule.PayoutManager(walletProxy, eventManager);
 private let payoutService = PayoutService.createPayoutService(walletProxy, eventManager);
 // Initialize Asset Registry Proxy
-private let _assetRegistryProxy = AssetRegistryProxy.AssetRegistryProxy(Principal.fromText("YOUR_ASSET_REGISTRY_CANISTER_ID"));
+private let _assetRegistryProxy = AssetRegistryProxy.AssetRegistryProxy(Principal.fromText("br5f7-7uaaa-aaaaa-qaaca-cai"));
 // Initialize Asset Registry Service
 private let assetRegistryService = AssetRegistryService.createAssetRegistryService(eventManager);
 // Asset Canister Proxy
-private let assetProxy = AssetProxy.AssetProxy(Principal.fromText("YOUR_ASSET_CANISTER_ID"));
+private let assetProxy = AssetProxy.AssetProxy(Principal.fromText("be2us-64aaa-aaaaa-qaabq-cai"));
 
     // Exposed APIs to connect with frontend or other services
 

@@ -75,7 +75,7 @@ public func createSubscription(userId: Principal, duration: Int): async Result.R
         };
 
         // Get all active subscriptions
-        public query func getAllSubscriptions(): async [(Principal, Subscription)] {
+        public func getAllSubscriptions(): async [(Principal, Subscription)] {
             Iter.toArray(subscriptions.entries());
         };
 
