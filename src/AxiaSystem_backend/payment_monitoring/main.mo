@@ -10,11 +10,11 @@ import EventManager "../heartbeat/event_manager";
 
 actor {
     // Instantiate proxies and dependencies
-    private let walletProxy = WalletCanisterProxy.WalletCanisterProxy(Principal.fromText("bw4dl-smaaa-aaaaa-qaacq-cai"));
-    private let paymentProxy = PaymentCanisterProxy.PaymentCanisterProxy(Principal.fromText("bnz7o-iuaaa-aaaaa-qaaaa-cai"));
-    private let tokenProxy = TokenCanisterProxy.TokenCanisterProxy(Principal.fromText("be2us-64aaa-aaaaa-qaabq-cai"));
+    private let walletProxy = WalletCanisterProxy.WalletCanisterProxy(Principal.fromText("ahw5u-keaaa-aaaaa-qaaha-cai"));
+    private let paymentProxy = PaymentCanisterProxy.PaymentCanisterProxy(Principal.fromText("by6od-j4aaa-aaaaa-qaadq-cai"));
+    private let tokenProxy = TokenCanisterProxy.TokenCanisterProxy(Principal.fromText("ajuq4-ruaaa-aaaaa-qaaga-cai"));
     private let eventManager = EventManager.EventManager();
-    private let subscriptionManagerPrincipal = (Principal.fromText("bd3sg-teaaa-aaaaa-qaaba-cai"));
+    private let subscriptionManagerPrincipal = (Principal.fromText("a4tbr-q4aaa-aaaaa-qaafq-cai"));
 
     // Initialize the Payment Monitoring Manager
     private let paymentMonitoringManager = PaymentMonitoringService.createPaymentMonitoringService(

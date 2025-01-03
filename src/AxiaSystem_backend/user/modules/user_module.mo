@@ -66,7 +66,7 @@ module {
     let uuidText = UUID.toText(uuid);
 
     // Call the wallet canister to create a wallet
-let walletCanister = actor(Principal.toText(Principal.fromText("bkyz2-fmaaa-aaaaa-qaaaq-cai"))) : actor {
+let walletCanister = actor(Principal.toText(Principal.fromText("ahw5u-keaaa-aaaaa-qaaha-cai"))) : actor {
     createWallet: (Principal) -> async Result.Result<Text, Text>
 };
     

@@ -69,10 +69,8 @@
       ]
     },
     "asset": {
-    "type": "custom",
-    "wasm": "src/asset/.dfx/local/canisters/asset/asset.wasm",
-    "candid": "src/asset/asset.did",
-    "build": "sh build_asset.sh"
+    "type": "motoko",
+    "main": "src/AxiaSystem_backend/asset/main.mo"
 }
   },
   "defaults": {

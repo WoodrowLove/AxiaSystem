@@ -6,7 +6,7 @@ import TokenCanisterProxy "../token/utils/token_canister_proxy";
 
 actor {
   private let userManager = UserModule.UserManager();
-  private let tokenCanisterProxy = TokenCanisterProxy.TokenCanisterProxy(Principal.fromText("be2us-64aaa-aaaaa-qaabq-cai"));
+  private let tokenCanisterProxy = TokenCanisterProxy.TokenCanisterProxy(Principal.fromText("ajuq4-ruaaa-aaaaa-qaaga-cai"));
 
   public func createUser(username: Text, email: Text, password: Text): async Result.Result<UserModule.User, Text> {
     await userManager.createUser(username, email, password);

@@ -22,7 +22,7 @@ import _SharedTypes "../../shared_types";
 
 module {
   public class UserService(_userManager: UserModule.UserManager, userState: UserState.UserState) {
-    private let tokenProxy = TokenCanisterProxy.TokenCanisterProxy(Principal.fromText("be2us-64aaa-aaaaa-qaabq-cai")); // Initialize the token canister proxy
+    private let tokenProxy = TokenCanisterProxy.TokenCanisterProxy(Principal.fromText("ajuq4-ruaaa-aaaaa-qaaga-cai")); // Initialize the token canister proxy
 
     private func natHash(n: Nat): Nat32 {
     let text = Nat.toText(n);

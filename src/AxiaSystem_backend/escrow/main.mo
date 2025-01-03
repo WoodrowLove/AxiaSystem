@@ -10,7 +10,7 @@ import EscrowModule "./modules/escrow_module";
 import EscrowService "./services/escrow_service";
 
 actor {
-    private let walletProxy = WalletCanisterProxy.WalletCanisterProxy(Principal.fromText("YOUR_WALLET_CANISTER_ID"));
+    private let walletProxy = WalletCanisterProxy.WalletCanisterProxy(Principal.fromText("ahw5u-keaaa-aaaaa-qaaha-cai"));
     private let eventManager = EventManager.EventManager();
 
     // Initialize the Escrow Service

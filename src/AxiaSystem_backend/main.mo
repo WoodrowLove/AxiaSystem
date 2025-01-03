@@ -201,7 +201,7 @@ public func runHeartbeat(): async () {
 
 // Initialize the Subscription Proxy
 private let subscriptionProxy = SubscriptionCanisterProxy.SubscriptionProxy(
-    Principal.fromText("YOUR_SUBSCRIPTION_CANISTER_ID")
+    Principal.fromText("a4tbr-q4aaa-aaaaa-qaafq-cai")
 );
 
 // Subscription APIs

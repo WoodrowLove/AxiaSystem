@@ -14,7 +14,7 @@ actor {
     private let _eventManager = EventManager.EventManager();
 
     // Initialize the User Proxy for user-related operations
-private let userProxy = UserCanisterProxy.UserCanisterProxyManager(Principal.fromText("YOUR_USER_CANISTER_ID"));
+private let userProxy = UserCanisterProxy.UserCanisterProxyManager(Principal.fromText("aovwi-4maaa-aaaaa-qaagq-cai"));
 
 // Initialize Subscription Service with the correct dependency
 private let subscriptionService = SubscriptionService.createSubscriptionService(userProxy);
