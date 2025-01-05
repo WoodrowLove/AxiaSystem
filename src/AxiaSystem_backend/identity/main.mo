@@ -5,7 +5,7 @@ import Principal "mo:base/Principal";
 import Trie "mo:base/Trie";
 import Result "mo:base/Result";
 import Text "mo:base/Text";
-import Array "mo:base/Array";
+import _Array "mo:base/Array";
 
 actor IdentityCanister {
     private let eventManager = EventManager.EventManager();
@@ -60,12 +60,8 @@ actor IdentityCanister {
 
     // Public API: Batch update metadata for multiple identities
     public func batchUpdateMetadata(updates: [(Principal, Text, Text)]): async Result.Result<(), Text> {
-        let trieUpdates = Array.map<(Principal, Text, Text), (Principal, Trie.Trie<Text, Text>)>(updates, func((userId, key, value)) {
-            let trie = createTrie([(key, value)]);
-            (userId, trie)
-        });
-        await identityManager.batchUpdateMetadata(trieUpdates);
-    };
+    await identityManager.batchUpdateMetadata(updates);
+};
 
     // Public API: Search identities by metadata
     public func searchIdentitiesByMetadata(key: Text, value: Text): async [IdentityModule.Identity] {

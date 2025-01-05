@@ -678,7 +678,7 @@ public func exportAllIdentities(): async Result.Result<Text, Text> {
 
 public func subscribeToIdentityEvents(eventType: EventTypes.EventType, listener: shared EventTypes.Event -> async ()): async Text {
     await eventManager.subscribe(eventType, listener);
-    "Subscribed to events of type: " # Text.fromIter(eventType);
+    "Subscribed to events of type: " # debug_show(eventType);
 };
 
 public func listSubscribedEventTypes(): async [EventTypes.EventType] {

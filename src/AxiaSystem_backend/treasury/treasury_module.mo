@@ -294,5 +294,51 @@ transactions := Array.append(transactions, [transaction]);
         public func getTransactionHistory(): async [TreasuryTransaction] {
             transactions
         };
+
+        public func getTreasuryAuditReport(): async { totalDeposits: Nat; totalWithdrawals: Nat; totalDistributions: Nat } {
+    let deposits = Array.foldLeft<TreasuryTransaction, Nat>(
+        transactions,
+        0,
+        func (sum, tx) { if (tx.transactionType == "Deposit") sum + tx.amount else sum }
+    );
+    let withdrawals = Array.foldLeft<TreasuryTransaction, Nat>(
+        transactions,
+        0,
+        func (sum, tx) { if (tx.transactionType == "Withdrawal") sum + tx.amount else sum }
+    );
+    let distributions = Array.foldLeft<TreasuryTransaction, Nat>(
+        transactions,
+        0,
+        func (sum, tx) { if (tx.transactionType == "Reward Distribution") sum + tx.amount else sum }
+    );
+    { totalDeposits = deposits; totalWithdrawals = withdrawals; totalDistributions = distributions }
+};
+
+
+public func filterTransactions(transactionType: Text, tokenId: ?Nat): async [TreasuryTransaction] {
+    Array.filter<TreasuryTransaction>(
+        transactions,
+        func (tx) { tx.transactionType == transactionType and (tokenId == null or tx.tokenId == tokenId) }
+    )
+};
+
+private var isLocked: Bool = false;
+
+public func lockTreasury(): async Result.Result<(), Text> {
+    if (isLocked) return #err("Treasury is already locked.");
+    isLocked := true;
+    #ok(())
+};
+
+public func unlockTreasury(): async Result.Result<(), Text> {
+    if (not isLocked) return #err("Treasury is not locked.");
+    isLocked := false;
+    #ok(())
+};
+
+public func isTreasuryLocked(): async Bool {
+    isLocked
+};
+
     };
 };

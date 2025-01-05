@@ -75,6 +75,14 @@
     "identity": {
       "type": "motoko",
       "main": "src/AxiaSystem_backend/identity/main.mo"
+    },
+    "admin": {
+    "type": "motoko",
+    "main": "src/AxiaSystem_backend/admin/main.mo"  
+    },
+    "treasury": {
+      "type": "motoko",
+      "main": "src/AxiaSystem_backend/treasury/main.mo"
     }
   },
   "defaults": {

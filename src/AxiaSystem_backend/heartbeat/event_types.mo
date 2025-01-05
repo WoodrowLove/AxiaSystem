@@ -57,6 +57,12 @@ module {
         #ProposalRejected;
         #ProposalExpired;
         #GovernanceBalanceUpdated;
+        #AdminActionLogged;   
+        #EscrowTimeoutProcessed;          
+        #SplitPaymentRetryCompleted;  
+        #PayoutRetryCompleted;            
+        #SystemMaintenanceCompleted;     
+
 
     };
 
@@ -119,6 +125,11 @@ module {
         #ProposalRejected : { proposalId: Nat; rejectedAt: Nat64; reason: Text; };
         #ProposalExpired : { proposalId: Nat;expiredAt: Nat64; };
         #GovernanceBalanceUpdated : { tokenId: ?Nat; newBalance: Nat; updatedAt: Nat64; };
+        #AdminActionLogged : { adminId: Principal; actionId: Nat; action: Text;  timestamp: Nat64; };
+        #EscrowTimeoutProcessed : { timeoutCount: Nat; timestamp: Nat64; };
+        #SplitPaymentRetryCompleted : { retryCount: Nat; timestamp: Nat64; };
+        #PayoutRetryCompleted : { retryCount: Nat; timestamp: Nat64; };
+        #SystemMaintenanceCompleted : { escrowsProcessed: Nat; splitPaymentsRetried: Nat; payoutsRetried: Nat; timestamp: Nat64; };
     };
 
     public func equal(x: EventType, y: EventType): Bool {
@@ -179,6 +190,11 @@ module {
             case (#ProposalRejected) { 49 };
             case (#ProposalExpired) { 50 };
             case (#GovernanceBalanceUpdated) { 51 };
+            case (#AdminActionLogged) { 52 };   
+            case (#EscrowTimeoutProcessed) { 53 };          
+            case (#SplitPaymentRetryCompleted) { 54 };  
+            case (#PayoutRetryCompleted) { 55 };            
+            case (#SystemMaintenanceCompleted) { 56 }; 
 
         }
     };

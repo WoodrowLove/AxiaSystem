@@ -9,6 +9,7 @@ import Int "mo:base/Int";
 import EventManager "../../heartbeat/event_manager";
 import EventTypes "../../heartbeat/event_types";
 import WalletCanisterProxy "../../wallet/utils/wallet_canister_proxy";
+import LoggingUtils "../../utils/logging_utils";
 
 module {
     public type EscrowState = {
@@ -30,6 +31,7 @@ module {
         eventManager: EventManager.EventManager
     ) {
         private var escrows: [EscrowState] = [];
+        private let logStore = LoggingUtils.init();
 
         // Emit an escrow-related event
         private func emitEscrowEvent(
@@ -193,5 +195,65 @@ await emitEscrowEvent(
         public func listEscrows(): async [EscrowState] {
             escrows
         };
+
+        public func processEscrowTimeouts(timeoutThreshold: Nat): async Result.Result<Nat, Text> {
+    LoggingUtils.logInfo(
+        logStore,
+        "EscrowModule",
+        "Processing timed-out escrows with threshold: " # Nat.toText(timeoutThreshold),
+        null
+    );
+
+    let now = Nat64.fromIntWrap(Time.now());
+    var timedOutCount: Nat = 0;
+
+    // Filter escrows to find timed-out ones
+    escrows := Array.map<EscrowState, EscrowState>(
+        escrows,
+        func (escrow: EscrowState): EscrowState {
+            if (
+                not escrow.isReleased and
+                not escrow.isCanceled and
+                now > Nat64.fromIntWrap(escrow.createdAt) and
+                (now - Nat64.fromIntWrap(escrow.createdAt) > Nat64.fromNat(timeoutThreshold))
+            ) {
+                timedOutCount += 1;
+
+                // Log timeout for each escrow
+                LoggingUtils.logInfo(
+                    logStore,
+                    "EscrowModule",
+                    "Escrow timed out. ID: " # Nat.toText(escrow.id),
+                    ?escrow.sender
+                );
+
+                // Mark the escrow as timed-out (canceled)
+                { escrow with isCanceled = true }
+            } else {
+                escrow
+            }
+        }
+    );
+
+    // Emit an event for processed timeouts
+    if (timedOutCount > 0) {
+        await emitEscrowEvent(
+            #EscrowTimeoutProcessed,
+            #EscrowTimeoutProcessed {
+                timeoutCount = timedOutCount;
+                timestamp = now;
+            }
+        );
+    };
+
+    LoggingUtils.logInfo(
+        logStore,
+        "EscrowModule",
+        "Timeout processing completed. Total timed-out escrows: " # Nat.toText(timedOutCount),
+        null
+    );
+
+    #ok(timedOutCount)
+};
     };
 };
