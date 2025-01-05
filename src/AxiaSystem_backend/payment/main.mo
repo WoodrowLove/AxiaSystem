@@ -185,8 +185,8 @@ private let eventManager = EventManager.EventManager();
 
 // Function to initialize event listeners
 public func initializeEventListeners() : async () {
-    // Define the event listener function locally
-    let onPaymentProcessed = func(event: EventTypes.Event) : async () {
+    // Define the event listener function locally as a shared function
+    let onPaymentProcessed = shared func(event: EventTypes.Event) : async () {
         switch (event.payload) {
             case (#PaymentProcessed { userId; amount; walletId }) {
                 Debug.print("Payment processed for user: " # Principal.toText(userId) # ", Amount: " # Nat.toText(amount) #
@@ -199,8 +199,7 @@ public func initializeEventListeners() : async () {
     // Subscribe to the event
     await eventManager.subscribe(#PaymentProcessed, onPaymentProcessed);
     // You can add more event subscriptions here if needed
-
-    };
+};
 
    /* public func runTests() : async () {
         await InitiatePaymentTest.run();

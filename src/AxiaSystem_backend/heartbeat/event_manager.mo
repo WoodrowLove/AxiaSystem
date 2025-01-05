@@ -11,30 +11,28 @@ import Nat "mo:base/Nat";
 module {
     public class EventManager() {
         // HashMap to store event listeners
-        private let listeners = HashMap.HashMap<EventTypes.EventType, [EventTypes.Event -> async ()]>(10, EventTypes.equal, EventTypes.hash);
+        private let listeners = HashMap.HashMap<EventTypes.EventType, [shared EventTypes.Event -> async ()]>(10, EventTypes.equal, EventTypes.hash);
 
         // Queue for event emission (optional for decoupled execution)
         private var eventQueue: [EventTypes.Event] = [];
 
-        // Subscribe to a specific event type
-        public func subscribe(eventType: EventTypes.EventType, listener: EventTypes.Event -> async ()) : async () {
-            let currentListeners = switch (listeners.get(eventType)) {
-                case null { [] };
-                case (?arr) { arr };
-            };
-            listeners.put(eventType, Array.append(currentListeners, [listener]));
-        };
+       public func subscribe(eventType: EventTypes.EventType, listener: shared EventTypes.Event -> async ()) : async () {
+    let currentListeners = switch (listeners.get(eventType)) {
+        case null { [] };
+        case (?arr) { arr };
+    };
+    listeners.put(eventType, Array.append(currentListeners, [listener]));
+};
 
-        // Emit an event immediately to all registered listeners
         public func emit(eventType: EventTypes.Event) : async () {
-            let registeredListeners = switch (listeners.get(eventType.eventType)) {
-                case null { [] };
-                case (?arr) { arr };
-            };
-            for (listener in registeredListeners.vals()) {
-                await listener(eventType);
-            };
-        };
+    let registeredListeners = switch (listeners.get(eventType.eventType)) {
+        case null { [] };
+        case (?arr) { arr };
+    };
+    for (listener in registeredListeners.vals()) {
+        await listener(eventType);
+    };
+};
 
         // Enqueue an event for later processing
         public func enqueueEvent(event: EventTypes.Event) : async () {
@@ -190,6 +188,94 @@ public func emitPaymentEvent(
         payload = payload;
     };
     await emit(event);
-}
+};
+
+// Emit event when funds are deposited
+    public func emitFundsDeposited(userId: Principal, amount: Nat, tokenId: ?Nat): async () {
+        let event: EventTypes.Event = {
+            id = Nat64.fromIntWrap(Time.now());
+            eventType = #FundsDeposited;
+            payload = #FundsDeposited({
+                userId = Principal.toText(userId);
+                amount = amount;
+                tokenId = tokenId;
+                timestamp = Nat64.fromIntWrap(Time.now());
+            });
+        };
+        await emit(event);
+    };
+
+    // Emit event when funds are withdrawn
+    public func emitFundsWithdrawn(userId: Principal, amount: Nat, tokenId: ?Nat): async () {
+        let event: EventTypes.Event = {
+            id = Nat64.fromIntWrap(Time.now());
+            eventType = #FundsWithdrawn;
+            payload = #FundsWithdrawn({
+                userId = Principal.toText(userId);
+                amount = amount;
+                tokenId = tokenId;
+                timestamp = Nat64.fromIntWrap(Time.now());
+            });
+        };
+        await emit(event);
+    };
+
+    // Emit event when rewards are distributed
+    public func emitRewardsDistributed(
+    recipients: [(Principal, Nat)],
+    tokenId: ?Nat,
+    totalAmount: Nat
+): async () {
+    let event: EventTypes.Event = {
+        id = Nat64.fromIntWrap(Time.now());
+        eventType = #RewardsDistributed;
+        payload = #RewardsDistributed({
+            recipients = Array.map<(Principal, Nat), (Text, Nat)>(
+                recipients, 
+                func ((recipient: Principal, amount: Nat)): (Text, Nat) {
+                    (Principal.toText(recipient), amount)
+                }
+            );
+            tokenId = tokenId;
+            totalAmount = totalAmount;
+            timestamp = Nat64.fromIntWrap(Time.now());
+        });
+    };
+    await emit(event);
+};
+
+    // Emit event when treasury balance is checked
+    public func emitTreasuryBalanceChecked(tokenId: ?Nat, balance: Nat): async () {
+        let event: EventTypes.Event = {
+            id = Nat64.fromIntWrap(Time.now());
+            eventType = #TreasuryBalanceChecked;
+            payload = #TreasuryBalanceChecked({
+                tokenId = tokenId;
+                balance = balance;
+                timestamp = Nat64.fromIntWrap(Time.now());
+            });
+        };
+        await emit(event);
+    };
+
+    // Emit event when a treasury transaction is logged
+    public func emitTreasuryTransactionLogged(
+        transactionId: Nat,
+        description: Text,
+        transactionType: Text
+    ): async () {
+        let event: EventTypes.Event = {
+            id = Nat64.fromIntWrap(Time.now());
+            eventType = #TreasuryTransactionLogged;
+            payload = #TreasuryTransactionLogged({
+                transactionId = transactionId;
+                description = description;
+                transactionType = transactionType;
+                timestamp = Nat64.fromIntWrap(Time.now());
+            });
+        };
+        await emit(event);
     };
 };
+
+    };

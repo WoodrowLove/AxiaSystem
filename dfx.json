@@ -71,7 +71,11 @@
     "asset": {
     "type": "motoko",
     "main": "src/AxiaSystem_backend/asset/main.mo"
-}
+    },
+    "identity": {
+      "type": "motoko",
+      "main": "src/AxiaSystem_backend/identity/main.mo"
+    }
   },
   "defaults": {
     "build": {

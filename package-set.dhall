@@ -18,9 +18,23 @@ let additions =
      , repo = "https://github.com/aviate-labs/encoding.mo"
      , version = "v0.3.1"
      , dependencies = [ "base" ]
+     },
+     { name = "json"
+     , repo = "https://github.com/aviate-labs/json.mo"
+     , version = "v0.2.0"
+     , dependencies = [ "base" ]
+     },
+     { name = "parser-combinators"
+     , repo = "https://github.com/aviate-labs/parser-combinators.mo"
+     , version = "v0.1.3"  -- Updated to a more recent version
+     , dependencies = ["base"] : List Text
      }] : List Package
 
 let overrides =
-    [] : List Package
+    [{ name = "parser-combinators"
+     , repo = "https://github.com/aviate-labs/parser-combinators.mo"
+     , version = "v0.1.3"
+     , dependencies = ["base"]
+     }] : List Package
 
 in  upstream # additions # overrides

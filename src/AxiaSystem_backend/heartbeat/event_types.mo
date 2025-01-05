@@ -1,6 +1,7 @@
 import Hash "mo:base/Hash";
 import Nat "mo:base/Nat";
 import Nat64 "mo:base/Nat64";
+import Trie "mo:base/Trie";
 
 module {
     public type EventType = {
@@ -41,6 +42,21 @@ module {
         #AssetTransferred;
         #AssetDeactivated;
         #AssetReactivated;
+         #IdentityCreated;
+        #IdentityUpdated;
+        #IdentityStaleRemoved;
+        #IdentityDeleted;
+        #FundsDeposited;
+        #FundsWithdrawn;
+        #RewardsDistributed;
+        #TreasuryBalanceChecked;
+        #TreasuryTransactionLogged;
+        #ProposalCreated;
+        #ProposalVoted;
+        #ProposalExecuted;
+        #ProposalRejected;
+        #ProposalExpired;
+        #GovernanceBalanceUpdated;
 
     };
 
@@ -88,6 +104,21 @@ module {
         #AssetTransferred : { assetId: Nat; previousOwner: Principal; newOwner: Principal; transferTime: Int };
         #AssetDeactivated : { assetId: Nat; owner: Principal; deactivatedAt: Int };
         #AssetReactivated : { assetId: Nat; owner: Principal; reactivatedAt: Int };
+        #IdentityCreated : { id: Principal; metadata: Trie.Trie<Text, Text>; createdAt: Int; };
+        #IdentityUpdated : { id: Principal; metadata: Trie.Trie<Text, Text>; updatedAt: Int; };
+        #IdentityStaleRemoved : { id: Principal; removedAt: Int; };
+        #IdentityDeleted : { id: Principal; deletedAt: Int; };
+        #FundsDeposited : { userId: Text; amount: Nat; tokenId: ?Nat; timestamp: Nat64 };
+        #FundsWithdrawn : { userId: Text; amount: Nat; tokenId: ?Nat; timestamp: Nat64 };
+        #RewardsDistributed : { recipients: [(Text, Nat)]; tokenId: ?Nat; totalAmount: Nat; timestamp: Nat64 };
+        #TreasuryBalanceChecked : { tokenId: ?Nat; balance: Nat; timestamp: Nat64 };
+        #TreasuryTransactionLogged : { transactionId: Nat; description: Text; transactionType: Text; timestamp: Nat64 };
+        #ProposalCreated : { proposalId: Nat; proposer: Text; description: Text; createdAt: Nat64; }; 
+        #ProposalVoted : { proposalId: Nat; voter: Text; vote: Text; /* "Yes" or "No" */ weight: Nat; /* Voting power used */ votedAt: Nat64; };
+        #ProposalExecuted : { proposalId: Nat; executedAt: Nat64; outcome: Text; /* "Success" or "Failure" */ };
+        #ProposalRejected : { proposalId: Nat; rejectedAt: Nat64; reason: Text; };
+        #ProposalExpired : { proposalId: Nat;expiredAt: Nat64; };
+        #GovernanceBalanceUpdated : { tokenId: ?Nat; newBalance: Nat; updatedAt: Nat64; };
     };
 
     public func equal(x: EventType, y: EventType): Bool {
@@ -133,6 +164,21 @@ module {
             case (#AssetTransferred) { 34 };
             case (#AssetDeactivated) { 35 };
             case (#AssetReactivated) { 36 };
+            case (#IdentityCreated) { 37 };
+            case (#IdentityUpdated) { 38 };
+            case (#IdentityStaleRemoved) { 39 };
+            case (#IdentityDeleted) { 40 };
+            case (#FundsDeposited) { 41 };
+            case (#FundsWithdrawn) { 42 };
+            case (#RewardsDistributed) { 43 };
+            case (#TreasuryBalanceChecked) { 44 };
+            case (#TreasuryTransactionLogged) { 45 };
+            case (#ProposalCreated) { 46 }; 
+            case (#ProposalVoted) { 47 };
+            case (#ProposalExecuted) { 48 };
+            case (#ProposalRejected) { 49 };
+            case (#ProposalExpired) { 50 };
+            case (#GovernanceBalanceUpdated) { 51 };
 
         }
     };

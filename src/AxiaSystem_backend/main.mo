@@ -16,6 +16,7 @@ import Debug "mo:base/Debug";
 import Nat "mo:base/Nat";
 import Error "mo:base/Error";
 import Text "mo:base/Text";
+import Trie "mo:base/Trie";
 import _EscrowService "escrow/services/escrow_service";
 import EscrowModule "escrow/modules/escrow_module";
 import SplitPaymentProxy "./split_payment/utils/split_payment_proxy";
@@ -26,6 +27,9 @@ import AssetRegistryProxy "./asset_registry/utils/asset_registry_proxy";
 import AssetRegistryService "./asset_registry/services/asset_registry_service";
 import AssetRegistryModule "./asset_registry/modules/asset_registry_module";
 import AssetProxy "asset/utils/asset_proxy";
+import IdentityModule "./identity/modules/identity_module";
+
+
 
 actor AxiaSystem_backend {
     // Initialize proxies for all canisters
@@ -41,16 +45,18 @@ actor AxiaSystem_backend {
     // Initialize event manager for the heartbeat
     private let eventManager = EventManager.EventManager();
     // Initialize Payout Proxy
-private let _payoutProxy = PayoutProxy.PayoutProxy(Principal.fromText("asrmz-lmaaa-aaaaa-qaaeq-cai"));
-// Initialize Payout Manager and Service
-private let _payoutManager = PayoutModule.PayoutManager(walletProxy, eventManager);
-private let payoutService = PayoutService.createPayoutService(walletProxy, eventManager);
-// Initialize Asset Registry Proxy
-private let _assetRegistryProxy = AssetRegistryProxy.AssetRegistryProxy(Principal.fromText("br5f7-7uaaa-aaaaa-qaaca-cai"));
-// Initialize Asset Registry Service
-private let assetRegistryService = AssetRegistryService.createAssetRegistryService(eventManager);
-// Asset Canister Proxy
-private let assetProxy = AssetProxy.AssetProxy(Principal.fromText("be2us-64aaa-aaaaa-qaabq-cai"));
+    private let _payoutProxy = PayoutProxy.PayoutProxy(Principal.fromText("asrmz-lmaaa-aaaaa-qaaeq-cai"));
+    // Initialize Payout Manager and Service
+    private let _payoutManager = PayoutModule.PayoutManager(walletProxy, eventManager);
+    private let payoutService = PayoutService.createPayoutService(walletProxy, eventManager);
+    // Initialize Asset Registry Proxy
+    private let _assetRegistryProxy = AssetRegistryProxy.AssetRegistryProxy(Principal.fromText("br5f7-7uaaa-aaaaa-qaaca-cai"));
+    // Initialize Asset Registry Service
+    private let assetRegistryService = AssetRegistryService.createAssetRegistryService(eventManager);
+    // Asset Canister Proxy
+    private let assetProxy = AssetProxy.AssetProxy(Principal.fromText("be2us-64aaa-aaaaa-qaabq-cai"));
+     // Initialize Identity Manager
+    private let identityManager : IdentityModule.IdentityManager = IdentityModule.IdentityManager(eventManager);
 
     // Exposed APIs to connect with frontend or other services
 
@@ -102,22 +108,20 @@ private let assetProxy = AssetProxy.AssetProxy(Principal.fromText("be2us-64aaa-a
         await tokenProxy.mintTokens(userId, amount)
     };
 
-    // Handle token-related events
     public func initializeEventListeners() : async () {
-        // Example: Handle TokenCreated event
-        let onTokenCreated = func(event: EventTypes.Event) : async () {
-            switch (event.payload) {
-                case (#TokenCreated { tokenId; name; owner }) {
-                    Debug.print("Token created: " # name # ", ID: " # Nat.toText(tokenId) # ", Owner: " # Principal.toText(owner));
-                };
-                case (_) {}; // Ignore other events
+    // Example: Handle TokenCreated event
+    let onTokenCreated = shared func(event: EventTypes.Event) : async () {
+        switch (event.payload) {
+            case (#TokenCreated { tokenId; name; owner }) {
+                Debug.print("Token created: " # name # ", ID: " # Nat.toText(tokenId) # ", Owner: " # Principal.toText(owner));
             };
+            case (_) {}; // Ignore other events
         };
-        await eventManager.subscribe(#TokenCreated, onTokenCreated);
-
-        // Add other event subscriptions as needed (e.g., #TokenMinted, #TokenBurned)
     };
+    await eventManager.subscribe(#TokenCreated, onTokenCreated);
 
+    // Add other event subscriptions as needed (e.g., #TokenMinted, #TokenBurned)
+};
     // System health check
     public func healthCheck(): async Text {
         try {
@@ -602,6 +606,88 @@ public shared func batchTransferAssets(assetIds: [Nat], newOwner: Principal): as
     }
 };
 
+// Public API for identity canister
+public func createIdentity(userId: Principal, details: Trie.Trie<Text, Text>): async Result.Result<Text, Text> {
+    let result = await identityManager.createIdentity(userId, details);
+    switch (result) {
+        case (#ok(identity)) {
+            #ok("Identity created successfully for user: " # Principal.toText(identity.id))
+        };
+        case (#err(error)) {
+            #err(error)
+        };
+    }
 };
 
+public func updateIdentity(userId: Principal, details: Trie.Trie<Text, Text>): async Result.Result<Text, Text> {
+    let result = await identityManager.updateIdentity(userId, details);
+    switch (result) {
+        case (#ok(identity)) {
+            #ok("Identity updated successfully for user: " # Principal.toText(identity.id))
+        };
+        case (#err(error)) {
+            #err(error)
+        };
+    }
+};
 
+public func deleteIdentity(userId: Principal): async Result.Result<Text, Text> {
+    let result = await identityManager.deleteIdentity(userId);
+    switch (result) {
+        case (#ok(())) {
+            #ok("Identity deleted successfully for user: " # Principal.toText(userId))
+        };
+        case (#err(error)) {
+            #err(error)
+        };
+    }
+};
+
+public func getIdentity(userId: Principal): async ?IdentityModule.Identity {
+    await identityManager.getIdentity(userId);
+};
+
+public func getAllIdentities(): async [IdentityModule.Identity] {
+    identityManager.getAllIdentities();
+};
+
+public func getStaleIdentities(): async [IdentityModule.Identity] {
+    await identityManager.getStaleIdentities();
+};
+
+public func searchIdentitiesByMetadata(key: Text, value: Text): async [IdentityModule.Identity] {
+    await identityManager.searchIdentitiesByMetadata(key, value);
+};
+
+public func batchUpdateMetadata(updates: [(Principal, Text, Text)]): async Result.Result<Text, Text> {
+    let result = await identityManager.batchUpdateMetadata(updates);
+    switch (result) {
+        case (#ok(())) {
+            #ok("Batch metadata update completed successfully.")
+        };
+        case (#err(error)) {
+            #err(error)
+        };
+    }
+};
+
+public func exportAllIdentities(): async Result.Result<Text, Text> {
+    let result = await identityManager.exportAllIdentities();
+    #ok("All identities exported successfully: " # result)
+};
+
+public func subscribeToIdentityEvents(eventType: EventTypes.EventType, listener: shared EventTypes.Event -> async ()): async Text {
+    await eventManager.subscribe(eventType, listener);
+    "Subscribed to events of type: " # Text.fromIter(eventType);
+};
+
+public func listSubscribedEventTypes(): async [EventTypes.EventType] {
+    await eventManager.listSubscribedEventTypes();
+};
+
+// Public API: Trigger the heartbeat for stale identity cleanup
+public func runIdentityHeartbeat(): async Text {
+    await identityManager.runHeartbeat();
+    "Heartbeat executed successfully for stale identity cleanup.";
+};
+};
