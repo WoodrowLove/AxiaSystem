@@ -83,6 +83,10 @@
     "treasury": {
       "type": "motoko",
       "main": "src/AxiaSystem_backend/treasury/main.mo"
+    },
+    "governance": {
+      "type": "motoko",
+      "main": "src/AxiaSystem_backend/governance/main.mo"
     }
   },
   "defaults": {

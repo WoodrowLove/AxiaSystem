@@ -10,10 +10,10 @@ import Option "mo:base/Option";
 import _Hash "mo:base/Hash";
 import Int "mo:base/Int";
 import Nat32 "mo:base/Nat32";
-import EventManager "../heartbeat/event_manager";
-import EventTypes "../heartbeat/event_types";
-import WalletCanisterProxy "../wallet/utils/wallet_canister_proxy";
-import TokenCanisterProxy "../token/utils/token_canister_proxy";
+import EventManager "../../heartbeat/event_manager";
+import EventTypes "../../heartbeat/event_types";
+import WalletCanisterProxy "../../wallet/utils/wallet_canister_proxy";
+import TokenCanisterProxy "../../token/utils/token_canister_proxy";
 
 module {
     public type TreasuryTransaction = {
@@ -279,7 +279,7 @@ transactions := Array.append(transactions, [transaction]);
 };
 };
 
-        public func getTreasuryBalance(tokenId: ?Nat): async Nat {
+       public func getTreasuryBalance(tokenId: ?Nat): Nat {
     let key = switch (tokenId) {
         case (null) { { hash = 0 : Nat32; key = 0 } };
         case (?id) { { hash = Nat32.fromNat(id); key = id } };
@@ -291,11 +291,11 @@ transactions := Array.append(transactions, [transaction]);
 };
 
         // Get transaction history
-        public func getTransactionHistory(): async [TreasuryTransaction] {
+        public func getTransactionHistory(): [TreasuryTransaction] {
             transactions
         };
 
-        public func getTreasuryAuditReport(): async { totalDeposits: Nat; totalWithdrawals: Nat; totalDistributions: Nat } {
+        public func getTreasuryAuditReport(): { totalDeposits: Nat; totalWithdrawals: Nat; totalDistributions: Nat } {
     let deposits = Array.foldLeft<TreasuryTransaction, Nat>(
         transactions,
         0,
@@ -315,7 +315,7 @@ transactions := Array.append(transactions, [transaction]);
 };
 
 
-public func filterTransactions(transactionType: Text, tokenId: ?Nat): async [TreasuryTransaction] {
+public func filterTransactions(transactionType: Text, tokenId: ?Nat): [TreasuryTransaction] {
     Array.filter<TreasuryTransaction>(
         transactions,
         func (tx) { tx.transactionType == transactionType and (tokenId == null or tx.tokenId == tokenId) }
@@ -336,7 +336,7 @@ public func unlockTreasury(): async Result.Result<(), Text> {
     #ok(())
 };
 
-public func isTreasuryLocked(): async Bool {
+public func isTreasuryLocked(): Bool {
     isLocked
 };
 

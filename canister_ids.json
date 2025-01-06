@@ -37,5 +37,17 @@
   },
   "wallet": {
     "local": "aovwi-4maaa-aaaaa-qaagq-cai"
+  },
+  "treasury": {
+    "local": "c5kvi-uuaaa-aaaaa-qaaia-cai"
+  },
+  "governance": {
+    "local": "c2lt4-zmaaa-aaaaa-qaaiq-cai"
+  },
+  "admin": {
+    "local": "ctiya-peaaa-aaaaa-qaaja-cai"
+  },
+  "identity": {
+    "local": "cuj6u-c4aaa-aaaaa-qaajq-cai"
   }
 }

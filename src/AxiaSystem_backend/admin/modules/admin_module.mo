@@ -30,6 +30,7 @@ module {
         payoutManager: PayoutManager.PayoutManager,
         splitPaymentManager: SplitPaymentManager.PaymentSplitManager,
         _paymentManager: PaymentManager.PaymentManager
+        
     ) {
         private var adminActions: [AdminAction] = [];
         private let logStore = LoggingUtils.init();

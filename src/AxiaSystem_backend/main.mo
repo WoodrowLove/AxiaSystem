@@ -28,6 +28,9 @@ import AssetRegistryService "./asset_registry/services/asset_registry_service";
 import AssetRegistryModule "./asset_registry/modules/asset_registry_module";
 import AssetProxy "asset/utils/asset_proxy";
 import IdentityModule "./identity/modules/identity_module";
+import GovernanceModule "./governance/modules/governance_module";
+import GovernanceProxy "./governance/utils/governance_proxy";
+import GovernanceService "./governance/services/governance_service";
 
 
 
@@ -57,6 +60,12 @@ actor AxiaSystem_backend {
     private let assetProxy = AssetProxy.AssetProxy(Principal.fromText("be2us-64aaa-aaaaa-qaabq-cai"));
      // Initialize Identity Manager
     private let identityManager : IdentityModule.IdentityManager = IdentityModule.IdentityManager(eventManager);
+    // Initialize Governance Proxy
+    private let _governanceProxy = GovernanceProxy.GovernanceProxy(Principal.fromText("c2lt4-zmaaa-aaaaa-qaaiq-cai"));
+
+    // Initialize Governance Manager and Service
+    private let governanceManager = GovernanceModule.GovernanceModule(eventManager);
+    private let governanceService = GovernanceService.GovernanceService(governanceManager, eventManager);
 
     // Exposed APIs to connect with frontend or other services
 
@@ -689,5 +698,80 @@ public func listSubscribedEventTypes(): async [EventTypes.EventType] {
 public func runIdentityHeartbeat(): async Text {
     await identityManager.runHeartbeat();
     "Heartbeat executed successfully for stale identity cleanup.";
+};
+
+// Governance APIs
+
+// Create a new proposal
+public func createProposal(proposer: Principal, description: Text): async Result.Result<GovernanceModule.Proposal, Text> {
+    let result = await governanceService.propose(proposer, description);
+    switch (result) {
+        case (#ok(proposal)) {
+            #ok(proposal);
+        };
+        case (#err(error)) {
+            #err("Failed to create proposal: " # error);
+        };
+    }
+};
+
+// Vote on a proposal
+public func voteOnProposal(voter: Principal, proposalId: Nat, isYes: Bool, weight: Nat): async Result.Result<(), Text> {
+    let result = await governanceService.vote(voter, proposalId, isYes, weight);
+    switch (result) {
+        case (#ok(())) {
+            #ok(());
+        };
+        case (#err(error)) {
+            #err("Failed to vote on proposal: " # error);
+        };
+    }
+};
+
+// Execute a proposal
+public func executeProposal(proposalId: Nat): async Result.Result<Text, Text> {
+    let result = await governanceService.executeProposal(proposalId);
+    switch (result) {
+        case (#ok(outcome)) {
+            #ok(outcome);
+        };
+        case (#err(error)) {
+            #err("Failed to execute proposal: " # error);
+        };
+    }
+};
+
+// Reject a proposal
+public func rejectProposal(proposalId: Nat, reason: Text): async Result.Result<(), Text> {
+    let result = await governanceService.rejectProposal(proposalId, reason);
+    switch (result) {
+        case (#ok(())) {
+            #ok(());
+        };
+        case (#err(error)) {
+            #err("Failed to reject proposal: " # error);
+        };
+    }
+};
+
+// Check if a proposal has expired
+public func checkProposalExpiry(proposalId: Nat): async Result.Result<(), Text> {
+    let result = await governanceService.checkProposalExpiry(proposalId);
+    switch (result) {
+        case (#ok(())) {
+            #ok(());
+        };
+        case (#err(error)) {
+            #err("Failed to check proposal expiry: " # error);
+        };
+    }
+};
+
+public query func getProposal(proposalId: Nat): async Result.Result<GovernanceModule.Proposal, Text> {
+    governanceService.getProposalSync(proposalId)
+};
+
+public query func getAllProposals(): async [GovernanceModule.Proposal] {
+    governanceService.getAllProposalsSync()
 };
 };

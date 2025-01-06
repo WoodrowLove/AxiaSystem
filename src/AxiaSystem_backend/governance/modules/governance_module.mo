@@ -32,6 +32,8 @@ module {
         checkProposalExpiry: (Nat) -> async Result.Result<(), Text>;
         getProposal: (Nat) -> async Result.Result<Proposal, Text>;
         getAllProposals: () -> async [Proposal];
+         getProposalSync: (Nat) -> Result.Result<Proposal, Text>;
+        getAllProposalsSync: () -> [Proposal];
     };
 
     public class GovernanceModule(eventManager: EventManager.EventManager) : GovernanceManager {
@@ -230,18 +232,25 @@ module {
     };
 };
 
-        // Retrieve a specific proposal
-        public func getProposal(proposalId: Nat) : async Result.Result<Proposal, Text> {
-            let proposalOpt = Array.find(proposals, func(p: Proposal): Bool { p.id == proposalId });
-            switch (proposalOpt) {
-                case null #err("Proposal not found.");
-                case (?proposal) #ok(proposal);
-            };
-        };
+        public func getProposalSync(proposalId: Nat) : Result.Result<Proposal, Text> {
+        let proposalOpt = Array.find(proposals, func(p: Proposal): Bool { p.id == proposalId });
+        switch (proposalOpt) {
+            case null #err("Proposal not found.");
+            case (?proposal) #ok(proposal);
+        }
+    };
 
-        // Retrieve all proposals
-        public func getAllProposals() : async [Proposal] {
-            proposals
-        };
+    public func getAllProposalsSync() : [Proposal] {
+        proposals
+    };
+
+    // Keep the async versions for inter-canister calls
+    public func getProposal(proposalId: Nat) : async Result.Result<Proposal, Text> {
+        getProposalSync(proposalId)
+    };
+
+    public func getAllProposals() : async [Proposal] {
+        getAllProposalsSync()
+    };
     };
 };
