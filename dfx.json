@@ -29,7 +29,8 @@
     },
     "payment": {
       "main": "src/AxiaSystem_backend/payment/main.mo",
-      "type": "motoko"
+      "type": "motoko",
+      "dependencies": ["wallet", "user"]
     },
     "payment_monitoring": {
       "main": "src/AxiaSystem_backend/payment_monitoring/main.mo",
@@ -41,7 +42,6 @@
       "type": "motoko",
       "dependencies": ["payment", "wallet"]
     },
-    
     "payout": {
       "main": "src/AxiaSystem_backend/payout/main.mo",
       "type": "motoko",
@@ -65,28 +65,31 @@
       "type": "motoko",
       "main": "src/AxiaSystem_backend/split_payment/main.mo",
       "dependencies": [
-        "wallet"
+        "wallet", "payment"
       ]
     },
     "asset": {
-    "type": "motoko",
-    "main": "src/AxiaSystem_backend/asset/main.mo"
+      "type": "motoko",
+      "main": "src/AxiaSystem_backend/asset/main.mo"
     },
     "identity": {
       "type": "motoko",
       "main": "src/AxiaSystem_backend/identity/main.mo"
     },
     "admin": {
-    "type": "motoko",
-    "main": "src/AxiaSystem_backend/admin/main.mo"  
+      "type": "motoko",
+      "main": "src/AxiaSystem_backend/admin/main.mo",
+      "dependencies": ["identity", "user"]
     },
     "treasury": {
       "type": "motoko",
-      "main": "src/AxiaSystem_backend/treasury/main.mo"
+      "main": "src/AxiaSystem_backend/treasury/main.mo",
+      "dependencies": ["wallet", "payment"]
     },
     "governance": {
       "type": "motoko",
-      "main": "src/AxiaSystem_backend/governance/main.mo"
+      "main": "src/AxiaSystem_backend/governance/main.mo",
+      "dependencies": ["identity", "admin"]
     }
   },
   "defaults": {

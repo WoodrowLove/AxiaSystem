@@ -140,70 +140,70 @@ public query func getAllProposals(): async [GovernanceModule.Proposal] {
     governanceManager.getAllProposalsSync()
 };
 
-    // Initialize event listeners
-    public func initializeEventListeners(): async () {
-        let onProposalEvent = shared func(event: EventTypes.Event): async () {
-            switch (event.payload) {
-                case (#ProposalCreated { proposalId; proposer; description; createdAt }) {
-                    LoggingUtils.logInfo(
-                        logStore,
-                        "GovernanceCanister",
-                        "Proposal Created: ID=" # Nat.toText(proposalId) # 
-                        ", Proposer=" # proposer # 
-                        ", Description=" # description # 
-                        ", CreatedAt=" # Nat64.toText(createdAt),
-                        null
-                    );
-                };
-                case (#ProposalVoted { proposalId; voter; vote; weight; votedAt }) {
-                    LoggingUtils.logInfo(
-                        logStore,
-                        "GovernanceCanister",
-                        "Vote Cast: Proposal=" # Nat.toText(proposalId) # 
-                        ", Voter=" # voter # 
-                        ", Vote=" # vote # 
-                        ", Weight=" # Nat.toText(weight) # 
-                        ", VotedAt=" # Nat64.toText(votedAt),
-                        null
-                    );
-                };
-                case (#ProposalExecuted { proposalId; executedAt; outcome }) {
-                    LoggingUtils.logInfo(
-                        logStore,
-                        "GovernanceCanister",
-                        "Proposal Executed: ID=" # Nat.toText(proposalId) # 
-                        ", ExecutedAt=" # Nat64.toText(executedAt) # 
-                        ", Outcome=" # outcome,
-                        null
-                    );
-                };
-                case (#ProposalRejected { proposalId; rejectedAt; reason }) {
-                    LoggingUtils.logInfo(
-                        logStore,
-                        "GovernanceCanister",
-                        "Proposal Rejected: ID=" # Nat.toText(proposalId) # 
-                        ", RejectedAt=" # Nat64.toText(rejectedAt) # 
-                        ", Reason=" # reason,
-                        null
-                    );
-                };
-                case (#ProposalExpired { proposalId; expiredAt }) {
-                    LoggingUtils.logInfo(
-                        logStore,
-                        "GovernanceCanister",
-                        "Proposal Expired: ID=" # Nat.toText(proposalId) # 
-                        ", ExpiredAt=" # Nat64.toText(expiredAt),
-                        null
-                    );
-                };
-                case (_) {};
-            };
-        };
-
-        await eventManager.subscribe(#ProposalCreated, onProposalEvent);
-        await eventManager.subscribe(#ProposalVoted, onProposalEvent);
-        await eventManager.subscribe(#ProposalExecuted, onProposalEvent);
-        await eventManager.subscribe(#ProposalRejected, onProposalEvent);
-        await eventManager.subscribe(#ProposalExpired, onProposalEvent);
+     public shared func onProposalEvent(event: EventTypes.Event): async () {
+    switch (event.payload) {
+      case (#ProposalCreated { proposalId; proposer; description; createdAt }) {
+        LoggingUtils.logInfo(
+          logStore,
+          "GovernanceCanister",
+          "Proposal Created: ID=" # Nat.toText(proposalId) # 
+          ", Proposer=" # proposer # 
+          ", Description=" # description # 
+          ", CreatedAt=" # Nat64.toText(createdAt),
+          null
+        );
+      };
+      case (#ProposalVoted { proposalId; voter; vote; weight; votedAt }) {
+        LoggingUtils.logInfo(
+          logStore,
+          "GovernanceCanister",
+          "Vote Cast: Proposal=" # Nat.toText(proposalId) # 
+          ", Voter=" # voter # 
+          ", Vote=" # vote # 
+          ", Weight=" # Nat.toText(weight) # 
+          ", VotedAt=" # Nat64.toText(votedAt),
+          null
+        );
+      };
+      case (#ProposalExecuted { proposalId; executedAt; outcome }) {
+        LoggingUtils.logInfo(
+          logStore,
+          "GovernanceCanister",
+          "Proposal Executed: ID=" # Nat.toText(proposalId) # 
+          ", ExecutedAt=" # Nat64.toText(executedAt) # 
+          ", Outcome=" # outcome,
+          null
+        );
+      };
+      case (#ProposalRejected { proposalId; rejectedAt; reason }) {
+        LoggingUtils.logInfo(
+          logStore,
+          "GovernanceCanister",
+          "Proposal Rejected: ID=" # Nat.toText(proposalId) # 
+          ", RejectedAt=" # Nat64.toText(rejectedAt) # 
+          ", Reason=" # reason,
+          null
+        );
+      };
+      case (#ProposalExpired { proposalId; expiredAt }) {
+        LoggingUtils.logInfo(
+          logStore,
+          "GovernanceCanister",
+          "Proposal Expired: ID=" # Nat.toText(proposalId) # 
+          ", ExpiredAt=" # Nat64.toText(expiredAt),
+          null
+        );
+      };
+      case (_) {};
     };
+  };
+
+  public func initializeEventListeners(): async () {
+    // Use the public shared function to subscribe to events
+    await eventManager.subscribe(#ProposalCreated, onProposalEvent);
+    await eventManager.subscribe(#ProposalVoted, onProposalEvent);
+    await eventManager.subscribe(#ProposalExecuted, onProposalEvent);
+    await eventManager.subscribe(#ProposalRejected, onProposalEvent);
+    await eventManager.subscribe(#ProposalExpired, onProposalEvent);
+  };
 };

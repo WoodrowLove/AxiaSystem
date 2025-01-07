@@ -14,8 +14,8 @@ import LoggingUtils "../utils/logging_utils";
 
 actor TreasuryCanister {
     // Dependencies
-    private let walletProxy = WalletCanisterProxy.WalletCanisterProxy(Principal.fromText("<WALLET_CANISTER_ID>"));
-    private let tokenProxy = TokenCanisterProxy.TokenCanisterProxy(Principal.fromText("<TOKEN_CANISTER_ID>"));
+    private let walletProxy = WalletCanisterProxy.WalletCanisterProxy(Principal.fromText("ahw5u-keaaa-aaaaa-qaaha-cai"));
+    private let tokenProxy = TokenCanisterProxy.TokenCanisterProxy(Principal.fromText("ajuq4-ruaaa-aaaaa-qaaga-cai"));
     private let eventManager = EventManager.EventManager();
     private let logStore = LoggingUtils.init();
 
@@ -135,45 +135,44 @@ public query func getTreasuryBalance(tokenId: ?Nat): async Nat {
     };
 
     // Initialize event listeners
-    // Initialize event listeners
-public func initializeEventListeners(): async () {
-    let onTreasuryEvent = shared func(event: EventTypes.Event): async () {
-        switch (event.payload) {
-            case (#FundsDeposited { userId; amount; tokenId; timestamp }) {
-                let tokenInfo = switch (tokenId) {
-                    case (null) "Native Token";
-                    case (?id) "Token ID: " # Nat.toText(id);
-                };
-                LoggingUtils.logInfo(
-                    logStore,
-                    "TreasuryCanister",
-                    "Funds Deposited: User=" # userId # 
-                    ", Amount=" # Nat.toText(amount) # 
-                    ", " # tokenInfo # 
-                    ", Timestamp=" # Nat64.toText(timestamp),
-                    null
-                );
-            };
-            case (#FundsWithdrawn { userId; amount; tokenId; timestamp }) {
-                let tokenInfo = switch (tokenId) {
-                    case (null) "Native Token";
-                    case (?id) "Token ID: " # Nat.toText(id);
-                };
-                LoggingUtils.logInfo(
-                    logStore,
-                    "TreasuryCanister",
-                    "Funds Withdrawn: User=" # userId # 
-                    ", Amount=" # Nat.toText(amount) # 
-                    ", " # tokenInfo # 
-                    ", Timestamp=" # Nat64.toText(timestamp),
-                    null
-                );
-            };
-            case (_) {};
-        }
-    };
+public shared func onTreasuryEvent(event: EventTypes.Event): async () {
+    switch (event.payload) {
+      case (#FundsDeposited { userId; amount; tokenId; timestamp }) {
+        let tokenInfo = switch (tokenId) {
+          case (null) "Native Token";
+          case (?id) "Token ID: " # Nat.toText(id);
+        };
+        LoggingUtils.logInfo(
+          logStore,
+          "TreasuryCanister",
+          "Funds Deposited: User=" # userId # 
+          ", Amount=" # Nat.toText(amount) # 
+          ", " # tokenInfo # 
+          ", Timestamp=" # Nat64.toText(timestamp),
+          null
+        );
+      };
+      case (#FundsWithdrawn { userId; amount; tokenId; timestamp }) {
+        let tokenInfo = switch (tokenId) {
+          case (null) "Native Token";
+          case (?id) "Token ID: " # Nat.toText(id);
+        };
+        LoggingUtils.logInfo(
+          logStore,
+          "TreasuryCanister",
+          "Funds Withdrawn: User=" # userId # 
+          ", Amount=" # Nat.toText(amount) # 
+          ", " # tokenInfo # 
+          ", Timestamp=" # Nat64.toText(timestamp),
+          null
+        );
+      };
+      case (_) {};
+    }
+  };
 
+  public func initializeEventListeners(): async () {
     await eventManager.subscribe(#FundsDeposited, onTreasuryEvent);
     await eventManager.subscribe(#FundsWithdrawn, onTreasuryEvent);
-};
+  };
 };

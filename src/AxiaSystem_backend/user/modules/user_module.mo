@@ -15,7 +15,8 @@ import Iter "mo:base/Iter";
 import Trie "mo:base/Trie";
 import Option "mo:base/Option";
 import ValidationUtils "../../utils/validation_utils";
-import UUID "mo:uuid/UUID";
+import _UUID "mo:uuid/UUID";
+import Sha256 "mo:sha256/SHA256";
 import TokenState "../../token/state/token_state";
 import LoggingUtils "..../../../../utils/logging_utils";
 
@@ -47,8 +48,7 @@ module {
         private var _eventLog: [Text] = [];
     
 
-        // Create a new user
-    public func createUser(username: Text, email: Text, password: Text): async Result.Result<User, Text> {
+        public func createUser(username: Text, email: Text, password: Text): async Result.Result<User, Text> {
     if (not ValidationUtils.isValidEmail(email)) {
         return #err("Invalid email format");
     };
@@ -60,17 +60,19 @@ module {
 
     let hashedPassword = hashPassword(password);
 
-    // Generate a UUID
-    let uuidBytes = Blob.toArray(Blob.fromArray(Array.tabulate<Nat8>(16, func(_) = Nat8.fromNat(Int.abs(Time.now() % 256)))));
-    let uuid : UUID.UUID = uuidBytes;
-    let uuidText = UUID.toText(uuid);
+    // Generate a unique identifier using SHA256
+let uniqueInput = username # email # Int.toText(Time.now());
+let inputBlob = Text.encodeUtf8(uniqueInput);
+let inputArray = Blob.toArray(inputBlob);
+let hashedArray = Sha256.sha256(inputArray);
+let uniqueId = Principal.fromBlob(Blob.fromArray(hashedArray));
 
     // Call the wallet canister to create a wallet
-let walletCanister = actor(Principal.toText(Principal.fromText("ahw5u-keaaa-aaaaa-qaaha-cai"))) : actor {
-    createWallet: (Principal) -> async Result.Result<Text, Text>
-};
+    let walletCanister = actor(Principal.toText(Principal.fromText("ahw5u-keaaa-aaaaa-qaaha-cai"))) : actor {
+        createWallet: (Principal) -> async Result.Result<Text, Text>
+    };
     
-    let walletResult = await walletCanister.createWallet(Principal.fromText(uuidText));
+    let walletResult = await walletCanister.createWallet(uniqueId);
 
     switch (walletResult) {
         case (#err(e)) {
@@ -84,14 +86,13 @@ let walletCanister = actor(Principal.toText(Principal.fromText("ahw5u-keaaa-aaaa
         };
         case (#ok(walletAddress)) {
             let user: User = {
-                id = Principal.fromText(uuidText);
+                id = uniqueId;
                 username = username;
                 email = email;
                 hashedPassword = hashedPassword;
                 createdAt = Time.now();
                 updatedAt = Time.now();
-                icpWallet = ?walletAddress; // Assign wallet address
-                // xrplWallet = null; // Placeholder for XRPL integration
+                icpWallet = ?walletAddress;
                 tokens = Trie.empty();
             };
 

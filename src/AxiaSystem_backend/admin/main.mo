@@ -16,10 +16,10 @@ import TokenCanisterProxy "../token/utils/token_canister_proxy";
 
 actor {
     // Dependencies
-    private let walletProxy = WalletCanisterProxy.WalletCanisterProxy(Principal.fromText("aaaaa-aa"));
+    private let walletProxy = WalletCanisterProxy.WalletCanisterProxy(Principal.fromText("ahw5u-keaaa-aaaaa-qaaha-cai"));
     private let eventManager = EventManager.EventManager();
-    private let userProxy = UserCanisterProxy.UserCanisterProxyManager(Principal.fromText("bbbbb-bb"));
-    private let tokenProxy = TokenCanisterProxy.TokenCanisterProxy(Principal.fromText("ccccc-cc"));
+    private let userProxy = UserCanisterProxy.UserCanisterProxyManager(Principal.fromText("aovwi-4maaa-aaaaa-qaagq-cai"));
+    private let tokenProxy = TokenCanisterProxy.TokenCanisterProxy(Principal.fromText("ajuq4-ruaaa-aaaaa-qaaga-cai"));
 
     // Managers
     private let escrowManager = EscrowManager.EscrowManager(walletProxy, eventManager);

@@ -11,8 +11,8 @@ import Int "mo:base/Int";
 import EventManager "../heartbeat/event_manager";
 
 actor WalletCanister {
-    private let userProxy = UserCanisterProxy.UserCanisterProxyManager(Principal.fromText("aovwi-4maaa-aaaaa-qaagq-cai"));
-    private let tokenCanisterProxy = TokenCanisterProxy.TokenCanisterProxy(Principal.fromText("ajuq4-ruaaa-aaaaa-qaaga-cai"));
+    private let userProxy = UserCanisterProxy.UserCanisterProxyManager(Principal.fromText("c2lt4-zmaaa-aaaaa-qaaiq-cai"));
+    private let tokenCanisterProxy = TokenCanisterProxy.TokenCanisterProxy(Principal.fromText("aax3a-h4aaa-aaaaa-qaahq-cai"));
 
     private let tokenProxy = {
         getAllTokens = tokenCanisterProxy.getAllTokens;

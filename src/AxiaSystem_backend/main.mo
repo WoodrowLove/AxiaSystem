@@ -117,19 +117,26 @@ actor AxiaSystem_backend {
         await tokenProxy.mintTokens(userId, amount)
     };
 
-    public func initializeEventListeners() : async () {
-    // Example: Handle TokenCreated event
-    let onTokenCreated = shared func(event: EventTypes.Event) : async () {
-        switch (event.payload) {
-            case (#TokenCreated { tokenId; name; owner }) {
-                Debug.print("Token created: " # name # ", ID: " # Nat.toText(tokenId) # ", Owner: " # Principal.toText(owner));
-            };
-            case (_) {}; // Ignore other events
+    // Define this outside of any function, as a private function of the actor
+private func handleTokenCreated(event: EventTypes.Event) {
+    switch (event.payload) {
+        case (#TokenCreated { tokenId; name; owner }) {
+            Debug.print("Token created: " # name # ", ID: " # Nat.toText(tokenId) # ", Owner: " # Principal.toText(owner));
         };
+        case (_) {}; // Ignore other events
     };
+};
+
+// Define this as a public field of the actor
+public shared func onTokenCreated(event: EventTypes.Event) : async () {
+    handleTokenCreated(event);
+};
+
+public func initializeEventListeners() : async () {
+    // Subscribe using the public shared function
     await eventManager.subscribe(#TokenCreated, onTokenCreated);
 
-    // Add other event subscriptions as needed (e.g., #TokenMinted, #TokenBurned)
+    // Add other event subscriptions as needed
 };
     // System health check
     public func healthCheck(): async Text {

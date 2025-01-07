@@ -252,7 +252,7 @@ public func onError(err: Text): async () {
 // Check if a caller is authorized to create tokens
 private func _isAuthorizedToCreate(caller: Principal): Bool {
     // Define authorized users (for now, assume only specific Principal is authorized)
-    let authorizedUsers = [Principal.fromText("admin-principal-id")]; // Replace with actual authorized Principal IDs
+    let authorizedUsers = [Principal.fromText("ctiya-peaaa-aaaaa-qaaja-cai")]; // Replace with actual authorized Principal IDs
     Array.find(authorizedUsers, func(user: Principal): Bool { user == caller }) != null
 };
 

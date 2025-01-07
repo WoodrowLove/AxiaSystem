@@ -26,8 +26,13 @@ let additions =
      },
      { name = "parser-combinators"
      , repo = "https://github.com/aviate-labs/parser-combinators.mo"
-     , version = "v0.1.3"  -- Updated to a more recent version
+     , version = "v0.1.3"
      , dependencies = ["base"] : List Text
+     },
+     { name = "sha224"
+     , repo = "https://github.com/aviate-labs/sha256.mo"
+     , version = "v0.1.1"
+     , dependencies = [] : List Text
      }] : List Package
 
 let overrides =
