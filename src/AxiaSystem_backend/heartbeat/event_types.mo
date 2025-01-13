@@ -61,8 +61,8 @@ module {
         #EscrowTimeoutProcessed;          
         #SplitPaymentRetryCompleted;  
         #PayoutRetryCompleted;            
-        #SystemMaintenanceCompleted;     
-
+        #SystemMaintenanceCompleted;
+        #UserCreated;
 
     };
 
@@ -130,6 +130,7 @@ module {
         #SplitPaymentRetryCompleted : { retryCount: Nat; timestamp: Nat64; };
         #PayoutRetryCompleted : { retryCount: Nat; timestamp: Nat64; };
         #SystemMaintenanceCompleted : { escrowsProcessed: Nat; splitPaymentsRetried: Nat; payoutsRetried: Nat; timestamp: Nat64; };
+         #UserCreated : { UserId: Text; username: Text; email: Text; };
     };
 
     public func equal(x: EventType, y: EventType): Bool {
@@ -195,6 +196,7 @@ module {
             case (#SplitPaymentRetryCompleted) { 54 };  
             case (#PayoutRetryCompleted) { 55 };            
             case (#SystemMaintenanceCompleted) { 56 }; 
+            case (#UserCreated) { 57 };
 
         }
     };

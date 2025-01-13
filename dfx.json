@@ -24,9 +24,10 @@
       "dependencies": ["token"]
     },
     "wallet": {
-      "main": "src/AxiaSystem_backend/wallet/main.mo",
-      "type": "motoko"
-    },
+  "main": "src/AxiaSystem_backend/wallet/main.mo",
+  "type": "motoko",
+  "canister_id": "ctiya-peaaa-aaaaa-qaaja-cai"
+},
     "payment": {
       "main": "src/AxiaSystem_backend/payment/main.mo",
       "type": "motoko",

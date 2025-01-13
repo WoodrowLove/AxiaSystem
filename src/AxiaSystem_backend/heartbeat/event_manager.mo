@@ -7,6 +7,10 @@ import Nat64 "mo:base/Nat64";
 import Principal "mo:base/Principal";
 import _Int "mo:base/Int";
 import Nat "mo:base/Nat";
+import Debug "mo:base/Debug";
+import Result "mo:base/Result";
+import Text "mo:base/Text";
+import Error "mo:base/Error";
 
 module {
     public class EventManager() {
@@ -276,6 +280,35 @@ public func emitPaymentEvent(
         };
         await emit(event);
     };
+    public func processQueuedEventsSync() : async () {
+    for (event in eventQueue.vals()) {
+        // Construct a string representation of the event
+        let eventText = "Event ID: " # Nat64.toText(event.id) # 
+                        ", Type: " # debug_show(event.eventType) # 
+                        ", Payload: " # debug_show(event.payload);
+        
+        Debug.print("Processing event: " # eventText);
+    };
+    eventQueue := []; // Clear the queue
+};
+
+public func emitUserCreated(userId: Principal, username: Text, email: Text): async Result.Result<(), Text> {
+    try {
+        await emit({
+            id = Nat64.fromIntWrap(Time.now());
+            eventType = #UserCreated;
+            payload = #UserCreated({
+                UserId = Principal.toText(userId);
+                username = username;
+                email = email;
+            });
+        });
+        return #ok(());
+    } catch (e) {
+        return #err("Failed to emit event: " # Error.message(e));
+    }
+};
+
 };
 
     };

@@ -31,6 +31,8 @@ import IdentityModule "./identity/modules/identity_module";
 import GovernanceModule "./governance/modules/governance_module";
 import GovernanceProxy "./governance/utils/governance_proxy";
 import GovernanceService "./governance/services/governance_service";
+import UserModule "user/modules/user_module";
+import UserService "user/service/user_service";
 
 
 
@@ -66,6 +68,11 @@ actor AxiaSystem_backend {
     // Initialize Governance Manager and Service
     private let governanceManager = GovernanceModule.GovernanceModule(eventManager);
     private let governanceService = GovernanceService.GovernanceService(governanceManager, eventManager);
+
+    // State initialization
+
+    let userModule = UserModule.UserManager(eventManager);
+    let userService = UserService.UserService(userModule, eventManager);
 
     // Exposed APIs to connect with frontend or other services
 
@@ -781,4 +788,22 @@ public query func getProposal(proposalId: Nat): async Result.Result<GovernanceMo
 public query func getAllProposals(): async [GovernanceModule.Proposal] {
     governanceService.getAllProposalsSync()
 };
+
+  // Public API: Create a new user
+    public shared func createUser(username: Text, email: Text, password: Text): async Result.Result<UserModule.User, Text> {
+        Debug.print("Global main received createUser request.");
+        return await userService.createUser(username, email, password);
+    };
+
+    // Public API: Retrieve user by ID
+    public shared func getUserById(userId: Principal): async Result.Result<UserModule.User, Text> {
+        Debug.print("Global main received getUserById request.");
+        return await userService.getUserById(userId);
+    };
+
+    // Heartbeat function to process queued events
+    system func heartbeat(): async () {
+        Debug.print("Processing queued events in heartbeat.");
+        await eventManager.processQueuedEvents();
+    };
 };
