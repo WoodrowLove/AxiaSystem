@@ -17,7 +17,7 @@ module {
         status: Text; // "Active", "Expired"
     };
 
-    public class SubscriptionManager(userProxy: UserCanisterProxy.UserCanisterProxyManager) {
+    public class SubscriptionManager(userProxy: UserCanisterProxy.UserCanisterProxy) {
         private var subscriptions = HashMap.HashMap<Principal, Subscription>(10, Principal.equal, Principal.hash);
         private let logStore = LoggingUtils.init();
 

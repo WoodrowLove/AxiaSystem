@@ -39,7 +39,7 @@ import UserService "user/service/user_service";
 actor AxiaSystem_backend {
     // Initialize proxies for all canisters
     private let tokenProxy = TokenCanisterProxy.TokenCanisterProxy(Principal.fromText("ajuq4-ruaaa-aaaaa-qaaga-cai"));
-    private let _userProxy = UserCanisterProxy.UserCanisterProxyManager(Principal.fromText("aovwi-4maaa-aaaaa-qaagq-cai"));
+    private let _userProxy = UserCanisterProxy.UserCanisterProxy(Principal.fromText("aovwi-4maaa-aaaaa-qaagq-cai"));
     private let walletProxy = WalletCanisterProxy.WalletCanisterProxy(Principal.fromText("ahw5u-keaaa-aaaaa-qaaha-cai"));
     private let _paymentProxy = PaymentCanisterProxy.PaymentCanisterProxy(Principal.fromText("by6od-j4aaa-aaaaa-qaadq-cai"));
     private let paymentMonitoringProxy = PaymentMonitoringProxy.PaymentMonitoringProxy(Principal.fromText("avqkn-guaaa-aaaaa-qaaea-cai"));
@@ -790,20 +790,45 @@ public query func getAllProposals(): async [GovernanceModule.Proposal] {
 };
 
   // Public API: Create a new user
-    public shared func createUser(username: Text, email: Text, password: Text): async Result.Result<UserModule.User, Text> {
-        Debug.print("Global main received createUser request.");
-        return await userService.createUser(username, email, password);
-    };
+public shared func createUser(username: Text, email: Text, password: Text): async Result.Result<UserModule.User, Text> {
+    Debug.print("Global main received createUser request.");
+    return await userService.createUser(username, email, password);
+};
 
-    // Public API: Retrieve user by ID
-    public shared func getUserById(userId: Principal): async Result.Result<UserModule.User, Text> {
-        Debug.print("Global main received getUserById request.");
-        return await userService.getUserById(userId);
-    };
+// Public API: Retrieve user by ID
+public shared func getUserById(userId: Principal): async Result.Result<UserModule.User, Text> {
+    Debug.print("Global main received getUserById request.");
+    return await userService.getUserById(userId);
+};
 
-    // Heartbeat function to process queued events
-    system func heartbeat(): async () {
-        Debug.print("Processing queued events in heartbeat.");
-        await eventManager.processQueuedEvents();
-    };
+// Public API: Update user details
+public shared func updateUser(
+    userId: Principal,
+    newUsername: ?Text,
+    newEmail: ?Text,
+    newPassword: ?Text
+): async Result.Result<UserModule.User, Text> {
+    Debug.print("Global main received updateUser request for: " # Principal.toText(userId));
+    return await userService.updateUser(userId, newUsername, newEmail, newPassword);
+};
+
+// Public API: Deactivate a user
+public shared func deactivateUser(userId: Principal): async Result.Result<(), Text> {
+    Debug.print("Global main received deactivateUser request for: " # Principal.toText(userId));
+    return await userService.deactivateUser(userId);
+};
+
+// Public API: Reactivate a user
+public shared func reactivateUser(userId: Principal): async Result.Result<(), Text> {
+    Debug.print("Global main received reactivateUser request for: " # Principal.toText(userId));
+    return await userService.reactivateUser(userId);
+};
+
+
+// Heartbeat function to process queued events
+system func heartbeat(): async () {
+    Debug.print("Processing queued events in heartbeat.");
+    await eventManager.processQueuedEvents();
+};
+    
 };

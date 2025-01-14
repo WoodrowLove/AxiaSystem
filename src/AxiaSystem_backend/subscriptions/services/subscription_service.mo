@@ -10,7 +10,7 @@ import SubscriptionModule "../modules/subscription_module";
 
 module {
     public func createSubscriptionService(
-        userProxy: UserCanisterProxy.UserCanisterProxyManager
+        userProxy: UserCanisterProxy.UserCanisterProxy
     ): SubscriptionModule.SubscriptionManager {
         SubscriptionModule.SubscriptionManager(userProxy)
     };

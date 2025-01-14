@@ -18,7 +18,7 @@ actor {
     // Dependencies
     private let walletProxy = WalletCanisterProxy.WalletCanisterProxy(Principal.fromText("ahw5u-keaaa-aaaaa-qaaha-cai"));
     private let eventManager = EventManager.EventManager();
-    private let userProxy = UserCanisterProxy.UserCanisterProxyManager(Principal.fromText("aovwi-4maaa-aaaaa-qaagq-cai"));
+    private let userProxy = UserCanisterProxy.UserCanisterProxy(Principal.fromText("aovwi-4maaa-aaaaa-qaagq-cai"));
     private let tokenProxy = TokenCanisterProxy.TokenCanisterProxy(Principal.fromText("ajuq4-ruaaa-aaaaa-qaaga-cai"));
 
     // Managers

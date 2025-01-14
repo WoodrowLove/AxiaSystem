@@ -29,7 +29,7 @@ module {
 
     public class PaymentManager(
         walletProxy: WalletCanisterProxy.WalletCanisterProxy,
-        _userProxy: UserCanisterProxy.UserCanisterProxyManager,
+        _userProxy: UserCanisterProxy.UserCanisterProxy,
         _tokenProxy: TokenCanisterProxy.TokenCanisterProxy
     ) {
         private var transactions: [PaymentTransaction] = [];

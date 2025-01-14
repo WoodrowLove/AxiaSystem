@@ -20,8 +20,7 @@
     },
     "user": {
       "type": "motoko",
-      "main": "src/AxiaSystem_backend/user/main.mo",
-      "dependencies": ["token"]
+      "main": "src/AxiaSystem_backend/user/main.mo"
     },
     "wallet": {
   "main": "src/AxiaSystem_backend/wallet/main.mo",

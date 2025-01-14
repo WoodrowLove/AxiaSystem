@@ -1,9 +1,11 @@
 import UserModule "../user/modules/user_module";
+import UserService "../user/service/user_service";
 import EventManager "../heartbeat/event_manager";
-import EventTypes "../heartbeat/event_types";
+import _EventTypes "../heartbeat/event_types";
 import Principal "mo:base/Principal";
 import Result "mo:base/Result";
 import Text "mo:base/Text";
+import Debug "mo:base/Debug";
 
 actor UserCanister {
     // Initialize the event manager
@@ -11,6 +13,7 @@ actor UserCanister {
 
     // Initialize the user manager with the event manager
     private let userManager = UserModule.UserManager(eventManager);
+    
 
     // Public API: Create a new user
     public shared func createUser(username: Text, email: Text, password: Text): async Result.Result<UserModule.User, Text> {
@@ -19,11 +22,89 @@ actor UserCanister {
 
     // Public API: Get user by ID
     public shared func getUserById(userId: Principal): async ?UserModule.User {
-      await userManager.getUserById(userId);
+        Debug.print("Main: Handling getUserById request for ID: " # Principal.toText(userId));
+
+        // Fetch the user from the manager
+        let userResult = await userManager.getUserById(userId);
+
+        // Convert the result to optional type
+        switch userResult {
+            case (#ok(user)) {
+                Debug.print("Main: Found user ID: " # Principal.toText(user.id));
+                return ?user;
+            };
+            case (#err(err)) {
+                Debug.print("Main: User not found. Error: " # err);
+                return null;
+            };
+        };
     };
+
+
+    // Public API: Update a user
+public shared func updateUser(userId: Principal, newUsername: ?Text, newEmail: ?Text, newPassword: ?Text): async Result.Result<UserModule.User, Text> {
+    Debug.print("Main: Handling updateUser request for ID: " # Principal.toText(userId));
+
+    // Delegate to the user manager
+    let updateResult = await userManager.updateUser(userId, newUsername, newEmail, newPassword);
+
+    // Log and return the result
+    switch updateResult {
+        case (#ok(updatedUser)) {
+            Debug.print("Main: User updated successfully for ID: " # Principal.toText(updatedUser.id));
+            return #ok(updatedUser);
+        };
+        case (#err(errMsg)) {
+            Debug.print("Main: Failed to update user: " # errMsg);
+            return #err(errMsg);
+        };
+    };
+};
+
 
     // Heartbeat function to process queued events
     system func heartbeat() : async () {
       await eventManager.processQueuedEventsSync();
     };
+    
+    // Public API: Deactivate a user
+public shared func deactivateUser(userId: Principal): async Result.Result<(), Text> {
+    Debug.print("Main: Handling deactivateUser request for ID: " # Principal.toText(userId));
+
+    // Delegate to the user manager
+    let deactivateResult = await userManager.deactivateUser(userId);
+
+    // Log and return the result
+    switch deactivateResult {
+        case (#ok(())) {
+            Debug.print("Main: User deactivated successfully for ID: " # Principal.toText(userId));
+            return #ok(());
+        };
+        case (#err(errMsg)) {
+            Debug.print("Main: Failed to deactivate user: " # errMsg);
+            return #err(errMsg);
+        };
+    };
+};
+
+// Public API: Reactivate a user
+public shared func reactivateUser(userId: Principal): async Result.Result<(), Text> {
+    Debug.print("Main: Handling reactivateUser request for ID: " # Principal.toText(userId));
+
+    // Delegate to the user manager
+    let reactivateResult = await userManager.reactivateUser(userId);
+
+    // Log and return the result
+    switch reactivateResult {
+        case (#ok(())) {
+            Debug.print("Main: User reactivated successfully for ID: " # Principal.toText(userId));
+            return #ok(());
+        };
+        case (#err(errMsg)) {
+            Debug.print("Main: Failed to reactivate user: " # errMsg);
+            return #err(errMsg);
+        };
+    };
+};
+
 };

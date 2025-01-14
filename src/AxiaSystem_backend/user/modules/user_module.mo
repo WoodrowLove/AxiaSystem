@@ -5,7 +5,7 @@ import Blob "mo:base/Blob";
 import Time "mo:base/Time";
 import Principal "mo:base/Principal";
 import Nat8 "mo:base/Nat8";
-import EventTypes "../../heartbeat/event_types";
+import _EventTypes "../../heartbeat/event_types";
 import EventManager "../../heartbeat/event_manager";
 import Result "mo:base/Result";
 import Text "mo:base/Text";
@@ -13,6 +13,7 @@ import Array "mo:base/Array";
 import Trie "mo:base/Trie";
 import Int "mo:base/Int";
 import Nat64 "mo:base/Nat64";
+import Debug "mo:base/Debug";
 
 module {
     public type User = {
@@ -29,7 +30,10 @@ module {
 
     public type UserManagerInterface = {
         createUser: (Text, Text, Text) -> async Result.Result<User, Text>;
-        getUserById: (Principal) -> async ?User;
+        getUserById: (Principal) -> async Result.Result<User, Text>;
+        updateUser: (Principal, ?Text, ?Text, ?Text) -> async Result.Result<User, Text>;
+        deactivateUser: (Principal) -> async Result.Result<(), Text>; // Deactivate User
+        reactivateUser: (Principal) -> async Result.Result<(), Text>;
     };
 
     public class UserManager(eventManager: EventManager.EventManager) : UserManagerInterface {
@@ -103,8 +107,153 @@ module {
         };
 
         /// Function to get a user by ID
-        public func getUserById(userId: Principal): async ?User {
-            Array.find<User>(users, func(user: User): Bool { user.id == userId });
+public func getUserById(userId: Principal): async Result.Result<User, Text> {
+    // Attempt to find the user by ID
+    let userOpt = Array.find<User>(users, func(user: User): Bool { user.id == userId });
+
+    // Return the result as a `Result` type
+    switch userOpt {
+        case (null) {
+            return #err("User not found.");
+        };
+        case (?user) {
+            return #ok(user);
         };
     };
+};
+
+/// Function to update an existing user's details
+public func updateUser(userId: Principal, newUsername: ?Text, newEmail: ?Text, newPassword: ?Text): async Result.Result<User, Text> {
+    let userOpt = Array.find<User>(users, func(user: User): Bool { user.id == userId });
+
+    switch userOpt {
+    case null {
+        return #err("User not found.");
+    };
+    case (?user) {
+        if (newEmail != null and not ValidationUtils.isValidEmail(switch newEmail { 
+            case (null) { "" }; 
+            case (?email) { email }; 
+        })) {
+            return #err("Invalid email format.");
+        };
+
+            let updatedUser: User = {
+                id = user.id;
+                username = switch newUsername { case null { user.username }; case (?u) { u }; };
+                email = switch newEmail { case null { user.email }; case (?e) { e }; };
+                hashedPassword = switch newPassword { case null { user.hashedPassword }; case (?p) { hashPassword(p) }; };
+                createdAt = user.createdAt;
+                updatedAt = Time.now();
+                icpWallet = user.icpWallet;
+                tokens = user.tokens;
+                isActive = user.isActive;
+            };
+
+            users := Array.map<User, User>(users, func(existingUser: User): User {
+                if (existingUser.id == userId) {
+                    updatedUser
+                } else {
+                    existingUser
+                }
+            });
+
+            LoggingUtils.logInfo(logStore, "UserModule", "User updated successfully: " # Principal.toText(userId), null);
+
+            let emitResult = await eventManager.emitUserUpdated(userId, newUsername, newEmail);
+            switch emitResult {
+                case (#ok(())) {
+                    Debug.print("User updated and UserUpdated event emitted successfully.");
+                };
+                case (#err(e)) {
+                    Debug.print("User updated, but failed to emit UserUpdated event: " # e);
+                };
+            };
+
+            return #ok(updatedUser);
+        };
+    };
+};
+
+/// Function to deactivate a user
+public func deactivateUser(userId: Principal): async Result.Result<(), Text> {
+    // Attempt to find the user by ID
+    let userOpt = Array.find<User>(users, func(user: User): Bool { user.id == userId });
+
+    switch userOpt {
+        case (null) {
+            // If the user is not found, return an error
+            return #err("User not found.");
+        };
+        case (?user) {
+            // If the user is found, update their isActive field to false
+            let updatedUser = { user with isActive = false; updatedAt = Time.now() };
+            // Replace the user in the users array
+            users := Array.map<User, User>(users, func(existingUser: User): User {
+                if (existingUser.id == userId) {
+                    updatedUser;
+                } else {
+                    existingUser;
+                }
+            });
+
+            // Emit a "UserDeactivated" event
+            await eventManager.emit({
+                id = Nat64.fromIntWrap(Time.now());
+                eventType = #UserDeactivated;
+                payload = #UserDeactivated({
+                    UserId = Principal.toText(userId);
+                });
+            });
+
+            // Return success
+            return #ok(());
+        };
+    };
+};
+
+ /// Function to reactivate a user
+public func reactivateUser(userId: Principal): async Result.Result<(), Text> {
+    // Attempt to find the user by ID
+    let userOpt = Array.find<User>(users, func(user: User): Bool { user.id == userId });
+
+    switch userOpt {
+        case (null) {
+            // If the user is not found, return an error
+            return #err("User not found.");
+        };
+        case (?user) {
+            if (user.isActive) {
+                // If the user is already active, return an error
+                return #err("User is already active.");
+            };
+
+            // If the user is found, update their isActive field to true
+            let updatedUser = { user with isActive = true; updatedAt = Time.now() };
+
+            // Replace the user in the users array
+            users := Array.map<User, User>(users, func(existingUser: User): User {
+                if (existingUser.id == userId) {
+                    updatedUser;
+                } else {
+                    existingUser;
+                }
+            });
+
+            // Emit a "UserReactivated" event
+            await eventManager.emit({
+                id = Nat64.fromIntWrap(Time.now());
+                eventType = #UserReactivated;
+                payload = #UserReactivated({
+                    UserId = Principal.toText(userId);
+                });
+            });
+
+            // Return success
+            return #ok(());
+        };
+    };
+
+    };
+};
 };

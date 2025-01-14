@@ -36,7 +36,7 @@ module {
     attachTokensToUser: (Nat, Principal, Nat) -> async Result.Result<(), Text>;
 };
 
-  public class WalletManager(userProxy: UserCanisterProxy.UserCanisterProxyManager, tokenProxy: TokenCanisterProxyType) {
+  public class WalletManager(userProxy: UserCanisterProxy.UserCanisterProxy, tokenProxy: TokenCanisterProxyType) {
     private var wallets: Trie.Trie<Principal, Wallet> = Trie.empty();
     let eventManager = EventManager.EventManager();
 

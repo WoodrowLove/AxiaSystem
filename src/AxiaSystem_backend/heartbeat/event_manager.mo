@@ -309,6 +309,39 @@ public func emitUserCreated(userId: Principal, username: Text, email: Text): asy
     }
 };
 
+public func emitUserUpdated(userId: Principal, username: ?Text, email: ?Text): async Result.Result<(), Text> {
+    try {
+        await emit({
+            id = Nat64.fromIntWrap(Time.now());
+            eventType = #UserUpdated;
+            payload = #UserUpdated({
+                UserId = Principal.toText(userId);
+                username = username;
+                email = email;
+            });
+        });
+        return #ok(());
+    } catch (e) {
+        return #err("Failed to emit UserUpdated event: " # Error.message(e));
+    }
+};
+
+// Emit a UserDeactivated event
+public func emitUserDeactivated(userId: Principal): async Result.Result<(), Text> {
+    try {
+        await emit({
+            id = Nat64.fromIntWrap(Time.now());
+            eventType = #UserDeactivated;
+            payload = #UserDeactivated({
+                UserId = Principal.toText(userId);
+            });
+        });
+        return #ok(());
+    } catch (e) {
+        return #err("Failed to emit UserDeactivated event: " # Error.message(e));
+    }
+};
+
 };
 
     };
