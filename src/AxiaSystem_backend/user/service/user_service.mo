@@ -6,6 +6,10 @@ import Text "mo:base/Text";
 import Nat64 "mo:base/Nat64";
 import Time "mo:base/Time";
 import Debug "mo:base/Debug";
+import _Nat "mo:base/Nat";
+import _Array "mo:base/Array";
+import Bool "mo:base/Bool";
+
 
 module {
     public class UserService(userModule: UserModule.UserManager, eventManager: EventManager.EventManager) {
@@ -168,6 +172,90 @@ public func reactivateUser(userId: Principal): async Result.Result<(), Text> {
         };
         case (#err(errMsg)) {
             Debug.print("UserService: User reactivation failed: " # errMsg);
+            return #err(errMsg);
+        };
+    };
+};
+
+// Function to delete a user and emit an event
+public func deleteUser(userId: Principal): async Result.Result<(), Text> {
+    Debug.print("UserService: Handling deleteUser request for ID: " # Principal.toText(userId));
+
+    // Step 1: Delete the user in the module
+    let deleteResult = await userModule.deleteUser(userId);
+
+    // Step 2: Handle the deletion result
+    switch deleteResult {
+        case (#ok(())) {
+            Debug.print("UserService: User deleted successfully. Emitting event.");
+
+            // Emit a UserDeleted event
+            let emitResult = await eventManager.emit({
+                id = Nat64.fromIntWrap(Time.now());
+                eventType = #UserDeleted;
+                payload = #UserDeleted({
+                    UserId = Principal.toText(userId);
+                });
+            });
+
+            // Check for event emission success/failure
+            switch emitResult {
+                case () {
+                    Debug.print("UserService: User deleted and UserDeleted event emitted successfully.");
+                    return #ok(());
+                };
+            };
+        };
+        case (#err(errMsg)) {
+            Debug.print("UserService: User deletion failed: " # errMsg);
+            return #err(errMsg);
+        };
+    };
+};
+
+
+// Function to list all users
+public func listAllUsers(includeInactive: Bool): async Result.Result<[UserModule.User], Text> {
+    Debug.print("UserService: Handling listAllUsers request. Include inactive: " # Bool.toText(includeInactive));
+
+    // Delegate to the user module
+    let listResult = await userModule.listAllUsers(includeInactive);
+
+    // Return the result
+    return listResult;
+};
+
+// Function to reset a user's password and emit an event
+public func resetPassword(userId: Principal, newPassword: Text): async Result.Result<UserModule.User, Text> {
+    Debug.print("UserService: Handling resetPassword request for ID: " # Principal.toText(userId));
+
+    // Step 1: Reset the user's password in the module
+    let resetResult = await userModule.resetPassword(userId, newPassword);
+
+    // Step 2: Handle the reset result
+    switch resetResult {
+        case (#ok(updatedUser)) {
+            Debug.print("UserService: Password reset successfully. Emitting event.");
+
+            // Emit a PasswordReset event
+            let emitResult = await eventManager.emit({
+                id = Nat64.fromIntWrap(Time.now());
+                eventType = #PasswordReset;
+                payload = #PasswordReset({
+                    UserId = Principal.toText(userId);
+                });
+            });
+
+            // Check for event emission success/failure
+            switch emitResult {
+                case () {
+                    Debug.print("UserService: Password reset and PasswordReset event emitted successfully.");
+                    return #ok(updatedUser);
+                };
+            };
+        };
+        case (#err(errMsg)) {
+            Debug.print("UserService: Password reset failed: " # errMsg);
             return #err(errMsg);
         };
     };

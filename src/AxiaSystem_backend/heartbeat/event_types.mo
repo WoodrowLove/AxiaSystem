@@ -66,6 +66,9 @@ module {
         #UserUpdated;
         #UserDeactivated;
         #UserReactivated;
+        #UserDeleted;          // New event type for user deletion
+        #ListAllUsers;         // Optional event type for listing all users
+        #PasswordReset;        // New event type for password reset
 
     };
 
@@ -137,6 +140,9 @@ module {
         #UserUpdated : { UserId: Text; username: ?Text; email: ?Text; };
         #UserDeactivated : { UserId: Text };
         #UserReactivated : { UserId: Text };
+        #UserDeleted : { UserId : Text; }; // Payload for UserDeleted event
+        #ListAllUsers : { TotalUsers : Nat; }; // Payload for ListAllUsers event
+        #PasswordReset : { UserId : Text; }; // Payload for PasswordReset event
     };
 
     public func equal(x: EventType, y: EventType): Bool {
@@ -206,6 +212,9 @@ module {
             case (#UserUpdated) { 58 };
             case (#UserDeactivated) { 59 };
             case (#UserReactivated) { 60 };
+            case (#UserDeleted) { 61 };        // Hash for UserDeleted event
+            case (#ListAllUsers) { 62 };       // Hash for ListAllUsers event
+            case (#PasswordReset) { 63 };      // Hash for PasswordReset event
 
         }
     };

@@ -29,12 +29,15 @@ module {
     };
 
     public type UserManagerInterface = {
-        createUser: (Text, Text, Text) -> async Result.Result<User, Text>;
-        getUserById: (Principal) -> async Result.Result<User, Text>;
-        updateUser: (Principal, ?Text, ?Text, ?Text) -> async Result.Result<User, Text>;
-        deactivateUser: (Principal) -> async Result.Result<(), Text>; // Deactivate User
-        reactivateUser: (Principal) -> async Result.Result<(), Text>;
-    };
+    createUser: (Text, Text, Text) -> async Result.Result<User, Text>;
+    getUserById: (Principal) -> async Result.Result<User, Text>;
+    updateUser: (Principal, ?Text, ?Text, ?Text) -> async Result.Result<User, Text>;
+    deactivateUser: (Principal) -> async Result.Result<(), Text>;
+    reactivateUser: (Principal) -> async Result.Result<(), Text>;
+    deleteUser: (Principal) -> async Result.Result<(), Text>;
+    listAllUsers: Bool -> async Result.Result<[User], Text>;
+    resetPassword: (Principal, Text) -> async Result.Result<User, Text>;
+};
 
     public class UserManager(eventManager: EventManager.EventManager) : UserManagerInterface {
         private var users: [User] = [];
@@ -255,5 +258,96 @@ public func reactivateUser(userId: Principal): async Result.Result<(), Text> {
     };
 
     };
+
+    /// Function to delete a user
+public func deleteUser(userId: Principal): async Result.Result<(), Text> {
+    // Attempt to find the user by ID
+    let userOpt = Array.find<User>(users, func(user: User): Bool { user.id == userId });
+
+    switch userOpt {
+        case null {
+            // If the user is not found, return an error
+            return #err("User not found.");
+        };
+        case (?user) {
+            // Remove the user from the array
+            users := Array.filter<User>(users, func(existingUser: User): Bool {
+                existingUser.id != userId
+            });
+
+            // Emit a "UserDeleted" event
+            await eventManager.emit({
+                id = Nat64.fromIntWrap(Time.now());
+                eventType = #UserDeleted;
+                payload = #UserDeleted({
+                    UserId = Principal.toText(userId);
+                });
+            });
+
+            // Log success
+            LoggingUtils.logInfo(logStore, "UserModule", "User deleted successfully: " # Principal.toText(userId), null);
+
+            // Return success
+            return #ok(());
+        };
+    };
+};
+
+
+/// Function to list all users
+public func listAllUsers(includeInactive: Bool): async Result.Result<[User], Text> {
+    if (includeInactive) {
+        return #ok(users);
+    } else {
+        let activeUsers = Array.filter<User>(users, func(user: User): Bool {
+            user.isActive
+        });
+        return #ok(activeUsers);
+    };
+};
+
+/// Function to reset a user's password
+public func resetPassword(userId: Principal, newPassword: Text): async Result.Result<User, Text> {
+    // Attempt to find the user by ID
+    let userOpt = Array.find<User>(users, func(user: User): Bool { user.id == userId });
+
+    switch userOpt {
+        case null {
+            // If the user is not found, return an error
+            return #err("User not found.");
+        };
+        case (?user) {
+            // Hash the new password
+            let hashedPassword = hashPassword(newPassword);
+
+            // Update the user's password and `updatedAt` timestamp
+            let updatedUser = { user with hashedPassword = hashedPassword; updatedAt = Time.now() };
+
+            // Replace the user in the users array
+            users := Array.map<User, User>(users, func(existingUser: User): User {
+                if (existingUser.id == userId) {
+                    updatedUser;
+                } else {
+                    existingUser;
+                }
+            });
+
+            // Emit a "PasswordReset" event
+            await eventManager.emit({
+                id = Nat64.fromIntWrap(Time.now());
+                eventType = #PasswordReset;
+                payload = #PasswordReset({
+                    UserId = Principal.toText(userId);
+                });
+            });
+
+            // Log success
+            LoggingUtils.logInfo(logStore, "UserModule", "Password reset successfully for user: " # Principal.toText(userId), null);
+
+            // Return the updated user
+            return #ok(updatedUser);
+        };
+    };
+};
 };
 };

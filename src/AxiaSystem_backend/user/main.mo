@@ -6,6 +6,9 @@ import Principal "mo:base/Principal";
 import Result "mo:base/Result";
 import Text "mo:base/Text";
 import Debug "mo:base/Debug";
+import Bool "mo:base/Bool";
+import Nat "mo:base/Nat";
+import Array "mo:base/Array";
 
 actor UserCanister {
     // Initialize the event manager
@@ -13,6 +16,8 @@ actor UserCanister {
 
     // Initialize the user manager with the event manager
     private let userManager = UserModule.UserManager(eventManager);
+
+    private let userService = UserService.UserService(userManager, eventManager);
     
 
     // Public API: Create a new user
@@ -102,6 +107,65 @@ public shared func reactivateUser(userId: Principal): async Result.Result<(), Te
         };
         case (#err(errMsg)) {
             Debug.print("Main: Failed to reactivate user: " # errMsg);
+            return #err(errMsg);
+        };
+    };
+};
+
+// Public API: List all users
+public shared func listAllUsers(includeInactive: Bool): async Result.Result<[UserModule.User], Text> {
+    Debug.print("Main: Handling listAllUsers request. Include inactive: " # Bool.toText(includeInactive));
+
+    // Delegate to the user service
+    let listResult = await userService.listAllUsers(includeInactive);
+
+    // Log and return the result
+    switch listResult {
+        case (#ok(users)) {
+            Debug.print("Main: Retrieved all users. Total: " # Nat.toText(Array.size(users)));
+            return #ok(users);
+        };
+        case (#err(errMsg)) {
+            Debug.print("Main: Failed to retrieve all users: " # errMsg);
+            return #err(errMsg);
+        };
+    };
+};
+
+// Public API: Reset user password
+public shared func resetPassword(userId: Principal, newPassword: Text): async Result.Result<(), Text> {
+    Debug.print("Main: Handling resetPassword request for ID: " # Principal.toText(userId));
+
+    // Delegate to the user service
+    let resetResult = await userService.resetPassword(userId, newPassword);
+
+    switch (resetResult) {
+        case (#ok(_)) {
+            Debug.print("Main: Password reset successfully for ID: " # Principal.toText(userId));
+            #ok(())
+        };
+        case (#err(errMsg)) {
+            Debug.print("Main: Failed to reset password: " # errMsg);
+            #err(errMsg)
+        };
+    }
+};
+
+// Public API: Delete a user
+public shared func deleteUser(userId: Principal): async Result.Result<(), Text> {
+    Debug.print("Main: Handling deleteUser request for ID: " # Principal.toText(userId));
+
+    // Delegate to the user manager
+    let deleteResult = await userManager.deleteUser(userId);
+
+    // Log and return the result
+    switch deleteResult {
+        case (#ok(())) {
+            Debug.print("Main: User deleted successfully for ID: " # Principal.toText(userId));
+            return #ok(());
+        };
+        case (#err(errMsg)) {
+            Debug.print("Main: Failed to delete user: " # errMsg);
             return #err(errMsg);
         };
     };

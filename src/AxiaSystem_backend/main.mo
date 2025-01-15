@@ -17,6 +17,7 @@ import Nat "mo:base/Nat";
 import Error "mo:base/Error";
 import Text "mo:base/Text";
 import Trie "mo:base/Trie";
+import Bool "mo:base/Bool";
 import _EscrowService "escrow/services/escrow_service";
 import EscrowModule "escrow/modules/escrow_module";
 import SplitPaymentProxy "./split_payment/utils/split_payment_proxy";
@@ -818,12 +819,35 @@ public shared func deactivateUser(userId: Principal): async Result.Result<(), Te
     return await userService.deactivateUser(userId);
 };
 
-// Public API: Reactivate a user
-public shared func reactivateUser(userId: Principal): async Result.Result<(), Text> {
-    Debug.print("Global main received reactivateUser request for: " # Principal.toText(userId));
-    return await userService.reactivateUser(userId);
+// Public API: List all users
+public shared func listAllUsers(includeInactive: Bool): async Result.Result<[UserModule.User], Text> {
+    Debug.print("Global main received listAllUsers request. Include inactive: " # Bool.toText(includeInactive));
+    return await userService.listAllUsers(includeInactive);
 };
 
+// Public API: Reset user password
+public shared func resetPassword(userId: Principal, newPassword: Text): async Result.Result<(), Text> {
+    Debug.print("Global main received resetPassword request for: " # Principal.toText(userId));
+
+    // Call the service and map the result to match the expected return type
+    let resetResult = await userService.resetPassword(userId, newPassword);
+
+    // Map the user result to ()
+    switch resetResult {
+        case (#ok(_user)) {
+            return #ok(()); // Ignore the user object and return success
+        };
+        case (#err(errMsg)) {
+            return #err(errMsg); // Propagate the error message
+        };
+    };
+};
+
+// Public API: Delete a user
+public shared func deleteUser(userId: Principal): async Result.Result<(), Text> {
+    Debug.print("Global main received deleteUser request for: " # Principal.toText(userId));
+    return await userService.deleteUser(userId);
+};
 
 // Heartbeat function to process queued events
 system func heartbeat(): async () {

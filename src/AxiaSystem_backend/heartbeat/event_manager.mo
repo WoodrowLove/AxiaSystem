@@ -342,6 +342,54 @@ public func emitUserDeactivated(userId: Principal): async Result.Result<(), Text
     }
 };
 
+// Emit a UserDeleted event
+public func emitUserDeleted(userId: Principal): async Result.Result<(), Text> {
+    try {
+        await emit({
+            id = Nat64.fromIntWrap(Time.now());
+            eventType = #UserDeleted;
+            payload = #UserDeleted({
+                UserId = Principal.toText(userId);
+            });
+        });
+        return #ok(());
+    } catch (e) {
+        return #err("Failed to emit UserDeleted event: " # Error.message(e));
+    }
+};
+
+// Emit an event to log all users (Optional for debugging purposes)
+public func emitListAllUsers(totalUsers: Nat): async Result.Result<(), Text> {
+    try {
+        await emit({
+            id = Nat64.fromIntWrap(Time.now());
+            eventType = #ListAllUsers;
+            payload = #ListAllUsers({
+                TotalUsers = totalUsers;
+            });
+        });
+        return #ok(());
+    } catch (e) {
+        return #err("Failed to emit ListAllUsers event: " # Error.message(e));
+    }
+};
+
+// Emit a PasswordReset event
+public func emitPasswordReset(userId: Principal): async Result.Result<(), Text> {
+    try {
+        await emit({
+            id = Nat64.fromIntWrap(Time.now());
+            eventType = #PasswordReset;
+            payload = #PasswordReset({
+                UserId = Principal.toText(userId);
+            });
+        });
+        return #ok(());
+    } catch (e) {
+        return #err("Failed to emit PasswordReset event: " # Error.message(e));
+    }
+};
+
 };
 
     };
