@@ -390,6 +390,62 @@ public func emitPasswordReset(userId: Principal): async Result.Result<(), Text> 
     }
 };
 
+public func emitDeviceRegistered(userId: Principal, deviceKey: Principal): async () {
+    let event: EventTypes.Event = {
+        id = Nat64.fromIntWrap(Time.now());
+        eventType = #DeviceRegistered;
+        payload = #DeviceRegistered({
+            userId = Principal.toText(userId);
+            deviceKey = Principal.toText(deviceKey);
+            timestamp = Nat64.fromIntWrap(Time.now());
+        });
+    };
+    await emit(event);
+};
+
+
+public func emitLoginAttempt(principal: ?Principal, email: ?Text, status: Text): async () {
+    let event: EventTypes.Event = {
+        id = Nat64.fromIntWrap(Time.now());
+        eventType = #LoginAttempt;
+        payload = #LoginAttempt({
+            principal = switch principal { case null { null }; case (?p) { ?Principal.toText(p) } };
+            email = email;
+            status = status;
+            timestamp = Nat64.fromIntWrap(Time.now());
+        });
+    };
+    await emit(event);
+};
+
+public func emitLoginSuccess(userId: Principal, principal: ?Principal, email: ?Text): async () {
+    let event: EventTypes.Event = {
+        id = Nat64.fromIntWrap(Time.now());
+        eventType = #LoginSuccess;
+        payload = #LoginSuccess({
+            userId = Principal.toText(userId);
+            principal = switch principal { case null { null }; case (?p) { ?Principal.toText(p) } };
+            email = email;
+            timestamp = Nat64.fromIntWrap(Time.now());
+        });
+    };
+    await emit(event);
+};
+
+public func emitLoginFailure(principal: ?Principal, email: ?Text, reason: Text): async () {
+    let event: EventTypes.Event = {
+        id = Nat64.fromIntWrap(Time.now());
+        eventType = #LoginFailure;
+        payload = #LoginFailure({
+            principal = switch principal { case null { null }; case (?p) { ?Principal.toText(p) } };
+            email = email;
+            reason = reason;
+            timestamp = Nat64.fromIntWrap(Time.now());
+        });
+    };
+    await emit(event);
+};
+
 };
 
     };

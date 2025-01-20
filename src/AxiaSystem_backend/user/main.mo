@@ -171,4 +171,44 @@ public shared func deleteUser(userId: Principal): async Result.Result<(), Text> 
     };
 };
 
+// Public API: Register a device for a user
+public shared func registerDevice(userId: Principal, newDeviceKey: Principal): async Result.Result<(), Text> {
+    Debug.print("Main: Handling registerDevice request for User ID: " # Principal.toText(userId));
+
+    // Delegate the logic to the user manager
+    let registerResult = await userManager.registerDevice(userId, newDeviceKey);
+
+    // Log and return the result
+    switch registerResult {
+        case (#ok(())) {
+            Debug.print("Main: Device registered successfully for User ID: " # Principal.toText(userId));
+            return #ok(());
+        };
+        case (#err(errMsg)) {
+            Debug.print("Main: Failed to register device for User ID: " # errMsg);
+            return #err(errMsg);
+        };
+    };
+};
+
+// Public API: Validate login for a user
+public shared func validateLogin(principal: ?Principal, email: ?Text, password: ?Text): async Result.Result<UserModule.User, Text> {
+    Debug.print("Main: Handling validateLogin request.");
+
+    // Delegate the validation logic to the user manager
+    let validationResult = await userManager.validateLogin(principal, email, password);
+
+    // Log and return the result
+    switch validationResult {
+        case (#ok(user)) {
+            Debug.print("Main: Login validated successfully for User ID: " # Principal.toText(user.id));
+            return #ok(user);
+        };
+        case (#err(errMsg)) {
+            Debug.print("Main: Login validation failed: " # errMsg);
+            return #err(errMsg);
+        };
+    };
+};
+
 };

@@ -384,7 +384,7 @@ public func mintToken(
                     switch (userId) {
                         case (null) { return #ok(()); };
                         case (?id) {
-                            let userManager = UserModule.UserManager();
+                            let userManager = UserModule.UserManager;
                             switch (await userManager.attachTokensToUser(tokenId, id, amount, tokenState)) {
                                 case (#err(e)) { return #err(e); };
                                 case (#ok(_)) { return #ok(()); };

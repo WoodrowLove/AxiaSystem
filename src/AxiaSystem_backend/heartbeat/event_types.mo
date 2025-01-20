@@ -69,7 +69,10 @@ module {
         #UserDeleted;          // New event type for user deletion
         #ListAllUsers;         // Optional event type for listing all users
         #PasswordReset;        // New event type for password reset
-
+        #DeviceRegistered;
+        #LoginAttempt;
+        #LoginSuccess;
+        #LoginFailure;
     };
 
     public type Event = {
@@ -143,6 +146,10 @@ module {
         #UserDeleted : { UserId : Text; }; // Payload for UserDeleted event
         #ListAllUsers : { TotalUsers : Nat; }; // Payload for ListAllUsers event
         #PasswordReset : { UserId : Text; }; // Payload for PasswordReset event
+        #DeviceRegistered: { userId: Text; deviceKey: Text; timestamp: Nat64; };
+        #LoginAttempt: { principal: ?Text; email: ?Text; status: Text; /* "Success" or "Failure" */ timestamp: Nat64; };
+        #LoginSuccess: { userId: Text; principal: ?Text; email: ?Text; timestamp: Nat64; };
+        #LoginFailure: { principal: ?Text; email: ?Text; reason: Text; timestamp: Nat64; };
     };
 
     public func equal(x: EventType, y: EventType): Bool {
@@ -215,6 +222,10 @@ module {
             case (#UserDeleted) { 61 };        // Hash for UserDeleted event
             case (#ListAllUsers) { 62 };       // Hash for ListAllUsers event
             case (#PasswordReset) { 63 };      // Hash for PasswordReset event
+            case (#DeviceRegistered) { 64 };
+            case (#LoginAttempt) { 65 };
+            case (#LoginSuccess) { 66 };
+            case (#LoginFailure) { 67 };
 
         }
     };

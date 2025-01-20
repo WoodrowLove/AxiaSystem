@@ -18,6 +18,9 @@ module {
         getUserById: (Principal) -> async Result.Result<User, Text>;
         createUser: (Text, Text, Text) -> async Result.Result<User, Text>;
         updateUser: (Principal, ?Text, ?Text, ?Text) -> async Result.Result<User, Text>;
+        registerDevice: shared (Principal, Principal) -> async Result.Result<(), Text>;
+        validateLogin: shared (?Principal, ?Text, ?Text) -> async Result.Result<User, Text>;
+
     };
 
     // Factory function for creating a user canister proxy
@@ -56,5 +59,21 @@ module {
                 #err("Failed to update user: " # Error.message(e))
             }
         };
+
+        public shared func registerDevice(userId: Principal, newDeviceKey: Principal): async Result.Result<(), Text> {
+    try {
+        await userCanister.registerDevice(userId, newDeviceKey);
+    } catch (e) {
+        #err("Failed to register device: " # Error.message(e));
+    }
+};
+
+public shared func validateLogin(principal: ?Principal, email: ?Text, password: ?Text): async Result.Result<User, Text> {
+    try {
+        await userCanister.validateLogin(principal, email, password);
+    } catch (e) {
+        #err("Failed to validate login: " # Error.message(e));
+    }
+};
     };
 };

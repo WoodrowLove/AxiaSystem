@@ -60,8 +60,8 @@ actor IdentityCanister {
 
     // Public API: Batch update metadata for multiple identities
     public func batchUpdateMetadata(updates: [(Principal, Text, Text)]): async Result.Result<(), Text> {
-    await identityManager.batchUpdateMetadata(updates);
-};
+        await identityManager.batchUpdateMetadata(updates);
+    };
 
     // Public API: Search identities by metadata
     public func searchIdentitiesByMetadata(key: Text, value: Text): async [IdentityModule.Identity] {
@@ -76,6 +76,11 @@ actor IdentityCanister {
     // Public API: Trigger heartbeat for stale identity cleanup
     public func runHeartbeat(): async () {
         await identityManager.runHeartbeat();
+    };
+
+    // Public API: Add a device key to an identity
+    public func addDeviceKey(userId: Principal, newDeviceKey: Principal): async Result.Result<(), Text> {
+        await identityManager.addDeviceKey(userId, newDeviceKey);
     };
 
     // Event subscription for debugging and monitoring

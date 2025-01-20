@@ -16,6 +16,7 @@ import JSON "mo:json/JSON";
 module {
     public type Identity = {
         id: Principal;
+        deviceKeys: [Principal]; 
         metadata: Trie.Trie<Text, Text>;
         createdAt: Int;
         updatedAt: Int;
@@ -45,6 +46,7 @@ module {
 
     let newIdentity: Identity = {
         id = userId;
+        deviceKeys = [];
         metadata = details;
         createdAt = Time.now();
         updatedAt = Time.now();
@@ -73,12 +75,43 @@ module {
     #ok(newIdentity)
 };
 
+// Add a method to register new device keys
+public func addDeviceKey(userId: Principal, newDeviceKey: Principal): async Result.Result<(), Text> {
+    var updatedIdentity: ?Identity = null;
+
+    identities := Array.map<Identity, Identity>(identities, func(identity) {
+        if (identity.id == userId) {
+            // Explicitly check the result of Array.find
+            let keyExists: ?Principal = Array.find(identity.deviceKeys, func(key: Principal) : Bool {
+                key == newDeviceKey
+            });
+            if (keyExists != null) {
+                return identity; // Key already exists; no changes needed
+            };
+            let updated = {
+                identity with
+                deviceKeys = Array.append(identity.deviceKeys, [newDeviceKey]);
+                updatedAt = Time.now();
+            };
+            updatedIdentity := ?updated;
+            return updated;
+        };
+        return identity;
+    });
+
+    switch updatedIdentity {
+        case null { #err("User not found or device key already exists."); };
+        case (?_) { #ok(()); };
+    }
+};
+
         public func updateIdentity(userId: Principal, details: Trie.Trie<Text, Text>): async Result.Result<Identity, Text> {
     var updatedIdentity: ?Identity = null;
     identities := Array.map<Identity, Identity>(identities, func(identity) {
         if (identity.id == userId) {
             let updated: Identity = {
                 id = identity.id;
+                deviceKeys = [];
                 metadata = details;
                 createdAt = identity.createdAt;
                 updatedAt = Time.now();

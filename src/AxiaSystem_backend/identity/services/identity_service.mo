@@ -1,12 +1,9 @@
 import Principal "mo:base/Principal";
 import Text "mo:base/Text";
-import Time "mo:base/Time";
-import Array "mo:base/Array";
 import Trie "mo:base/Trie";
 import Result "mo:base/Result";
 import LoggingUtils "../../utils/logging_utils";
 import IdentityModule "../modules/identity_module";
-import EventManager "../../heartbeat/event_manager";
 
 module {
   public class IdentityService(identityManager: IdentityModule.IdentityManager) {

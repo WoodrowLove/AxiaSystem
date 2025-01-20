@@ -21,6 +21,7 @@ module {
         username: Text;
         email: Text;
         hashedPassword: Text;
+        deviceKeys: [Principal];
         createdAt: Int;
         updatedAt: Int;
         icpWallet: ?Text; // Wallet address will be set after wallet creation
@@ -42,6 +43,45 @@ module {
     public class UserManager(eventManager: EventManager.EventManager) : UserManagerInterface {
         private var users: [User] = [];
         private let logStore = LoggingUtils.init();
+
+        // function to register new device keys:
+public func registerDevice(userId: Principal, newDeviceKey: Principal): async Result.Result<(), Text> {
+    var updatedUser: ?User = null;
+
+    users := Array.map<User, User>(users, func(user) {
+        if (user.id == userId) {
+            // Explicitly check if the device key already exists
+            let keyExists: ?Principal = Array.find(user.deviceKeys, func(key: Principal) : Bool {
+                key == newDeviceKey
+            });
+            if (keyExists != null) {
+                return user; // Key already exists; no changes needed
+            };
+            let updated = {
+                user with
+                deviceKeys = Array.append(user.deviceKeys, [newDeviceKey]);
+                updatedAt = Time.now();
+            };
+            updatedUser := ?updated;
+            return updated;
+        };
+        return user;
+    });
+
+    switch updatedUser {
+        case null {
+            // If the user is not found or the key already exists, return an error
+            #err("User not found or device key already exists.");
+        };
+        case (?_) {
+            // Emit the event after successfully registering the device
+            await eventManager.emitDeviceRegistered(userId, newDeviceKey);
+
+            // Return success
+            #ok(());
+        };
+    }
+};
 
         /// Function to create a new user
         public func createUser(username: Text, email: Text, password: Text): async Result.Result<User, Text> {
@@ -72,6 +112,7 @@ module {
                 username = username;
                 email = email;
                 hashedPassword = hashedPassword;
+                deviceKeys = [];
                 createdAt = Time.now();
                 updatedAt = Time.now();
                 icpWallet = null; // Will be populated when the wallet is created
@@ -108,6 +149,59 @@ module {
         private func hashPassword(password: Text): Text {
             return "hashed_" # password;
         };
+
+        public func validateLogin(principal: ?Principal, email: ?Text, password: ?Text): async Result.Result<User, Text> {
+    // Check if logging in via Principal (Internet Identity)
+    switch principal {
+        case (?p) {
+            let userOpt: ?User = Array.find<User>(users, func(user: User) : Bool {
+                let keyExists: ?Principal = Array.find(user.deviceKeys, func(key: Principal) : Bool {
+                    key == p
+                });
+                keyExists != null
+            });
+            switch userOpt {
+                case null {
+                    // Emit login failure before returning
+                    await eventManager.emitLoginFailure(?p, null, "Principal not recognized.");
+                    #err("Login failed: Principal not recognized.");
+                };
+                case (?user) {
+                    // Emit login success before returning
+                    await eventManager.emitLoginSuccess(user.id, ?p, null);
+                    #ok(user);
+                };
+            };
+        };
+        case null {
+            // Fallback: Validate login via email and password
+            switch (email, password) {
+                case (?e, ?p) {
+                    let userOpt: ?User = Array.find<User>(users, func(user: User) : Bool {
+                        user.email == e and user.hashedPassword == hashPassword(p)
+                    });
+                    switch userOpt {
+                        case null {
+                            // Emit login failure before returning
+                            await eventManager.emitLoginFailure(null, ?e, "Invalid email or password.");
+                            #err("Login failed: Invalid email or password.");
+                        };
+                        case (?user) {
+                            // Emit login success before returning
+                            await eventManager.emitLoginSuccess(user.id, null, ?e);
+                            #ok(user);
+                        };
+                    };
+                };
+                case _ {
+                    // Emit login failure before returning
+                    await eventManager.emitLoginFailure(null, null, "Missing credentials.");
+                    #err("Login failed: Missing credentials.");
+                };
+            };
+        };
+    }
+};
 
         /// Function to get a user by ID
 public func getUserById(userId: Principal): async Result.Result<User, Text> {
@@ -146,6 +240,7 @@ public func updateUser(userId: Principal, newUsername: ?Text, newEmail: ?Text, n
                 username = switch newUsername { case null { user.username }; case (?u) { u }; };
                 email = switch newEmail { case null { user.email }; case (?e) { e }; };
                 hashedPassword = switch newPassword { case null { user.hashedPassword }; case (?p) { hashPassword(p) }; };
+                deviceKeys = user.deviceKeys;
                 createdAt = user.createdAt;
                 updatedAt = Time.now();
                 icpWallet = user.icpWallet;

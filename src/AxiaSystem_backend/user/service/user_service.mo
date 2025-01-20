@@ -261,5 +261,13 @@ public func resetPassword(userId: Principal, newPassword: Text): async Result.Re
     };
 };
 
+public func registerDevice(userId: Principal, newDeviceKey: Principal): async Result.Result<(), Text> {
+    await userModule.registerDevice(userId, newDeviceKey);
+};
+
+public func validateLogin(principal: ?Principal, email: ?Text, password: ?Text): async Result.Result<UserModule.User, Text> {
+    await userModule.validateLogin(principal, email, password);
+};
+
     };
 };

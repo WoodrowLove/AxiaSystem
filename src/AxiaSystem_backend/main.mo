@@ -34,6 +34,7 @@ import GovernanceProxy "./governance/utils/governance_proxy";
 import GovernanceService "./governance/services/governance_service";
 import UserModule "user/modules/user_module";
 import UserService "user/service/user_service";
+import SharedTypes "shared_types";
 
 
 
@@ -631,17 +632,17 @@ public shared func batchTransferAssets(assetIds: [Nat], newOwner: Principal): as
 };
 
 // Public API for identity canister
-public func createIdentity(userId: Principal, details: Trie.Trie<Text, Text>): async Result.Result<Text, Text> {
-    let result = await identityManager.createIdentity(userId, details);
-    switch (result) {
-        case (#ok(identity)) {
-            #ok("Identity created successfully for user: " # Principal.toText(identity.id))
-        };
-        case (#err(error)) {
-            #err(error)
-        };
-    }
-};
+    public func createIdentity(userId: Principal, details: Trie.Trie<Text, Text>): async Result.Result<Text, Text> {
+        let result = await identityManager.createIdentity(userId, details);
+        switch (result) {
+            case (#ok(identity)) {
+                #ok("Identity created successfully for user: " # Principal.toText(identity.id))
+            };
+            case (#err(error)) {
+                #err(error)
+            };
+        }
+    };
 
 public func updateIdentity(userId: Principal, details: Trie.Trie<Text, Text>): async Result.Result<Text, Text> {
     let result = await identityManager.updateIdentity(userId, details);
@@ -667,19 +668,19 @@ public func deleteIdentity(userId: Principal): async Result.Result<Text, Text> {
     }
 };
 
-public func getIdentity(userId: Principal): async ?IdentityModule.Identity {
+public func getIdentity(userId: Principal): async ?SharedTypes.Identity {
     await identityManager.getIdentity(userId);
 };
 
-public func getAllIdentities(): async [IdentityModule.Identity] {
+public func getAllIdentities(): async [SharedTypes.Identity] {
     identityManager.getAllIdentities();
 };
 
-public func getStaleIdentities(): async [IdentityModule.Identity] {
+public func getStaleIdentities(): async [SharedTypes.Identity] {
     await identityManager.getStaleIdentities();
 };
 
-public func searchIdentitiesByMetadata(key: Text, value: Text): async [IdentityModule.Identity] {
+public func searchIdentitiesByMetadata(key: Text, value: Text): async [SharedTypes.Identity] {
     await identityManager.searchIdentitiesByMetadata(key, value);
 };
 
@@ -700,6 +701,33 @@ public func exportAllIdentities(): async Result.Result<Text, Text> {
     #ok("All identities exported successfully: " # result)
 };
 
+// Public API: Register a device for a user
+public func registerDevice(userId: Principal, newDeviceKey: Principal): async Result.Result<Text, Text> {
+    let result = await userManager.registerDevice(userId, newDeviceKey);
+    switch (result) {
+        case (#ok(())) {
+            #ok("Device registered successfully for user: " # Principal.toText(userId));
+        };
+        case (#err(error)) {
+            #err("Failed to register device for user: " # error);
+        };
+    }
+};
+
+
+// Public API: Validate login for a user
+public func validateLogin(principal: ?Principal, email: ?Text, password: ?Text): async Result.Result<Text, Text> {
+    let result = await userManager.validateLogin(principal, email, password);
+    switch (result) {
+        case (#ok(user)) {
+            #ok("Login validated successfully for user: " # Principal.toText(user.id));
+        };
+        case (#err(error)) {
+            #err("Login validation failed: " # error);
+        };
+    }
+};
+
 public func subscribeToIdentityEvents(eventType: EventTypes.EventType, listener: shared EventTypes.Event -> async ()): async Text {
     await eventManager.subscribe(eventType, listener);
     "Subscribed to events of type: " # debug_show(eventType);
@@ -713,7 +741,7 @@ public func listSubscribedEventTypes(): async [EventTypes.EventType] {
 public func runIdentityHeartbeat(): async Text {
     await identityManager.runHeartbeat();
     "Heartbeat executed successfully for stale identity cleanup.";
-};
+}; 
 
 // Governance APIs
 
