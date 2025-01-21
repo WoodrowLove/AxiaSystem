@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,9 +7,47 @@ import {
   Easing,
   TouchableOpacity,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import theme from '../styles/theme';
 import shadows from '../styles/shadows';
 import Typography from './Typography';
+
+/**
+ * ToastManager Component
+ *
+ * Manages multiple toasts and handles their display and dismissal.
+ *
+ * @returns {JSX.Element}
+ */
+const ToastManager = () => {
+  const [toasts, setToasts] = useState([]);
+
+  const addToast = useCallback((message, type = 'info', duration = 3000) => {
+    const id = Date.now().toString();
+    const toast = { id, message, type, duration };
+    setToasts((prev) => [...prev, toast]);
+
+    // Auto-remove toast after duration
+    setTimeout(() => removeToast(id), duration);
+  }, []);
+
+  const removeToast = useCallback((id) => {
+    setToasts((prev) => prev.filter((toast) => toast.id !== id));
+  }, []);
+
+  return (
+    <View style={styles.container}>
+      {toasts.map((toast) => (
+        <Toast
+          key={toast.id}
+          message={toast.message}
+          type={toast.type}
+          onDismiss={() => removeToast(toast.id)}
+        />
+      ))}
+    </View>
+  );
+};
 
 /**
  * Toast Component
@@ -19,8 +57,9 @@ import Typography from './Typography';
  * @param {string} [props.type='info'] - Type of toast: 'success', 'error', 'info'.
  * @param {number} [props.duration=3000] - Duration in milliseconds before auto-dismiss.
  * @param {Function} [props.onDismiss] - Callback function when the toast is dismissed.
+ * @returns {JSX.Element}
  */
-const Toast = ({ message, type = 'info', duration = 3000, onDismiss }) => {
+const Toast = ({ message, type = 'info', onDismiss }) => {
   const [fadeAnim] = useState(new Animated.Value(0)); // Animation value
 
   useEffect(() => {
@@ -32,12 +71,9 @@ const Toast = ({ message, type = 'info', duration = 3000, onDismiss }) => {
       useNativeDriver: true,
     }).start();
 
-    // Auto-dismiss after the specified duration
-    const timer = setTimeout(() => {
-      fadeOut();
-    }, duration);
-
-    return () => clearTimeout(timer);
+    return () => {
+      fadeOut(); // Ensure cleanup
+    };
   }, []);
 
   const fadeOut = () => {
@@ -60,6 +96,12 @@ const Toast = ({ message, type = 'info', duration = 3000, onDismiss }) => {
         { opacity: fadeAnim },
       ]}
     >
+      <LinearGradient
+        colors={theme.toasts[type].gradientColors || [theme.colors[type], theme.colors[type]]}
+        style={StyleSheet.absoluteFill}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+      />
       <Typography variant="body" color={theme.colors.white}>
         {message}
       </Typography>
@@ -71,6 +113,14 @@ const Toast = ({ message, type = 'info', duration = 3000, onDismiss }) => {
 };
 
 const styles = StyleSheet.create({
+  container: {
+    position: 'absolute',
+    top: 20,
+    left: 0,
+    right: 0,
+    zIndex: 9999,
+    alignItems: 'center',
+  },
   toast: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -79,11 +129,8 @@ const styles = StyleSheet.create({
     marginVertical: 6,
     marginHorizontal: 16,
     borderRadius: theme.sizes.borderRadius,
-    position: 'absolute',
-    bottom: 50,
-    left: 0,
-    right: 0,
     zIndex: 1000,
+    overflow: 'hidden',
   },
   dismiss: {
     marginLeft: 10,
@@ -105,4 +152,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default Toast;
+export { ToastManager, Toast };
