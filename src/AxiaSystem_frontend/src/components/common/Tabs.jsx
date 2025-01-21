@@ -1,24 +1,26 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
+import React from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Image } from 'react-native';
 import theme from '../styles/theme';
 
 /**
- * Tabs Component
+ * Tabs with Icons Component
  *
  * @param {Object} props - Props for the Tabs component.
- * @param {Array} props.tabs - Array of tab objects: [{ key: string, label: string }].
+ * @param {Array} props.tabs - Array of tab objects: [{ key: string, label: string, icon: ImageSource }].
  * @param {string} props.activeTabKey - Key of the currently active tab.
  * @param {Function} props.onTabChange - Callback function for tab changes.
  * @param {Object} props.style - Additional styles for the tab container.
  * @param {Object} props.tabStyle - Additional styles for individual tabs.
+ * @param {Object} props.iconStyle - Styles for the icons.
  * @returns {JSX.Element}
  */
-const Tabs = ({
+const TabsWithIcons = ({
   tabs = [],
   activeTabKey = '',
   onTabChange = () => {},
   style = {},
   tabStyle = {},
+  iconStyle = {},
 }) => {
   return (
     <View style={[styles.container, style]}>
@@ -39,6 +41,16 @@ const Tabs = ({
                 tabStyle,
               ]}
             >
+              {tab.icon && (
+                <Image
+                  source={tab.icon}
+                  style={[
+                    styles.icon,
+                    isActive ? styles.activeIcon : styles.inactiveIcon,
+                    iconStyle,
+                  ]}
+                />
+              )}
               <Text
                 style={[
                   styles.label,
@@ -71,12 +83,14 @@ const styles = StyleSheet.create({
     borderBottomWidth: 3,
     borderBottomColor: 'transparent',
     marginRight: theme.spacing.md,
+    alignItems: 'center',
   },
   activeTab: {
     borderBottomColor: theme.colors.primary,
   },
   label: {
     fontSize: theme.fontSizes.md,
+    marginTop: theme.spacing.xs,
   },
   activeLabel: {
     color: theme.colors.primary,
@@ -85,6 +99,16 @@ const styles = StyleSheet.create({
   inactiveLabel: {
     color: theme.colors.textSecondary,
   },
+  icon: {
+    width: 24,
+    height: 24,
+  },
+  activeIcon: {
+    tintColor: theme.colors.primary,
+  },
+  inactiveIcon: {
+    tintColor: theme.colors.textSecondary,
+  },
 });
 
-export default Tabs;
+export default TabsWithIcons;
