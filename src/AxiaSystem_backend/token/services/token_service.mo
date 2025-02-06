@@ -1,4 +1,4 @@
-import TokenModule "../modules/token_module";
+import TokenModule "../../token/modules/token_module";
 import Nat "mo:base/Nat";
 import Principal "mo:base/Principal";
 import Result "mo:base/Result";

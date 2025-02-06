@@ -703,7 +703,7 @@ public func exportAllIdentities(): async Result.Result<Text, Text> {
 
 // Public API: Register a device for a user
 public func registerDevice(userId: Principal, newDeviceKey: Principal): async Result.Result<Text, Text> {
-    let result = await userManager.registerDevice(userId, newDeviceKey);
+    let result = await userModule.registerDevice(userId, newDeviceKey);
     switch (result) {
         case (#ok(())) {
             #ok("Device registered successfully for user: " # Principal.toText(userId));
@@ -717,7 +717,7 @@ public func registerDevice(userId: Principal, newDeviceKey: Principal): async Re
 
 // Public API: Validate login for a user
 public func validateLogin(principal: ?Principal, email: ?Text, password: ?Text): async Result.Result<Text, Text> {
-    let result = await userManager.validateLogin(principal, email, password);
+    let result = await userModule.validateLogin(principal, email, password);
     switch (result) {
         case (#ok(user)) {
             #ok("Login validated successfully for user: " # Principal.toText(user.id));

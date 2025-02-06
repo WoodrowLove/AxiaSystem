@@ -64,11 +64,11 @@ module {
     };
 
     public func unsubscribeFromPayments(
-        paymentMonitoringManager: PaymentMonitoringModule.PaymentMonitoringManager,
-        subscriptionId: Nat
-    ): async Result.Result<(), Text> {
-        await paymentMonitoringManager.unsubscribeFromPayments(subscriptionId);
-    };
+    paymentMonitoringManager: PaymentMonitoringModule.PaymentMonitoringManager,
+    userId: Principal
+): async Result.Result<(), Text> {
+    await paymentMonitoringManager.unsubscribeFromPayments(userId);
+};
 
     public func broadcastPaymentUpdate(
         paymentMonitoringManager: PaymentMonitoringModule.PaymentMonitoringManager,

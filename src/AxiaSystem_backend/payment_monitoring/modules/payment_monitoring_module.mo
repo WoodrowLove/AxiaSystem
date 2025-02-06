@@ -11,6 +11,7 @@ import EventTypes "../../heartbeat/event_types";
 import LoggingUtils "../../utils/logging_utils";
 import Time "mo:base/Time";
 import Option "mo:base/Option";
+import Array "mo:base/Array";
 import SharedTypes "../../shared_types";
 
 module {
@@ -22,7 +23,7 @@ module {
         subscriptionManagerPrincipal: Principal
     )
      {
-        private let subscriptionManager = actor(Principal.toText(subscriptionManagerPrincipal)) : SharedTypes.SubscriptionManager;
+        private let subscriptionManager = actor(Principal.toText(subscriptionManagerPrincipal)) : SharedTypes.SubscriptionCanisterInterface;
          private let logStore = LoggingUtils.init();
          let eventManager = EventManager.EventManager();
          
@@ -145,13 +146,12 @@ module {
     }
 };
 
-// Subscribe to payment updates
 public func subscribeToPayments(userId: Principal): async Result.Result<Nat, Text> {
     let subscriptionResult = await subscriptionManager.createSubscription(userId, 86400000000000); // Example: 1 day in nanoseconds
     switch subscriptionResult {
         case (#err(e)) #err("Failed to create subscription: " # e);
         case (#ok(subscription)) {
-            let subscriptionId = subscription; // Access the ID from the Subscription object
+            let subscriptionId = subscription.id; // Access the ID from the Subscription object
             // Emit subscription event
             await eventManager.emit({
                 id = Nat64.fromNat(subscriptionId);
@@ -173,27 +173,33 @@ public func subscribeToPayments(userId: Principal): async Result.Result<Nat, Tex
 };
 
 // Unsubscribe from payment updates
-public func unsubscribeFromPayments(subscriptionId: Nat): async Result.Result<(), Text> {
-    let unsubscribeResult = await subscriptionManager.unsubscribeUser(subscriptionId);
+public func unsubscribeFromPayments(userId: Principal): async Result.Result<(), Text> {
+    let unsubscribeResult = await subscriptionManager.cancelSubscription(userId);
     switch unsubscribeResult {
         case (#err(e)) #err("Failed to unsubscribe: " # e);
-        case (#ok(())) {
-            // Emit unsubscription event
-            await eventManager.emitPaymentEvent(#SubscriptionRemoved, #SubscriptionRemoved {
-                subscriptionId = Nat.toText(subscriptionId);
-            });
-            LoggingUtils.logInfo(
-                logStore,
-                "PaymentMonitoring",
-                "Subscription removed for Subscription ID: " # Nat.toText(subscriptionId),
-                null
-            );
-            #ok(())
+        case (#ok(_)) {
+            // Get subscription details to retrieve the subscriptionId
+            let subscriptionDetails = await subscriptionManager.getSubscriptionDetails(userId);
+            switch (subscriptionDetails) {
+                case (#err(e)) #err("Failed to get subscription details: " # e);
+                case (#ok(subscription)) {
+                    // Emit unsubscription event
+                    await eventManager.emitPaymentEvent(#SubscriptionRemoved, #SubscriptionRemoved {
+                        subscriptionId = Nat.toText(subscription.id);
+                    });
+                    LoggingUtils.logInfo(
+                        logStore,
+                        "PaymentMonitoring",
+                        "Subscription removed for User: " # Principal.toText(userId) # ", Subscription ID: " # Nat.toText(subscription.id),
+                        ?userId
+                    );
+                    #ok(())
+                };
+            };
         };
     };
 };
 
-// Broadcast payment updates to subscribers
 public func broadcastPaymentUpdate(paymentId: Nat, status: Text): async Result.Result<(), Text> {
     LoggingUtils.logInfo(
         logStore,
@@ -203,7 +209,7 @@ public func broadcastPaymentUpdate(paymentId: Nat, status: Text): async Result.R
     );
 
     let allSubscriptions = await subscriptionManager.getAllSubscriptions();
-    for ((_, userId) in allSubscriptions.vals()) {
+    for ((userId, subscription) in allSubscriptions.vals()) {
         await eventManager.emitPaymentEvent(#PaymentUpdated, #PaymentUpdated {
             userId = Principal.toText(userId);
             paymentId = Nat.toText(paymentId);
@@ -215,7 +221,13 @@ public func broadcastPaymentUpdate(paymentId: Nat, status: Text): async Result.R
 };
 
 public func listSubscriptions(): async [(Nat, Principal)] {
-    await subscriptionManager.getAllSubscriptions()
+    let allSubscriptions = await subscriptionManager.getAllSubscriptions();
+    Array.map<(Principal, SharedTypes.Subscription), (Nat, Principal)>(
+        allSubscriptions,
+        func((principal, subscription): (Principal, SharedTypes.Subscription)): (Nat, Principal) {
+            (subscription.id, principal)
+        }
+    )
 };
     };
 };

@@ -4,16 +4,6 @@
       "main": "src/AxiaSystem_backend/main.mo",
       "type": "motoko"
     },
-    "AxiaSystem_frontend": {
-      "dependencies": [
-        "AxiaSystem_backend"
-      ],
-      "source": [
-        "src/AxiaSystem_frontend/dist"
-      ],
-      "type": "assets",
-      "workspace": "AxiaSystem_frontend"
-    },
     "token": {
       "type": "motoko",
       "main": "src/AxiaSystem_backend/token/main.mo"

@@ -15,6 +15,7 @@ import Int "mo:base/Int";
 import Nat64 "mo:base/Nat64";
 import Debug "mo:base/Debug";
 
+
 module {
     public type User = {
         id: Principal;
@@ -444,5 +445,74 @@ public func resetPassword(userId: Principal, newPassword: Text): async Result.Re
         };
     };
 };
+
+/// Function to attach tokens to a user
+public func attachTokenToUser(
+    userId: Principal,
+    tokenId: Nat,
+    amount: Nat,
+    tokenService: TokenService
+): async Result.Result<(), Text> {
+    // Step 1: Retrieve the user
+    let userOpt = Array.find<User>(users, func(user: User): Bool { user.id == userId });
+
+    switch userOpt {
+        case null {
+            LoggingUtils.logError(logStore, "UserModule", "User not found: " # Principal.toText(userId), null);
+            return #err("User not found.");
+        };
+        case (?user) {
+            // Step 2: Attach tokens via TokenService
+            switch (await tokenService.attachTokensToUser(tokenId, userId, amount)) {
+                case (#err(e)) {
+                    LoggingUtils.logError(logStore, "UserModule", "Failed to attach tokens: " # e, null);
+                    return #err("Failed to attach tokens: " # e);
+                };
+                case (#ok(())) {
+                    // Step 3: Update user's token balance
+                    let currentBalance = Trie.get(user.tokens, { key = tokenId; hash = Nat.hash(tokenId) }, Nat.equal);
+                    let newBalance = switch currentBalance {
+                        case null amount;
+                        case (?balance) balance + amount;
+                    };
+
+                    let updatedTokens = Trie.put(
+                        user.tokens,
+                        { key = tokenId; hash = Nat.hash(tokenId) },
+                        Nat.equal,
+                        newBalance
+                    ).0;
+
+                    // Step 4: Update the user object
+                    let updatedUser = { user with tokens = updatedTokens; updatedAt = Time.now() };
+
+                    users := Array.map<User, User>(users, func(existingUser: User): User {
+                        if (existingUser.id == userId) {
+                            updatedUser;
+                        } else {
+                            existingUser;
+                        }
+                    });
+
+                    // Step 5: Emit event
+                    await eventManager.emit({
+                        id = Nat64.fromIntWrap(Time.now());
+                        eventType = #TokenAttachedToUser;
+                        payload = #TokenAttachedToUser({
+                            UserId = Principal.toText(userId);
+                            TokenId = tokenId;
+                            Amount = amount;
+                        });
+                    });
+
+                    LoggingUtils.logInfo(logStore, "UserModule", "Attached " # Nat.toText(amount) # " tokens to user: " # Principal.toText(userId), null);
+                    
+                    return #ok(());
+                };
+            };
+        };
+    };
+};
+
 };
 };

@@ -46,9 +46,9 @@ actor {
         await PaymentMonitoringService.subscribeToPayments(paymentMonitoringManager, userId);
     };
 
-    public shared func unsubscribeFromPayments(subscriptionId: Nat): async Result.Result<(), Text> {
-        await PaymentMonitoringService.unsubscribeFromPayments(paymentMonitoringManager, subscriptionId);
-    };
+    public shared func unsubscribeFromPayments(userId: Principal): async Result.Result<(), Text> {
+    await PaymentMonitoringService.unsubscribeFromPayments(paymentMonitoringManager, userId);
+};
 
     public shared func broadcastPaymentUpdate(paymentId: Nat, status: Text): async Result.Result<(), Text> {
         await PaymentMonitoringService.broadcastPaymentUpdate(paymentMonitoringManager, paymentId, status);
