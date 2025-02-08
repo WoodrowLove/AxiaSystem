@@ -9,6 +9,7 @@ import Array "mo:base/Array";
 import Trie "mo:base/Trie";
 import TokenEvents "../utils/token_events";
 import UserModule "../../user/modules/user_module";
+import EventManager "../../heartbeat/event_manager";
 
 module {
   public type Token = {
@@ -49,11 +50,12 @@ module {
     details: ?Text;
   };
 
-  public class TokenManager() : TokenManagerInterface {
+  public class TokenManager(eventManager: EventManager.EventManager, userManager: UserModule.UserManager) : TokenManagerInterface {
   private let tokenState = TokenState.TokenState();
   private var eventLog: [Text] = [];
   private let logStore = LoggingUtils.init();
   private let tokenEvents = TokenEvents.TokenEvents();
+  
   
 
 public func getToken(tokenId: Nat): Result.Result<Token, Text> {
@@ -107,16 +109,16 @@ public func logErrorText(category: Text, message: Text, details: ?Text) {
     decimals: Nat,
     owner: Principal
 ): async Result.Result<Token, Text> {
-    if (ValidationUtils.isValidTokenName(name)) {
+    if (not ValidationUtils.isValidTokenName(name)) {
         return #err("Invalid token name: Must be non-empty.");
     };
-    if (ValidationUtils.isValidTokenSymbol(symbol)) {
+    if (not ValidationUtils.isValidTokenSymbol(symbol)) {
         return #err("Invalid token symbol: Must be 1-5 characters.");
     };
-    if (ValidationUtils.isValidTotalSupply(totalSupply)) {
+    if (not ValidationUtils.isValidTotalSupply(totalSupply)) {
         return #err("Total supply must be greater than 0.");
     };
-    if (ValidationUtils.isValidDecimals(decimals)) {
+    if ( not ValidationUtils.isValidDecimals(decimals)) {
         return #err("Invalid decimals: Must be between 0 and 18.");
     };
 
@@ -375,19 +377,27 @@ public func mintToken(
         case (#err(e)) { return #err(e); };
         case (#ok(token)) {
             let updatedToken = {
-    token with 
-    totalSupply = token.totalSupply + amount
-};
+                token with totalSupply = token.totalSupply + amount
+            };
+
             switch (tokenState.updateToken(updatedToken)) {
                 case (#err(e)) { return #err(e); };
                 case (#ok(_)) {
                     switch (userId) {
                         case (null) { return #ok(()); };
                         case (?id) {
-                            let userManager = UserModule.UserManager;
-                            switch (await userManager.attachTokensToUser(tokenId, id, amount, tokenState)) {
+                            // Now directly calls `attachTokensToUser` from the Token Module
+                            switch (await attachTokensToUser(tokenId, id, amount)) {
                                 case (#err(e)) { return #err(e); };
-                                case (#ok(_)) { return #ok(()); };
+                                case (#ok(_)) { 
+                                    LoggingUtils.logInfo(
+                                        logStore,
+                                        "TokenModule",
+                                        "Minted " # Nat.toText(amount) # " tokens and attached to user " # Principal.toText(id),
+                                        null
+                                    );
+                                    return #ok(()); 
+                                };
                             };
                         };
                     };
@@ -440,7 +450,7 @@ public func attachTokensToUser(
       #err("Token not found: ID " # Nat.toText(tokenId))
     };
     case (?token) {
-      if (token.isActive) {
+      if (not token.isActive) {
         return #err("Token is not active and cannot be attached to users.");
       };
 

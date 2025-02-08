@@ -2,9 +2,13 @@ import TokenModule "./modules/token_module";
 import Principal "mo:base/Principal";
 import Result "mo:base/Result";
 import Nat "mo:base/Nat";
+import EventManager "../heartbeat/event_manager";
+import UserModule "../user/modules/user_module";
 
 actor TokenActor {
-    private let tokenManager = TokenModule.TokenManager();
+     private let eventManager = EventManager.EventManager();  // Ensure this matches expected type
+    private let userManager = UserModule.UserManager(eventManager); // Pass eventManager
+    private let tokenManager = TokenModule.TokenManager(eventManager, userManager); // Pass both
 
     // Core Token Operations
     public func createToken(
@@ -72,4 +76,14 @@ actor TokenActor {
     public func releaseLockedTokens(tokenId: Nat): async Result.Result<(), Text> {
         await tokenManager.releaseLockedTokens(tokenId);
     };
+
+
+    public func attachTokensToUser(
+    tokenId: Nat,
+    userId: Principal,
+    amount: Nat
+): async Result.Result<(), Text> {
+    await tokenManager.attachTokensToUser(tokenId, userId, amount);
+};
+
 }

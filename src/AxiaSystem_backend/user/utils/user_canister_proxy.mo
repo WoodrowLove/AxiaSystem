@@ -60,7 +60,7 @@ module {
             }
         };
 
-        public shared func registerDevice(userId: Principal, newDeviceKey: Principal): async Result.Result<(), Text> {
+        public func registerDevice(userId: Principal, newDeviceKey: Principal): async Result.Result<(), Text> {
     try {
         await userCanister.registerDevice(userId, newDeviceKey);
     } catch (e) {
@@ -68,7 +68,7 @@ module {
     }
 };
 
-public shared func validateLogin(principal: ?Principal, email: ?Text, password: ?Text): async Result.Result<User, Text> {
+public func validateLogin(principal: ?Principal, email: ?Text, password: ?Text): async Result.Result<User, Text> {
     try {
         await userCanister.validateLogin(principal, email, password);
     } catch (e) {
