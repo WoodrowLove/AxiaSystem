@@ -65,12 +65,6 @@ public shared func updateUser(userId: Principal, newUsername: ?Text, newEmail: ?
         };
     };
 };
-
-
-    // Heartbeat function to process queued events
-    system func heartbeat() : async () {
-      await eventManager.processQueuedEventsSync();
-    };
     
     // Public API: Deactivate a user
 public shared func deactivateUser(userId: Principal): async Result.Result<(), Text> {

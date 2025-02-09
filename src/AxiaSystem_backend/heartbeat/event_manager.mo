@@ -19,6 +19,7 @@ module {
 
         // Queue for event emission (optional for decoupled execution)
         private var eventQueue: [EventTypes.Event] = [];
+         private var isHeartbeatRunning: Bool = false; // Tracks if heartbeat is running
 
        public func subscribe(eventType: EventTypes.EventType, listener: shared EventTypes.Event -> async ()) : async () {
     let currentListeners = switch (listeners.get(eventType)) {
@@ -41,16 +42,37 @@ module {
         // Enqueue an event for later processing
         public func enqueueEvent(event: EventTypes.Event) : async () {
             eventQueue := Array.append(eventQueue, [event]);
+
+            if (not isHeartbeatRunning) {
+                isHeartbeatRunning := true;
+                await processQueuedEvents(); // Start processing immediately
+            };
         };
 
-        // Process all enqueued events (can be invoked periodically via heartbeat)
+
+         // Process all queued events and stop heartbeat if queue is empty
         public func processQueuedEvents() : async () {
+            if (eventQueue.size() == 0) {
+                isHeartbeatRunning := false; // Stop heartbeat if no events
+                return;
+            };
+
+            Debug.print("Processing " # Nat.toText(eventQueue.size()) # " queued events.");
             let queueCopy = eventQueue;
-            eventQueue := []; // Clear the queue before processing
+            eventQueue := []; // Clear queue before processing
+
             for (event in queueCopy.vals()) {
                 await emit(event);
             };
+
+            // Check if there are more events, otherwise stop heartbeat
+            if (eventQueue.size() == 0) {
+                isHeartbeatRunning := false;
+            } else {
+                await processQueuedEvents(); // Continue processing
+            };
         };
+    
 
 // Emit wallet-related events
 public func emitWalletEvent(

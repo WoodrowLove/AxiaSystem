@@ -876,11 +876,5 @@ public shared func deleteUser(userId: Principal): async Result.Result<(), Text> 
     Debug.print("Global main received deleteUser request for: " # Principal.toText(userId));
     return await userService.deleteUser(userId);
 };
-
-// Heartbeat function to process queued events
-system func heartbeat(): async () {
-    Debug.print("Processing queued events in heartbeat.");
-    await eventManager.processQueuedEvents();
-};
     
 };

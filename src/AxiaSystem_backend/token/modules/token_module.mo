@@ -50,7 +50,7 @@ module {
     details: ?Text;
   };
 
-  public class TokenManager(eventManager: EventManager.EventManager, userManager: UserModule.UserManager) : TokenManagerInterface {
+  public class TokenManager(_eventManager: EventManager.EventManager, _userManager: UserModule.UserManager) : TokenManagerInterface {
   private let tokenState = TokenState.TokenState();
   private var eventLog: [Text] = [];
   private let logStore = LoggingUtils.init();
@@ -384,21 +384,40 @@ public func mintToken(
                 case (#err(e)) { return #err(e); };
                 case (#ok(_)) {
                     switch (userId) {
-                        case (null) { return #ok(()); };
+                        case (null) { 
+                            LoggingUtils.logInfo(
+                                logStore,
+                                "TokenModule",
+                                "Minted " # Nat.toText(amount) # " tokens for Token ID " # Nat.toText(tokenId) # " (No user attached)",
+                                null
+                            );
+                            return #ok(());
+                        };
                         case (?id) {
-                            // Now directly calls `attachTokensToUser` from the Token Module
-                            switch (await attachTokensToUser(tokenId, id, amount)) {
-                                case (#err(e)) { return #err(e); };
-                                case (#ok(_)) { 
-                                    LoggingUtils.logInfo(
-                                        logStore,
-                                        "TokenModule",
-                                        "Minted " # Nat.toText(amount) # " tokens and attached to user " # Principal.toText(id),
-                                        null
-                                    );
-                                    return #ok(()); 
+                            if (not Principal.isAnonymous(id)) {  // Ensure it's not an anonymous user
+                                switch (await attachTokensToUser(tokenId, id, amount)) {
+                                    case (#err(e)) { 
+                                        LoggingUtils.logError(
+                                            logStore,
+                                            "TokenModule",
+                                            "Failed to attach minted tokens: " # e,
+                                            null
+                                        );
+                                        return #err(e);
+                                    };
+                                    case (#ok(_)) { 
+                                        LoggingUtils.logInfo(
+                                            logStore,
+                                            "TokenModule",
+                                            "Minted " # Nat.toText(amount) # " tokens and attached to user " # Principal.toText(id),
+                                            null
+                                        );
+                                        return #ok(()); 
+                                    };
                                 };
-                            };
+                            } else {
+                                return #err("Invalid User ID: Cannot attach tokens to an anonymous user.");
+                            }
                         };
                     };
                 };
@@ -440,36 +459,44 @@ public func burnToken(tokenId: Nat, amount: Nat): Result.Result<(), Text> {
 
 
 public func attachTokensToUser(
-  tokenId: Nat,
-  userId: Principal,
-  amount: Nat
+    tokenId: Nat,
+    userId: Principal,
+    amount: Nat
 ): async Result.Result<(), Text> {
-  // Retrieve the token
-  switch (tokenState.getToken(tokenId)) {
-    case null {
-      #err("Token not found: ID " # Nat.toText(tokenId))
-    };
-    case (?token) {
-      if (not token.isActive) {
-        return #err("Token is not active and cannot be attached to users.");
-      };
-
-      // Perform state update
-      let updateResult = tokenState.attachTokensToUser(tokenId, userId, amount);
-      switch (updateResult) {
-        case (#ok(())) {
-          LoggingUtils.logInfo(
-            logStore,
-            "TokenModule",
-            "Attached " # Nat.toText(amount) # " tokens to user " # Principal.toText(userId),
-            null
-          );
-          #ok(())
+    // Retrieve the token
+    switch (tokenState.getToken(tokenId)) {
+        case null {
+            return #err("Token not found: ID " # Nat.toText(tokenId));
         };
-        case (#err(e)) #err("Failed to attach tokens: " # e);
-      }
+        case (?token) {
+            if (not token.isActive) {
+                return #err("Token is inactive and cannot be attached.");
+            };
+
+            // Perform state update
+            let updateResult = tokenState.attachTokensToUser(tokenId, userId, amount);
+            switch (updateResult) {
+                case (#ok(())) {
+                    LoggingUtils.logInfo(
+                        logStore,
+                        "TokenModule",
+                        "Successfully attached " # Nat.toText(amount) # " tokens to user " # Principal.toText(userId),
+                        null
+                    );
+                    return #ok(());
+                };
+                case (#err(e)) {
+                    LoggingUtils.logError(
+                        logStore,
+                        "TokenModule",
+                        "Failed to attach tokens: " # e,
+                        null
+                    );
+                    return #err("Failed to attach tokens: " # e);
+                };
+            };
+        };
     };
-  };
 };
 
 public func reactivateToken(tokenId: Nat, caller: Principal): async Result.Result<Token, Text> {
