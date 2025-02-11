@@ -269,5 +269,9 @@ public func validateLogin(principal: ?Principal, email: ?Text, password: ?Text):
     await userModule.validateLogin(principal, email, password);
 };
 
+public func attachTokenToUser(userId: Principal, tokenId: Nat, amount: Nat): async Result.Result<(), Text> {
+    return await userManager.attachTokenToUser(userId, tokenId, amount);
+};
+
     };
 };

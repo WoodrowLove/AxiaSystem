@@ -463,7 +463,6 @@ public func attachTokensToUser(
     userId: Principal,
     amount: Nat
 ): async Result.Result<(), Text> {
-    // Retrieve the token
     switch (tokenState.getToken(tokenId)) {
         case null {
             return #err("Token not found: ID " # Nat.toText(tokenId));
@@ -473,31 +472,35 @@ public func attachTokensToUser(
                 return #err("Token is inactive and cannot be attached.");
             };
 
-            // Perform state update
+            // Attach tokens to the token state
             let updateResult = tokenState.attachTokensToUser(tokenId, userId, amount);
             switch (updateResult) {
-                case (#ok(())) {
-                    LoggingUtils.logInfo(
-                        logStore,
-                        "TokenModule",
-                        "Successfully attached " # Nat.toText(amount) # " tokens to user " # Principal.toText(userId),
-                        null
-                    );
-                    return #ok(());
-                };
                 case (#err(e)) {
-                    LoggingUtils.logError(
-                        logStore,
-                        "TokenModule",
-                        "Failed to attach tokens: " # e,
-                        null
-                    );
-                    return #err("Failed to attach tokens: " # e);
+                    return #err("Failed to attach tokens in TokenState: " # e);
+                };
+                case (#ok(())) {
+                    // Update the User Canister with the new token balance
+                    let userUpdateResult = await userManager.attachTokenToUser(userId, tokenId, amount);
+                    switch (userUpdateResult) {
+                        case (#ok(())) {
+                            LoggingUtils.logInfo(
+                                logStore,
+                                "TokenModule",
+                                "Successfully attached " # Nat.toText(amount) # " tokens to user " # Principal.toText(userId),
+                                null
+                            );
+                            return #ok(());
+                        };
+                        case (#err(e)) {
+                            return #err("Failed to update User Canister: " # e);
+                        };
+                    };
                 };
             };
         };
     };
 };
+
 
 public func reactivateToken(tokenId: Nat, caller: Principal): async Result.Result<Token, Text> {
   // Retrieve the token from the state
@@ -542,4 +545,4 @@ public func releaseLockedTokens(tokenId: Nat): async Result.Result<(), Text> {
 };
 
   }
-}
+};

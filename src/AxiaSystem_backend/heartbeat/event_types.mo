@@ -21,6 +21,7 @@ module {
         #TokensLocked;
         #TokensUnlocked;
         #TokensBurned;
+        #TokenAttachedToUser;
         #WalletEventGeneric;
         #EscrowCreated;
         #EscrowReleased;
@@ -91,6 +92,7 @@ module {
         #AllPaymentsRetrieved : { totalTransactions: Nat };
         #PaymentTimedOut : { userId: Principal; amount: Nat; walletId: Text };
         #BalancesSynchronized : { senderId: Principal; receiverId: Principal; amount: Nat; tokenId: Nat };
+        
         #TokenCreated : { tokenId: Nat; name: Text; symbol: Text; owner: Principal };
         #TokenMetadataUpdated : { tokenId: Nat; name: Text; symbol: Text; owner: Principal };
         #TokenDeactivated : { tokenId: Nat; owner: Principal };
@@ -98,6 +100,7 @@ module {
         #TokensLocked : { tokenId: Nat; amount: Nat; owner: Principal};
         #TokensUnlocked : { tokenId: Nat; amount: Nat; owner: Principal };
         #TokensBurned : { tokenId: Nat; amount: Nat };
+        #TokenAttachedToUser : { userId: Text; tokenId: Nat; amount: Nat; };
         #WalletEventGeneric : { walletId: Text; details: Text }; // Added this new variant
         #EscrowCreated : { escrowId: Nat; sender: Principal; receiver: Principal; tokenId: Nat; amount: Nat };
         #EscrowReleased : {};
@@ -226,6 +229,7 @@ module {
             case (#LoginAttempt) { 65 };
             case (#LoginSuccess) { 66 };
             case (#LoginFailure) { 67 };
+            case (#TokenAttachedToUser) { 68 };
 
         }
     };

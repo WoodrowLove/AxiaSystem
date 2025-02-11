@@ -2,6 +2,7 @@ import Principal "mo:base/Principal";
 import Result "mo:base/Result";
 import Text "mo:base/Text";
 import Error "mo:base/Error";
+import Nat "mo:base/Nat";
 
 module {
     public type User = {
@@ -20,7 +21,7 @@ module {
         updateUser: (Principal, ?Text, ?Text, ?Text) -> async Result.Result<User, Text>;
         registerDevice: shared (Principal, Principal) -> async Result.Result<(), Text>;
         validateLogin: shared (?Principal, ?Text, ?Text) -> async Result.Result<User, Text>;
-
+        attachTokenToUser: (Principal, Nat, Nat) -> async Result.Result<(), Text>;  // ✅ New function
     };
 
     // Factory function for creating a user canister proxy
@@ -61,19 +62,28 @@ module {
         };
 
         public func registerDevice(userId: Principal, newDeviceKey: Principal): async Result.Result<(), Text> {
-    try {
-        await userCanister.registerDevice(userId, newDeviceKey);
-    } catch (e) {
-        #err("Failed to register device: " # Error.message(e));
-    }
-};
+            try {
+                await userCanister.registerDevice(userId, newDeviceKey);
+            } catch (e) {
+                #err("Failed to register device: " # Error.message(e));
+            }
+        };
 
-public func validateLogin(principal: ?Principal, email: ?Text, password: ?Text): async Result.Result<User, Text> {
-    try {
-        await userCanister.validateLogin(principal, email, password);
-    } catch (e) {
-        #err("Failed to validate login: " # Error.message(e));
-    }
-};
+        public func validateLogin(principal: ?Principal, email: ?Text, password: ?Text): async Result.Result<User, Text> {
+            try {
+                await userCanister.validateLogin(principal, email, password);
+            } catch (e) {
+                #err("Failed to validate login: " # Error.message(e));
+            }
+        };
+
+        // ✅ New function for attaching tokens to a user
+        public func attachTokenToUser(userId: Principal, tokenId: Nat, amount: Nat): async Result.Result<(), Text> {
+            try {
+                await userCanister.attachTokenToUser(userId, tokenId, amount);
+            } catch (e) {
+                #err("Failed to attach tokens: " # Error.message(e));
+            }
+        };
     };
 };

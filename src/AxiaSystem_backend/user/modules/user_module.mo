@@ -15,6 +15,8 @@ import Int "mo:base/Int";
 import Nat64 "mo:base/Nat64";
 import Debug "mo:base/Debug";
 import Nat "mo:base/Nat";
+import Hash "mo:base/Hash";
+import Iter "mo:base/Iter";
 //import Nat32 "mo:base/Nat32";
 //import Hash "mo:base/Hash";
 
@@ -46,8 +48,9 @@ module {
 };
 
     public class UserManager(eventManager: EventManager.EventManager) : UserManagerInterface {
-        private var users: [User] = [];
+        // private var users: [User] = [];
         private let logStore = LoggingUtils.init();
+        private var users : Trie.Trie<Principal, User> = Trie.empty();
 
         /*
         func customNatHash(n : Nat) : Hash.Hash {
@@ -56,41 +59,56 @@ module {
 };
 */
 
-        // function to register new device keys:
-public func registerDevice(userId: Principal, newDeviceKey: Principal): async Result.Result<(), Text> {
+private func keyPrincipal(p: Principal): Trie.Key<Principal> = {
+    key = p;
+    hash = Principal.hash(p);
+};
+
+func key(n: Nat) : Trie.Key<Nat> = { key = n; hash = Hash.hash(n) };
+
+
+        public func registerDevice(userId: Principal, newDeviceKey: Principal): async Result.Result<(), Text> {
     var updatedUser: ?User = null;
 
-    users := Array.map<User, User>(users, func(user) {
-        if (user.id == userId) {
-            // Explicitly check if the device key already exists
-            let keyExists: ?Principal = Array.find(user.deviceKeys, func(key: Principal) : Bool {
+    users := Trie.mapFilter(users, func(k: Principal, v: User) : ?User {
+        if (k == userId) {
+            // Check if the device key already exists
+            let keyExists = Array.find(v.deviceKeys, func(key: Principal) : Bool {
                 key == newDeviceKey
             });
-            if (keyExists != null) {
-                return user; // Key already exists; no changes needed
+            
+            switch (keyExists) {
+                case (null) {
+                    // Key doesn't exist, so update the user
+                    let updated = {
+                        v with
+                        deviceKeys = Array.append(v.deviceKeys, [newDeviceKey]);
+                        updatedAt = Time.now();
+                    };
+                    updatedUser := ?updated;
+                    ?updated
+                };
+                case (_) {
+                    // Key already exists; no changes needed
+                    ?v
+                };
             };
-            let updated = {
-                user with
-                deviceKeys = Array.append(user.deviceKeys, [newDeviceKey]);
-                updatedAt = Time.now();
-            };
-            updatedUser := ?updated;
-            return updated;
-        };
-        return user;
+        } else {
+            ?v
+        }
     });
 
     switch updatedUser {
         case null {
             // If the user is not found or the key already exists, return an error
-            #err("User not found or device key already exists.");
+            #err("User not found or device key already exists.")
         };
         case (?_) {
             // Emit the event after successfully registering the device
             await eventManager.emitDeviceRegistered(userId, newDeviceKey);
 
             // Return success
-            #ok(());
+            #ok(())
         };
     }
 };
@@ -133,7 +151,7 @@ public func registerDevice(userId: Principal, newDeviceKey: Principal): async Re
             };
 
             // Add the new user to the state
-            users := Array.append(users, [newUser]);
+            users := Trie.put(users, keyPrincipal(newUser.id), Principal.equal, newUser).0;
 
             // Log success
             LoggingUtils.logInfo(logStore, "UserModule", "User created successfully: " # username, null);
@@ -152,11 +170,17 @@ public func registerDevice(userId: Principal, newDeviceKey: Principal): async Re
             return #ok(newUser);
         };
 
-        /// Utility to find a user by email
-        private func findUserByEmail(email: Text): ?User {
-            Array.find<User>(users, func(user: User): Bool { user.email == email });
-        };
-
+      /// Utility to find a user by email
+private func findUserByEmail(email: Text): ?User {
+    let userIter = Trie.iter(users);
+    let found = Array.find<(Principal, User)>(Iter.toArray(userIter), func((_, user): (Principal, User)): Bool {
+        user.email == email
+    });
+    switch found {
+        case (?(_, user)) { ?user };
+        case null { null };
+    }
+};
         /// Utility to hash passwords (simplified)
         private func hashPassword(password: Text): Text {
             return "hashed_" # password;
@@ -166,12 +190,7 @@ public func registerDevice(userId: Principal, newDeviceKey: Principal): async Re
     // Check if logging in via Principal (Internet Identity)
     switch principal {
         case (?p) {
-            let userOpt: ?User = Array.find<User>(users, func(user: User) : Bool {
-                let keyExists: ?Principal = Array.find(user.deviceKeys, func(key: Principal) : Bool {
-                    key == p
-                });
-                keyExists != null
-            });
+            let userOpt = Trie.find(users, keyPrincipal(p), Principal.equal);
             switch userOpt {
                 case null {
                     // Emit login failure before returning
@@ -179,9 +198,14 @@ public func registerDevice(userId: Principal, newDeviceKey: Principal): async Re
                     #err("Login failed: Principal not recognized.");
                 };
                 case (?user) {
-                    // Emit login success before returning
-                    await eventManager.emitLoginSuccess(user.id, ?p, null);
-                    #ok(user);
+                    if (Array.find(user.deviceKeys, func(key: Principal) : Bool { key == p }) != null) {
+                        // Emit login success before returning
+                        await eventManager.emitLoginSuccess(user.id, ?p, null);
+                        #ok(user);
+                    } else {
+                        await eventManager.emitLoginFailure(?p, null, "Principal not associated with user.");
+                        #err("Login failed: Principal not associated with user.");
+                    };
                 };
             };
         };
@@ -189,7 +213,8 @@ public func registerDevice(userId: Principal, newDeviceKey: Principal): async Re
             // Fallback: Validate login via email and password
             switch (email, password) {
                 case (?e, ?p) {
-                    let userOpt: ?User = Array.find<User>(users, func(user: User) : Bool {
+                    let userIter = Trie.iter(users);
+                    let userOpt = Iter.find(userIter, func((_, user): (Principal, User)) : Bool {
                         user.email == e and user.hashedPassword == hashPassword(p)
                     });
                     switch userOpt {
@@ -198,7 +223,7 @@ public func registerDevice(userId: Principal, newDeviceKey: Principal): async Re
                             await eventManager.emitLoginFailure(null, ?e, "Invalid email or password.");
                             #err("Login failed: Invalid email or password.");
                         };
-                        case (?user) {
+                        case (?(_, user)) {
                             // Emit login success before returning
                             await eventManager.emitLoginSuccess(user.id, null, ?e);
                             #ok(user);
@@ -215,25 +240,20 @@ public func registerDevice(userId: Principal, newDeviceKey: Principal): async Re
     }
 };
 
-        /// Function to get a user by ID
-public func getUserById(userId: Principal): async Result.Result<User, Text> {
-    // Attempt to find the user by ID
-    let userOpt = Array.find<User>(users, func(user: User): Bool { user.id == userId });
+       public func getUserById(userId: Principal): async Result.Result<User, Text> {
+    let userKey = { hash = Principal.hash(userId); key = userId };
+    let userOpt = Trie.get(users, userKey, Principal.equal);
 
-    // Return the result as a `Result` type
     switch userOpt {
-        case (null) {
-            return #err("User not found.");
-        };
-        case (?user) {
-            return #ok(user);
-        };
+        case null { #err("User not found.") };
+        case (?user) { #ok(user) };
     };
 };
 
 /// Function to update an existing user's details
 public func updateUser(userId: Principal, newUsername: ?Text, newEmail: ?Text, newPassword: ?Text): async Result.Result<User, Text> {
-    let userOpt = Array.find<User>(users, func(user: User): Bool { user.id == userId });
+    let userKey = { hash = Principal.hash(userId); key = userId };
+    let userOpt = Trie.find(users, userKey, Principal.equal);
 
     switch userOpt {
     case null {
@@ -247,48 +267,108 @@ public func updateUser(userId: Principal, newUsername: ?Text, newEmail: ?Text, n
             return #err("Invalid email format.");
         };
 
-            let updatedUser: User = {
-                id = user.id;
-                username = switch newUsername { case null { user.username }; case (?u) { u }; };
-                email = switch newEmail { case null { user.email }; case (?e) { e }; };
-                hashedPassword = switch newPassword { case null { user.hashedPassword }; case (?p) { hashPassword(p) }; };
-                deviceKeys = user.deviceKeys;
-                createdAt = user.createdAt;
-                updatedAt = Time.now();
-                icpWallet = user.icpWallet;
-                tokens = user.tokens;
-                isActive = user.isActive;
+        let updatedUser: User = {
+            id = user.id;
+            username = switch newUsername { case null { user.username }; case (?u) { u }; };
+            email = switch newEmail { case null { user.email }; case (?e) { e }; };
+            hashedPassword = switch newPassword { case null { user.hashedPassword }; case (?p) { hashPassword(p) }; };
+            deviceKeys = user.deviceKeys;
+            createdAt = user.createdAt;
+            updatedAt = Time.now();
+            icpWallet = user.icpWallet;
+            tokens = user.tokens;
+            isActive = user.isActive;
+        };
+
+        users := Trie.replace(
+            users,
+            userKey,
+            Principal.equal,
+            ?updatedUser
+        ).0;
+
+        LoggingUtils.logInfo(logStore, "UserModule", "User updated successfully: " # Principal.toText(userId), null);
+
+        let emitResult = await eventManager.emitUserUpdated(userId, newUsername, newEmail);
+        switch emitResult {
+            case (#ok(())) {
+                Debug.print("User updated and UserUpdated event emitted successfully.");
+            };
+            case (#err(e)) {
+                Debug.print("User updated, but failed to emit UserUpdated event: " # e);
+            };
+        };
+
+        return #ok(updatedUser);
+    };
+};
+};
+
+/// Function to attach tokens to a user
+public func attachTokenToUser(userId: Principal, tokenId: Nat, amount: Nat): async Result.Result<(), Text> {
+    // Define key functions
+    func keyPrincipal(p: Principal) : Trie.Key<Principal> = { key = p; hash = Principal.hash(p) };
+    func keyNat(n: Nat) : Trie.Key<Nat> = { key = n; hash = Hash.hash(n) };
+
+   // Attempt to find the user
+    let userOpt = Trie.get(users, keyPrincipal(userId), Principal.equal);
+
+    switch (userOpt) {
+        case (null) {
+            return #err("User not found.");
+        };
+        case (?user) {
+            // Retrieve current token balance from Trie
+            let currentBalanceOpt = Trie.get(user.tokens, keyNat(tokenId), Nat.equal);
+
+            // Compute the new balance
+            let newBalance = switch currentBalanceOpt {
+                case null amount;   // If no previous balance, initialize
+                case (?balance) balance + amount;  // Add to existing balance
             };
 
-            users := Array.map<User, User>(users, func(existingUser: User): User {
-                if (existingUser.id == userId) {
-                    updatedUser
-                } else {
-                    existingUser
-                }
+            // Update user's token balance in Trie
+            let (updatedTokens, _) = Trie.put(
+                user.tokens,
+                keyNat(tokenId),
+                Nat.equal,
+                newBalance
+            );
+
+            let updatedUser = {
+                user with
+                tokens = updatedTokens;
+                updatedAt = Time.now();
+            };
+
+            // Update the user in the users Trie
+            users := Trie.replace(
+                users,
+                keyPrincipal(userId),
+                Principal.equal,
+                ?updatedUser
+            ).0;
+
+            // Emit an event after successfully updating the user balance
+            await eventManager.emit({
+                id = Nat64.fromIntWrap(Time.now());
+                eventType = #TokenAttachedToUser;
+                payload = #TokenAttachedToUser({
+                    userId = Principal.toText(userId);
+                    tokenId = tokenId;
+                    amount = amount;
+                });
             });
 
-            LoggingUtils.logInfo(logStore, "UserModule", "User updated successfully: " # Principal.toText(userId), null);
-
-            let emitResult = await eventManager.emitUserUpdated(userId, newUsername, newEmail);
-            switch emitResult {
-                case (#ok(())) {
-                    Debug.print("User updated and UserUpdated event emitted successfully.");
-                };
-                case (#err(e)) {
-                    Debug.print("User updated, but failed to emit UserUpdated event: " # e);
-                };
-            };
-
-            return #ok(updatedUser);
+            return #ok(());
         };
     };
 };
 
 /// Function to deactivate a user
 public func deactivateUser(userId: Principal): async Result.Result<(), Text> {
-    // Attempt to find the user by ID
-    let userOpt = Array.find<User>(users, func(user: User): Bool { user.id == userId });
+    let userKey = { hash = Principal.hash(userId); key = userId };
+    let userOpt = Trie.find(users, userKey, Principal.equal);
 
     switch userOpt {
         case (null) {
@@ -298,14 +378,13 @@ public func deactivateUser(userId: Principal): async Result.Result<(), Text> {
         case (?user) {
             // If the user is found, update their isActive field to false
             let updatedUser = { user with isActive = false; updatedAt = Time.now() };
-            // Replace the user in the users array
-            users := Array.map<User, User>(users, func(existingUser: User): User {
-                if (existingUser.id == userId) {
-                    updatedUser;
-                } else {
-                    existingUser;
-                }
-            });
+            // Replace the user in the Trie
+            users := Trie.replace(
+                users,
+                userKey,
+                Principal.equal,
+                ?updatedUser
+            ).0;
 
             // Emit a "UserDeactivated" event
             await eventManager.emit({
@@ -324,8 +403,8 @@ public func deactivateUser(userId: Principal): async Result.Result<(), Text> {
 
  /// Function to reactivate a user
 public func reactivateUser(userId: Principal): async Result.Result<(), Text> {
-    // Attempt to find the user by ID
-    let userOpt = Array.find<User>(users, func(user: User): Bool { user.id == userId });
+    let userKey = { hash = Principal.hash(userId); key = userId };
+    let userOpt = Trie.find(users, userKey, Principal.equal);
 
     switch userOpt {
         case (null) {
@@ -341,14 +420,13 @@ public func reactivateUser(userId: Principal): async Result.Result<(), Text> {
             // If the user is found, update their isActive field to true
             let updatedUser = { user with isActive = true; updatedAt = Time.now() };
 
-            // Replace the user in the users array
-            users := Array.map<User, User>(users, func(existingUser: User): User {
-                if (existingUser.id == userId) {
-                    updatedUser;
-                } else {
-                    existingUser;
-                }
-            });
+            // Replace the user in the Trie
+            users := Trie.replace(
+                users,
+                userKey,
+                Principal.equal,
+                ?updatedUser
+            ).0;
 
             // Emit a "UserReactivated" event
             await eventManager.emit({
@@ -363,24 +441,21 @@ public func reactivateUser(userId: Principal): async Result.Result<(), Text> {
             return #ok(());
         };
     };
-
-    };
+};
 
     /// Function to delete a user
 public func deleteUser(userId: Principal): async Result.Result<(), Text> {
-    // Attempt to find the user by ID
-    let userOpt = Array.find<User>(users, func(user: User): Bool { user.id == userId });
+    let userKey = { hash = Principal.hash(userId); key = userId };
+    let (newUsers, removedUser) = Trie.remove(users, userKey, Principal.equal);
 
-    switch userOpt {
+    switch (removedUser) {
         case null {
             // If the user is not found, return an error
             return #err("User not found.");
         };
         case (?user) {
-            // Remove the user from the array
-            users := Array.filter<User>(users, func(existingUser: User): Bool {
-                existingUser.id != userId
-            });
+            // Update the users Trie
+            users := newUsers;
 
             // Emit a "UserDeleted" event
             await eventManager.emit({
@@ -403,20 +478,23 @@ public func deleteUser(userId: Principal): async Result.Result<(), Text> {
 
 /// Function to list all users
 public func listAllUsers(includeInactive: Bool): async Result.Result<[User], Text> {
+    let userIter = Trie.iter(users);
+    let userArray = Iter.toArray(userIter);
+    
     if (includeInactive) {
-        return #ok(users);
+        return #ok(Array.map(userArray, func((_, user): (Principal, User)): User { user }));
     } else {
-        let activeUsers = Array.filter<User>(users, func(user: User): Bool {
+        let activeUsers = Array.filter(userArray, func((_, user): (Principal, User)): Bool {
             user.isActive
         });
-        return #ok(activeUsers);
+        return #ok(Array.map(activeUsers, func((_, user): (Principal, User)): User { user }));
     };
 };
 
 /// Function to reset a user's password
 public func resetPassword(userId: Principal, newPassword: Text): async Result.Result<User, Text> {
-    // Attempt to find the user by ID
-    let userOpt = Array.find<User>(users, func(user: User): Bool { user.id == userId });
+    let userKey = { hash = Principal.hash(userId); key = userId };
+    let userOpt = Trie.find(users, userKey, Principal.equal);
 
     switch userOpt {
         case null {
@@ -430,14 +508,13 @@ public func resetPassword(userId: Principal, newPassword: Text): async Result.Re
             // Update the user's password and `updatedAt` timestamp
             let updatedUser = { user with hashedPassword = hashedPassword; updatedAt = Time.now() };
 
-            // Replace the user in the users array
-            users := Array.map<User, User>(users, func(existingUser: User): User {
-                if (existingUser.id == userId) {
-                    updatedUser;
-                } else {
-                    existingUser;
-                }
-            });
+            // Replace the user in the Trie
+            users := Trie.replace(
+                users,
+                userKey,
+                Principal.equal,
+                ?updatedUser
+            ).0;
 
             // Emit a "PasswordReset" event
             await eventManager.emit({
