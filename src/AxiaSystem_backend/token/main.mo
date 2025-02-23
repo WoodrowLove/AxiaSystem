@@ -47,12 +47,12 @@ actor TokenActor {
     };
 
     // Minting and Burning
-    public func mintTokens(
+    public shared func mintTokens(
         tokenId: Nat,
         amount: Nat,
         caller: Principal
     ): async Result.Result<(), Text> {
-        await tokenManager.mintToken(tokenId, amount, ?caller);
+        await tokenManager.mintTokens(tokenId, amount, ?caller);
     };
 
     public func burnTokens(tokenId: Nat, amount: Nat): async Result.Result<(), Text> {

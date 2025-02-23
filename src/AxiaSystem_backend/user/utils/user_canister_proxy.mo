@@ -3,6 +3,7 @@ import Result "mo:base/Result";
 import Text "mo:base/Text";
 import Error "mo:base/Error";
 import Nat "mo:base/Nat";
+import Debug "mo:base/Debug";
 
 module {
     public type User = {
@@ -21,7 +22,7 @@ module {
         updateUser: (Principal, ?Text, ?Text, ?Text) -> async Result.Result<User, Text>;
         registerDevice: shared (Principal, Principal) -> async Result.Result<(), Text>;
         validateLogin: shared (?Principal, ?Text, ?Text) -> async Result.Result<User, Text>;
-        attachTokenToUser: (Principal, Nat, Nat) -> async Result.Result<(), Text>;  // ✅ New function
+        attachTokensToUser: (Principal, Nat, Nat) -> async Result.Result<(), Text>;
     };
 
     // Factory function for creating a user canister proxy
@@ -77,12 +78,27 @@ module {
             }
         };
 
-        // ✅ New function for attaching tokens to a user
-        public func attachTokenToUser(userId: Principal, tokenId: Nat, amount: Nat): async Result.Result<(), Text> {
+        // ✅ Updated attachTokensToUser function
+        public func attachTokensToUser(userId: Principal, tokenId: Nat, amount: Nat): async Result.Result<(), Text> {
+            Debug.print("🔄 [user_proxy.mo] Forwarding attachTokensToUser request to main.mo");
+
             try {
-                await userCanister.attachTokenToUser(userId, tokenId, amount);
+                let result = await userCanister.attachTokensToUser(userId, tokenId, amount);
+
+                switch result {
+                    case (#ok(())) {
+                        Debug.print("✅ [user_proxy.mo] Tokens successfully attached for user: " # Principal.toText(userId));
+                        return #ok(());
+                    };
+                    case (#err(e)) {
+                        Debug.print("❌ [user_proxy.mo] Error attaching tokens: " # e);
+                        return #err(e);
+                    };
+                };
             } catch (e) {
-                #err("Failed to attach tokens: " # Error.message(e));
+                let errorMsg = "Failed to attach tokens: " # Error.message(e);
+                Debug.print("❌ [user_proxy.mo] " # errorMsg);
+                return #err(errorMsg);
             }
         };
     };

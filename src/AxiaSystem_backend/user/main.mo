@@ -9,15 +9,77 @@ import Debug "mo:base/Debug";
 import Bool "mo:base/Bool";
 import Nat "mo:base/Nat";
 import Array "mo:base/Array";
+import Trie "mo:base/Trie";
+import Time "mo:base/Time";
+import Nat64 "mo:base/Nat64";
+import Hash "mo:base/Hash";
+import Nat32 "mo:base/Nat32";
+import UserCanisterProxy "utils/user_canister_proxy";
 
 actor UserCanister {
+
+    private stable var users : Trie.Trie<Principal, UserModule.User> = Trie.empty();
     // Initialize the event manager
     private let eventManager = EventManager.EventManager();
+    let userProxy = UserCanisterProxy.UserCanisterProxy(Principal.fromText("c5kvi-uuaaa-aaaaa-qaaia-cai"));
 
     // Initialize the user manager with the event manager
     private let userManager = UserModule.UserManager(eventManager);
 
-    private let userService = UserService.UserService(userManager, eventManager);
+    private let userService = UserService.UserService(userManager, eventManager, userProxy);
+
+
+    /// Attach tokens to a user and persist the update in the Trie
+private func _attachTokensToUser(userId: Principal, tokenId: Nat, amount: Nat): async Result.Result<(), Text> {
+    // Define Trie keys for Principal and Nat
+    func keyPrincipal(p: Principal): Trie.Key<Principal> = { key = p; hash = Principal.hash(p) };
+    func keyNat(n: Nat): Trie.Key<Nat> = { key = n; hash = customNatHash(n) };
+
+    // Retrieve user from Trie
+    let userOpt = Trie.get(users, keyPrincipal(userId), Principal.equal);
+    switch userOpt {
+        case null { return #err("User not found."); };
+        case (?user) {
+            // Retrieve current balance
+            let currentBalanceOpt = Trie.get(user.tokens, keyNat(tokenId), Nat.equal);
+            let newBalance = switch currentBalanceOpt {
+                case null amount;
+                case (?balance) balance + amount;
+            };
+
+            // Update the token balance for the user
+            let updatedTokens = Trie.put(user.tokens, keyNat(tokenId), Nat.equal, newBalance).0;
+
+            // Create the updated user record
+            let updatedUser = {
+                user with
+                tokens = updatedTokens;
+                updatedAt = Time.now();
+            };
+
+            // Persist the update in the stable Trie
+            users := Trie.replace(users, keyPrincipal(userId), Principal.equal, ?updatedUser).0;
+
+            // Emit an event after updating the balance
+            await eventManager.emit({
+                id = Nat64.fromIntWrap(Time.now());
+                eventType = #TokenAttachedToUser;
+                payload = #TokenAttachedToUser({
+                    userId = Principal.toText(userId);
+                    tokenId = tokenId;
+                    amount = amount;
+                });
+            });
+
+            return #ok(());
+        };
+    };
+};
+
+func customNatHash(n : Nat) : Hash.Hash {
+    let hashValue = Nat32.fromNat(n);
+    hashValue ^ (hashValue >> 16)
+};
     
 
     // Public API: Create a new user
@@ -201,6 +263,22 @@ public shared func validateLogin(principal: ?Principal, email: ?Text, password: 
         case (#err(errMsg)) {
             Debug.print("Main: Login validation failed: " # errMsg);
             return #err(errMsg);
+        };
+    };
+    
+};
+public shared func attachTokensToUser(userId: Principal, tokenId: Nat, amount: Nat): async Result.Result<(), Text> {
+    Debug.print("🔄 [main.mo] Forwarding attachTokensToUser request to UserManager.");
+    let result = await userManager.attachTokensToUser(userId, tokenId, amount);
+
+    switch result {
+        case (#ok(())) {
+            Debug.print("✅ [main.mo] Tokens attached successfully.");
+            return #ok(());
+        };
+        case (#err(e)) {
+            Debug.print("❌ [main.mo] Failed to attach tokens: " # e);
+            return #err("Failed to attach tokens: " # e);
         };
     };
 };

@@ -19,7 +19,7 @@ module {
         getAllTokens: () -> async [Token];
         getToken: (Nat) -> async ?Token;
         updateToken: (Token) -> async Result.Result<(), Text>;
-        mintTokens: (Principal, Nat) -> async Result.Result<(), Text>;
+        mintTokens: shared (Principal, Nat) -> async Result.Result<(), Text>;
         attachTokensToUser: (Nat, Principal, Nat) -> async Result.Result<(), Text>;
         deactivateToken: (Nat, Principal) -> async Result.Result<(), Text>;
         reactivateToken: (Nat, Principal) -> async Result.Result<(), Text>;
@@ -63,14 +63,13 @@ module {
             }
         };
 
-        // Mint new tokens
-        public func mintTokens(userId: Principal, amount: Nat): async Result.Result<(), Text> {
-            try {
-                await tokenCanisterProxy.mintTokens(userId, amount);
-            } catch (error) {
-                #err("Failed to mint tokens: " # Error.message(error))
-            }
-        };
+       public func mintTokens(userId: Principal, amount: Nat): async Result.Result<(), Text> {
+    try {
+        await tokenCanisterProxy.mintTokens(userId, amount);
+    } catch (error) {
+        #err("Failed to mint tokens: " # Error.message(error))
+    }
+};
 
         // Attach tokens to a user
         public func attachTokensToUser(tokenId: Nat, userId: Principal, amount: Nat): async Result.Result<(), Text> {

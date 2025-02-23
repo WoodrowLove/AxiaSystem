@@ -11,7 +11,7 @@ import SplitPaymentModule "modules/split_payment_module";
 actor {
 
     // Initialize dependencies
-    private let walletProxy = WalletCanisterProxy.WalletCanisterProxy(Principal.fromText("ahw5u-keaaa-aaaaa-qaaha-cai"));
+    private let walletProxy = WalletCanisterProxy.WalletCanisterProxy(Principal.fromText("c2lt4-zmaaa-aaaaa-qaaiq-cai"));
     private let eventManager = EventManager.EventManager();
 
     // Initialize the Split Payment Service

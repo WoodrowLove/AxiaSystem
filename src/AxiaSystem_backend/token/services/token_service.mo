@@ -140,7 +140,7 @@ module {
 
         // Mint Tokens
         public func mintTokens(tokenId: Nat, amount: Nat, caller: Principal): async Result.Result<(), Text> {
-            let result = await tokenManager.mintToken(tokenId, amount, ?caller);
+            let result = await tokenManager.mintTokens(tokenId, amount, ?caller);
 
             switch (result) {
                 case (#ok(_)) {

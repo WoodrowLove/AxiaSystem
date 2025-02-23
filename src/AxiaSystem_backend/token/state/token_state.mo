@@ -328,7 +328,7 @@ public func getXRPLMetadata(tokenId: Nat): ?XRPLMetadata {
         };
 
 // Increase the total supply for a token
-public func mintToken(tokenId: Nat, amount: Nat): Result.Result<(), Text> {
+public func mintTokens(tokenId: Nat, amount: Nat): Result.Result<(), Text> {
     switch (getToken(tokenId)) {
         case null {
             #err("Token not found");

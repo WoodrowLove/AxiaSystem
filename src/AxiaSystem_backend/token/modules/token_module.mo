@@ -10,6 +10,7 @@ import Trie "mo:base/Trie";
 import TokenEvents "../utils/token_events";
 import UserModule "../../user/modules/user_module";
 import EventManager "../../heartbeat/event_manager";
+import UserCanisterProxy "../../user/utils/user_canister_proxy";
 
 module {
   public type Token = {
@@ -40,7 +41,7 @@ module {
   lockTokens : (Nat, Nat, Principal) -> async Result.Result<Nat, Text>;
   logErrorText : (Text, Text, ?Text) -> ();
   logInfoText : (Text, Text, ?Text) -> ();
-  mintToken : (Nat, Nat, ?Principal) -> async Result.Result<(), Text>;
+  mintTokens : (Nat, Nat, ?Principal) -> async Result.Result<(), Text>;
   onError : Text -> async ();
   unlockTokens : (Nat, Nat, Principal) -> async Result.Result<Nat, Text>;
 };
@@ -50,11 +51,12 @@ module {
     details: ?Text;
   };
 
-  public class TokenManager(_eventManager: EventManager.EventManager, _userManager: UserModule.UserManager) : TokenManagerInterface {
+  public class TokenManager(_eventManager: EventManager.EventManager, userManager: UserModule.UserManager) : TokenManagerInterface {
   private let tokenState = TokenState.TokenState();
   private var eventLog: [Text] = [];
   private let logStore = LoggingUtils.init();
   private let tokenEvents = TokenEvents.TokenEvents();
+  private let userProxy = UserCanisterProxy.UserCanisterProxy(Principal.fromText("c5kvi-uuaaa-aaaaa-qaaia-cai"));
   
   
 
@@ -254,7 +256,7 @@ public func onError(err: Text): async () {
 // Check if a caller is authorized to create tokens
 private func _isAuthorizedToCreate(caller: Principal): Bool {
     // Define authorized users (for now, assume only specific Principal is authorized)
-    let authorizedUsers = [Principal.fromText("ctiya-peaaa-aaaaa-qaaja-cai")]; // Replace with actual authorized Principal IDs
+    let authorizedUsers = [Principal.fromText("bnz7o-iuaaa-aaaaa-qaaaa-cai")]; // Replace with actual authorized Principal IDs
     Array.find(authorizedUsers, func(user: Principal): Bool { user == caller }) != null
 };
 
@@ -368,21 +370,18 @@ public func isTokenOwner(tokenId: Nat, userId: Principal): Bool {
     }
 };
 
-public func mintToken(
+public func mintTokens(
     tokenId: Nat,
     amount: Nat,
     userId: ?Principal
 ): async Result.Result<(), Text> {
     switch (getToken(tokenId)) {
         case (#err(e)) { return #err(e); };
-        case (#ok(token)) {
-            let updatedToken = {
-                token with totalSupply = token.totalSupply + amount
-            };
-
-            switch (tokenState.updateToken(updatedToken)) {
+        case (#ok(_token)) {
+            let stateUpdateResult = tokenState.mintTokens(tokenId, amount);
+            switch (stateUpdateResult) {
                 case (#err(e)) { return #err(e); };
-                case (#ok(_)) {
+                case (#ok(())) {
                     switch (userId) {
                         case (null) { 
                             LoggingUtils.logInfo(
@@ -394,8 +393,8 @@ public func mintToken(
                             return #ok(());
                         };
                         case (?id) {
-                            if (not Principal.isAnonymous(id)) {  // Ensure it's not an anonymous user
-                                switch (await attachTokensToUser(tokenId, id, amount)) {
+                            if (not Principal.isAnonymous(id)) {  
+                                switch (await userProxy.attachTokensToUser(id, tokenId,  amount)) {
                                     case (#err(e)) { 
                                         LoggingUtils.logError(
                                             logStore,
@@ -480,7 +479,7 @@ public func attachTokensToUser(
                 };
                 case (#ok(())) {
                     // Update the User Canister with the new token balance
-                    let userUpdateResult = await userManager.attachTokenToUser(userId, tokenId, amount);
+                    let userUpdateResult = await userManager.attachTokensToUser(userId, tokenId, amount);
                     switch (userUpdateResult) {
                         case (#ok(())) {
                             LoggingUtils.logInfo(

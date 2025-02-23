@@ -37,44 +37,32 @@ import UserService "user/service/user_service";
 import SharedTypes "shared_types";
 
 
-
 actor AxiaSystem_backend {
     // Initialize proxies for all canisters
-    private let tokenProxy = TokenCanisterProxy.TokenCanisterProxy(Principal.fromText("ajuq4-ruaaa-aaaaa-qaaga-cai"));
-    private let _userProxy = UserCanisterProxy.UserCanisterProxy(Principal.fromText("aovwi-4maaa-aaaaa-qaagq-cai"));
-    private let walletProxy = WalletCanisterProxy.WalletCanisterProxy(Principal.fromText("ahw5u-keaaa-aaaaa-qaaha-cai"));
-    private let _paymentProxy = PaymentCanisterProxy.PaymentCanisterProxy(Principal.fromText("by6od-j4aaa-aaaaa-qaadq-cai"));
-    private let paymentMonitoringProxy = PaymentMonitoringProxy.PaymentMonitoringProxy(Principal.fromText("avqkn-guaaa-aaaaa-qaaea-cai"));
+    private let tokenProxy = TokenCanisterProxy.TokenCanisterProxy(Principal.fromText("ahw5u-keaaa-aaaaa-qaaha-cai"));
+    private let userProxy = UserCanisterProxy.UserCanisterProxy(Principal.fromText("c5kvi-uuaaa-aaaaa-qaaia-cai"));
+    private let walletProxy = WalletCanisterProxy.WalletCanisterProxy(Principal.fromText("c2lt4-zmaaa-aaaaa-qaaiq-cai"));
+    private let _paymentProxy = PaymentCanisterProxy.PaymentCanisterProxy(Principal.fromText("asrmz-lmaaa-aaaaa-qaaeq-cai"));
+    private let paymentMonitoringProxy = PaymentMonitoringProxy.PaymentMonitoringProxy(Principal.fromText("a3shf-5eaaa-aaaaa-qaafa-cai"));
     private var localSubscriptions: [(Principal, SubscriptionCanisterProxy.Subscription)] = [];
     private let escrowCanisterProxy = EscrowCanisterProxy.EscrowCanisterProxy(Principal.fromText("bw4dl-smaaa-aaaaa-qaacq-cai"));
-    // Initialize proxies for all canisters
-    private let splitPaymentProxy = SplitPaymentProxy.SplitPaymentProxy(Principal.fromText("a3shf-5eaaa-aaaaa-qaafa-cai"));
-    // Initialize event manager for the heartbeat
-    private let eventManager = EventManager.EventManager();
-    // Initialize Payout Proxy
-    private let _payoutProxy = PayoutProxy.PayoutProxy(Principal.fromText("asrmz-lmaaa-aaaaa-qaaeq-cai"));
-    // Initialize Payout Manager and Service
-    private let _payoutManager = PayoutModule.PayoutManager(walletProxy, eventManager);
-    private let payoutService = PayoutService.createPayoutService(walletProxy, eventManager);
-    // Initialize Asset Registry Proxy
+    private let subscriptionProxy = SubscriptionCanisterProxy.SubscriptionProxy(Principal.fromText("aovwi-4maaa-aaaaa-qaagq-cai"));
+    private let splitPaymentProxy = SplitPaymentProxy.SplitPaymentProxy(Principal.fromText("ajuq4-ruaaa-aaaaa-qaaga-cai"));
+    private let _payoutProxy = PayoutProxy.PayoutProxy(Principal.fromText("a4tbr-q4aaa-aaaaa-qaafq-cai"));
     private let _assetRegistryProxy = AssetRegistryProxy.AssetRegistryProxy(Principal.fromText("br5f7-7uaaa-aaaaa-qaaca-cai"));
-    // Initialize Asset Registry Service
-    private let assetRegistryService = AssetRegistryService.createAssetRegistryService(eventManager);
-    // Asset Canister Proxy
     private let assetProxy = AssetProxy.AssetProxy(Principal.fromText("be2us-64aaa-aaaaa-qaabq-cai"));
-     // Initialize Identity Manager
-    private let identityManager : IdentityModule.IdentityManager = IdentityModule.IdentityManager(eventManager);
-    // Initialize Governance Proxy
-    private let _governanceProxy = GovernanceProxy.GovernanceProxy(Principal.fromText("c2lt4-zmaaa-aaaaa-qaaiq-cai"));
+    private let _governanceProxy = GovernanceProxy.GovernanceProxy(Principal.fromText("b77ix-eeaaa-aaaaa-qaada-cai"));
 
-    // Initialize Governance Manager and Service
+    private let eventManager = EventManager.EventManager();
     private let governanceManager = GovernanceModule.GovernanceModule(eventManager);
     private let governanceService = GovernanceService.GovernanceService(governanceManager, eventManager);
-
-    // State initialization
-
     let userModule = UserModule.UserManager(eventManager);
-    let userService = UserService.UserService(userModule, eventManager);
+    let userService = UserService.UserService(userModule, eventManager, userProxy);
+    private let identityManager : IdentityModule.IdentityManager = IdentityModule.IdentityManager(eventManager);
+    private let assetRegistryService = AssetRegistryService.createAssetRegistryService(eventManager);
+    private let _payoutManager = PayoutModule.PayoutManager(walletProxy, eventManager);
+    private let payoutService = PayoutService.createPayoutService(walletProxy, eventManager);
+    
 
     // Exposed APIs to connect with frontend or other services
 
@@ -122,9 +110,13 @@ actor AxiaSystem_backend {
     };
 
     // Mint tokens for a user
-    public func mintTokens(_tokenId: Nat, amount: Nat, userId: Principal): async Result.Result<(), Text> {
-        await tokenProxy.mintTokens(userId, amount)
-    };
+    public shared func mintTokens(amount: Nat, userId: Principal): async Result.Result<(), Text> {
+    try {
+        await tokenProxy.mintTokens( userId, amount);
+    } catch (error) {
+        #err("Failed to mint tokens: " # Error.message(error))
+    }
+};
 
     // Define this outside of any function, as a private function of the actor
 private func handleTokenCreated(event: EventTypes.Event) {
@@ -228,16 +220,9 @@ public func runHeartbeat(): async () {
     await runHeartbeat();
 };
 
-// Initialize the Subscription Proxy
-private let subscriptionProxy = SubscriptionCanisterProxy.SubscriptionProxy(
-    Principal.fromText("a4tbr-q4aaa-aaaaa-qaafq-cai")
-);
 
 // Subscription APIs
 
-// Subscription APIs
-
-// Create a subscription for a user
 // Create a subscription for a user
 public func createSubscription(userId: Principal, duration: Int): async Result.Result<SubscriptionCanisterProxy.Subscription, Text> {
     try {

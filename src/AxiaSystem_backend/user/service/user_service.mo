@@ -9,10 +9,14 @@ import Debug "mo:base/Debug";
 import _Nat "mo:base/Nat";
 import _Array "mo:base/Array";
 import Bool "mo:base/Bool";
+// import Error "mo:base/Error";
+import UserCanisterProxy "../utils/user_canister_proxy";
 
 
 module {
-    public class UserService(userModule: UserModule.UserManager, eventManager: EventManager.EventManager) {
+    public class UserService(userModule: UserModule.UserManager, eventManager: EventManager.EventManager, userProxy: UserCanisterProxy.UserCanisterProxy) {
+
+        let _userManager = UserModule.UserManager(eventManager);
 
         // Function to create a user and emit an event
         public func createUser(username: Text, email: Text, password: Text): async Result.Result<UserModule.User, Text> {
@@ -269,9 +273,36 @@ public func validateLogin(principal: ?Principal, email: ?Text, password: ?Text):
     await userModule.validateLogin(principal, email, password);
 };
 
-public func attachTokenToUser(userId: Principal, tokenId: Nat, amount: Nat): async Result.Result<(), Text> {
-    return await userManager.attachTokenToUser(userId, tokenId, amount);
-};
+ // ✅ // ✅ Attach Tokens Function
+        public func attachTokensToUser(userId: Principal, tokenId: Nat, amount: Nat): async Result.Result<(), Text> {
+            Debug.print("🔄 [user_service.mo] Handling attachTokensToUser for user: " # Principal.toText(userId));
 
+            // Step 1: Attach Tokens to User via User Module
+            let moduleResult = await userModule.attachTokensToUser(userId, tokenId, amount);
+
+            switch moduleResult {
+                case (#ok(())) {
+                    Debug.print("✅ [user_service.mo] Tokens attached in user module. Forwarding to proxy.");
+
+                    // Step 2: Forward to Proxy for External Sync (if needed)
+                    let proxyResult = await userProxy.attachTokensToUser(userId, tokenId, amount);
+
+                    switch proxyResult {
+                        case (#ok(())) {
+                            Debug.print("✅ [user_service.mo] Successfully attached tokens via proxy.");
+                            return #ok(());
+                        };
+                        case (#err(e)) {
+                            Debug.print("❌ [user_service.mo] Proxy error: " # e);
+                            return #err("Failed to sync tokens in proxy: " # e);
+                        };
+                    };
+                };
+                case (#err(e)) {
+                    Debug.print("❌ [user_service.mo] User module error: " # e);
+                    return #err("Failed to attach tokens in module: " # e);
+                };
+            };
+        };
     };
 };

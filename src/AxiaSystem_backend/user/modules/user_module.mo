@@ -17,6 +17,7 @@ import Debug "mo:base/Debug";
 import Nat "mo:base/Nat";
 import Hash "mo:base/Hash";
 import Iter "mo:base/Iter";
+import Nat32 "mo:base/Nat32";
 //import Nat32 "mo:base/Nat32";
 //import Hash "mo:base/Hash";
 
@@ -44,27 +45,27 @@ module {
     deleteUser: (Principal) -> async Result.Result<(), Text>;
     listAllUsers: Bool -> async Result.Result<[User], Text>;
     resetPassword: (Principal, Text) -> async Result.Result<User, Text>;
-
+    attachTokensToUser: (Principal, Nat, Nat) -> async Result.Result<(), Text>;
+    
 };
 
     public class UserManager(eventManager: EventManager.EventManager) : UserManagerInterface {
-        // private var users: [User] = [];
         private let logStore = LoggingUtils.init();
         private var users : Trie.Trie<Principal, User> = Trie.empty();
 
-        /*
+        
         func customNatHash(n : Nat) : Hash.Hash {
     let hashValue = Nat32.fromNat(n);
     hashValue ^ (hashValue >> 16)
 };
-*/
+
 
 private func keyPrincipal(p: Principal): Trie.Key<Principal> = {
     key = p;
     hash = Principal.hash(p);
 };
 
-func key(n: Nat) : Trie.Key<Nat> = { key = n; hash = Hash.hash(n) };
+// func key(n: Nat) : Trie.Key<Nat> = { key = n; hash = customNatHash(n) };
 
 
         public func registerDevice(userId: Principal, newDeviceKey: Principal): async Result.Result<(), Text> {
@@ -210,13 +211,14 @@ private func findUserByEmail(email: Text): ?User {
             };
         };
         case null {
-            // Fallback: Validate login via email and password
-            switch (email, password) {
-                case (?e, ?p) {
-                    let userIter = Trie.iter(users);
-                    let userOpt = Iter.find(userIter, func((_, user): (Principal, User)) : Bool {
-                        user.email == e and user.hashedPassword == hashPassword(p)
-                    });
+           // Fallback: Validate login via email and password
+switch (email, password) {
+    case (?e, ?p) {
+        let userIter = Trie.iter(users);
+        let userArray = Iter.toArray(userIter);
+        let userOpt = Array.find(userArray, func((_, user): (Principal, User)) : Bool {
+            user.email == e and user.hashedPassword == hashPassword(p)
+        });
                     switch userOpt {
                         case null {
                             // Emit login failure before returning
@@ -305,60 +307,45 @@ public func updateUser(userId: Principal, newUsername: ?Text, newEmail: ?Text, n
 };
 
 /// Function to attach tokens to a user
-public func attachTokenToUser(userId: Principal, tokenId: Nat, amount: Nat): async Result.Result<(), Text> {
-    // Define key functions
-    func keyPrincipal(p: Principal) : Trie.Key<Principal> = { key = p; hash = Principal.hash(p) };
-    func keyNat(n: Nat) : Trie.Key<Nat> = { key = n; hash = Hash.hash(n) };
+public func attachTokensToUser(userId: Principal, tokenId: Nat, amount: Nat): async Result.Result<(), Text> {
+    Debug.print("🔍 Received attachTokensToUser request.");
+    Debug.print("🔍 Looking for user: " # Principal.toText(userId));
+    Debug.print("🔍 Current users Trie: " # debug_show(users));
 
-   // Attempt to find the user
-    let userOpt = Trie.get(users, keyPrincipal(userId), Principal.equal);
-
+    let userOpt = Trie.get(users, { key = userId; hash = Principal.hash(userId) }, Principal.equal);
+    
     switch (userOpt) {
         case (null) {
+            Debug.print("❌ User not found in Trie.");
             return #err("User not found.");
         };
         case (?user) {
-            // Retrieve current token balance from Trie
-            let currentBalanceOpt = Trie.get(user.tokens, keyNat(tokenId), Nat.equal);
+            Debug.print("✅ Found user: " # user.username);
+            Debug.print("🔍 Existing token balances: " # debug_show(user.tokens));
 
-            // Compute the new balance
+            let currentBalanceOpt = Trie.get(user.tokens, { key = tokenId; hash = customNatHash(tokenId) }, Nat.equal);
             let newBalance = switch currentBalanceOpt {
-                case null amount;   // If no previous balance, initialize
-                case (?balance) balance + amount;  // Add to existing balance
+                case null amount;
+                case (?balance) balance + amount;
             };
 
-            // Update user's token balance in Trie
             let (updatedTokens, _) = Trie.put(
                 user.tokens,
-                keyNat(tokenId),
+                { key = tokenId; hash = customNatHash(tokenId) },
                 Nat.equal,
                 newBalance
             );
 
-            let updatedUser = {
-                user with
-                tokens = updatedTokens;
-                updatedAt = Time.now();
-            };
+            let updatedUser = { user with tokens = updatedTokens; updatedAt = Time.now() };
 
-            // Update the user in the users Trie
             users := Trie.replace(
                 users,
-                keyPrincipal(userId),
+                { key = userId; hash = Principal.hash(userId) },
                 Principal.equal,
                 ?updatedUser
             ).0;
 
-            // Emit an event after successfully updating the user balance
-            await eventManager.emit({
-                id = Nat64.fromIntWrap(Time.now());
-                eventType = #TokenAttachedToUser;
-                payload = #TokenAttachedToUser({
-                    userId = Principal.toText(userId);
-                    tokenId = tokenId;
-                    amount = amount;
-                });
-            });
+            Debug.print("✅ Updated user token balances: " # debug_show(updatedUser.tokens));
 
             return #ok(());
         };
