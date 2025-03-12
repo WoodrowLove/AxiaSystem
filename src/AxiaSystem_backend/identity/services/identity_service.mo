@@ -170,5 +170,26 @@ module {
       );
       await identityManager.getStaleIdentities()
     };
+
+     // ✅ New function to check if a user is registered
+        public func checkUserRegistration(userId: Principal): async Bool {
+            let isRegistered = await identityManager.isUserRegistered(userId);
+            if (isRegistered) {
+                LoggingUtils.logInfo(
+                    logStore,
+                    "IdentityService",
+                    "User is registered: " # Principal.toText(userId),
+                    null
+                );
+            } else {
+                LoggingUtils.logWarning(
+                    logStore,
+                    "IdentityService",
+                    "User is NOT registered: " # Principal.toText(userId),
+                    null
+                );
+            };
+            isRegistered
+        };
   };
 };

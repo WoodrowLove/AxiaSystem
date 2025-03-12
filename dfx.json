@@ -37,7 +37,7 @@
     "identity": {
       "type": "motoko",
       "main": "src/AxiaSystem_backend/identity/main.mo",
-      "canister_id": "by6od-j4aaa-aaaaa-qaadq-cai"
+      "canister_id": "gc5gl-leaaa-aaaaa-qaara-cai"
     },
     "nft": {
       "main": "src/AxiaSystem_backend/nft/main.mo",

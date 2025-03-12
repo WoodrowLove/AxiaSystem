@@ -39,9 +39,12 @@ import SharedTypes "shared_types";
 
 actor AxiaSystem_backend {
     // Initialize proxies for all canisters
-    private let tokenProxy = TokenCanisterProxy.TokenCanisterProxy(Principal.fromText("ahw5u-keaaa-aaaaa-qaaha-cai"));
+    private let tokenProxy = TokenCanisterProxy.TokenCanisterProxy(Principal.fromText("avqkn-guaaa-aaaaa-qaaea-cai"));
     private let userProxy = UserCanisterProxy.UserCanisterProxy(Principal.fromText("c5kvi-uuaaa-aaaaa-qaaia-cai"));
-    private let walletProxy = WalletCanisterProxy.WalletCanisterProxy(Principal.fromText("c2lt4-zmaaa-aaaaa-qaaiq-cai"));
+    private let walletProxy = WalletCanisterProxy.WalletCanisterProxy(
+    Principal.fromText("c2lt4-zmaaa-aaaaa-qaaiq-cai"), // Wallet Canister ID
+    Principal.fromText("c5kvi-uuaaa-aaaaa-qaaia-cai")  // User Canister ID
+);
     private let _paymentProxy = PaymentCanisterProxy.PaymentCanisterProxy(Principal.fromText("asrmz-lmaaa-aaaaa-qaaeq-cai"));
     private let paymentMonitoringProxy = PaymentMonitoringProxy.PaymentMonitoringProxy(Principal.fromText("a3shf-5eaaa-aaaaa-qaafa-cai"));
     private var localSubscriptions: [(Principal, SubscriptionCanisterProxy.Subscription)] = [];

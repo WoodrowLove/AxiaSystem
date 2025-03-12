@@ -52,24 +52,22 @@ module {
             };
         };
 
-         // Function to retrieve a user by ID
         public func getUserById(userId: Principal): async Result.Result<UserModule.User, Text> {
-            Debug.print("UserService: Handling getUserById request for: " # Principal.toText(userId));
+    Debug.print("UserService: Handling getUserById request for: " # Principal.toText(userId));
 
-            let userResult = await userModule.getUserById(userId);
+    let userResult = await userModule.getUserById(userId);
 
-            // Return the result as is
-            switch userResult {
-                case (#ok(user)) {
-                    Debug.print("UserService: Found user: " # user.username);
-                    return #ok(user);
-                };
-                case (#err(err)) {
-                    Debug.print("UserService: Failed to find user: " # err);
-                    return #err(err);
-                };
-            };
+    switch userResult {
+        case (#ok(user)) {
+            Debug.print("UserService: Found user: " # user.username);
+            return #ok(user);
         };
+        case (#err(err)) {
+            Debug.print("UserService: Failed to find user: " # err);
+            return #err(err);
+        };
+    };
+};
 
         // Function to update a user and emit an event
 public func updateUser(userId: Principal, newUsername: ?Text, newEmail: ?Text, newPassword: ?Text): async Result.Result<UserModule.User, Text> {
@@ -303,6 +301,20 @@ public func validateLogin(principal: ?Principal, email: ?Text, password: ?Text):
                     return #err("Failed to attach tokens in module: " # e);
                 };
             };
+        };
+
+         public func isUserRegistered(userId: Principal): async Bool {
+            Debug.print("🔍 [UserService] Checking if user is registered: " # Principal.toText(userId));
+
+            let result = await userModule.isUserRegistered(userId);
+
+            if (result) {
+                Debug.print("✅ [UserService] User is registered: " # Principal.toText(userId));
+            } else {
+                Debug.print("❌ [UserService] User is NOT registered: " # Principal.toText(userId));
+            };
+
+            return result;
         };
     };
 };

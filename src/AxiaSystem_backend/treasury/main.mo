@@ -14,7 +14,10 @@ import LoggingUtils "../utils/logging_utils";
 
 actor TreasuryCanister {
     // Dependencies
-    private let walletProxy = WalletCanisterProxy.WalletCanisterProxy(Principal.fromText("c2lt4-zmaaa-aaaaa-qaaiq-cai"));
+    private let walletProxy = WalletCanisterProxy.WalletCanisterProxy(
+    Principal.fromText("c2lt4-zmaaa-aaaaa-qaaiq-cai"), // Wallet Canister ID
+    Principal.fromText("c5kvi-uuaaa-aaaaa-qaaia-cai")  // User Canister ID
+);
     private let tokenProxy = TokenCanisterProxy.TokenCanisterProxy(Principal.fromText("ahw5u-keaaa-aaaaa-qaaha-cai"));
     private let eventManager = EventManager.EventManager();
     private let logStore = LoggingUtils.init();

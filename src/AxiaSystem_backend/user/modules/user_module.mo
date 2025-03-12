@@ -46,6 +46,7 @@ module {
     listAllUsers: Bool -> async Result.Result<[User], Text>;
     resetPassword: (Principal, Text) -> async Result.Result<User, Text>;
     attachTokensToUser: (Principal, Nat, Nat) -> async Result.Result<(), Text>;
+    isUserRegistered: (Principal) -> async Bool; 
     
 };
 
@@ -242,14 +243,39 @@ switch (email, password) {
     }
 };
 
-       public func getUserById(userId: Principal): async Result.Result<User, Text> {
+    public func getUserById(userId: Principal): async Result.Result<User, Text> {
     let userKey = { hash = Principal.hash(userId); key = userId };
     let userOpt = Trie.get(users, userKey, Principal.equal);
 
     switch userOpt {
-        case null { #err("User not found.") };
         case (?user) { #ok(user) };
+        case null { #err("User not found.") };
     };
+};
+
+public func getSlimUserById(userId: Principal) : async Result.Result<{ 
+  id: Principal;
+  username: Text;
+  email: Text;
+  createdAt: Int;
+  updatedAt: Int;
+  isActive: Bool;
+}, Text> {
+  let userResult = await getUserById(userId);
+  
+  switch userResult {
+    case (#ok(user)) {
+      #ok({
+        id = user.id;
+        username = user.username;
+        email = user.email;
+        createdAt = user.createdAt;
+        updatedAt = user.updatedAt;
+        isActive = user.isActive;
+      })
+    };
+    case (#err(e)) #err(e);
+  }
 };
 
 /// Function to update an existing user's details
@@ -521,6 +547,22 @@ public func resetPassword(userId: Principal, newPassword: Text): async Result.Re
     };
 };
 
+ public func isUserRegistered(userId: Principal): async Bool {
+            Debug.print("🔍 Checking if user is registered: " # Principal.toText(userId));
+
+            let userOpt = Trie.get(users, { key = userId; hash = Principal.hash(userId) }, Principal.equal);
+
+            switch userOpt {
+                case (null) {
+                    Debug.print("❌ User not found: " # Principal.toText(userId));
+                    return false;
+                };
+                case (?_) {
+                    Debug.print("✅ User is registered: " # Principal.toText(userId));
+                    return true;
+                };
+            };
+        };
 
 };
 };

@@ -22,7 +22,7 @@ actor IdentityCanister {
     };
 
     // Public API: Create a new identity
-    public func createIdentity(userId: Principal, details: [(Text, Text)]): async Result.Result<IdentityModule.Identity, Text> {
+    public shared func createIdentity(userId: Principal, details: [(Text, Text)]): async Result.Result<IdentityModule.Identity, Text> {
         let metadata = createTrie(details);
         await identityManager.createIdentity(userId, metadata);
     };
@@ -92,4 +92,8 @@ actor IdentityCanister {
     public func listSubscribedEventTypes(): async [EventTypes.EventType] {
         await eventManager.listSubscribedEventTypes();
     };
+
+    public func isUserRegistered(userId: Principal) : async Bool {
+        await identityManager.isUserRegistered(userId);
+    }
 };

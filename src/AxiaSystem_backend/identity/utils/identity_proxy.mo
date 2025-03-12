@@ -24,6 +24,7 @@ module {
     exportAllIdentities: () -> async Text;
     findIdentityByMetadata: (key: Text, value: Text) -> async ?Identity;
     batchUpdateMetadata: (updates: [(Principal, Trie.Trie<Text, Text>)]) -> async [Result.Result<(), Text>];
+     isUserRegistered: (Principal) -> async Bool; 
   };
 
   public func createIdentityCanisterProxy(identityCanisterId: Principal): IdentityCanisterInterface {
@@ -106,5 +107,14 @@ module {
         [#err("Failed to batch update metadata: " # Error.message(e))]
       }
     };
+
+     // ✅ New function to check user registration via proxy
+        public func isUserRegistered(userId: Principal): async Bool {
+            try {
+                await identityCanister.isUserRegistered(userId)
+            } catch (e) {
+                false  // Default to false if the canister call fails
+            }
+        };
   };
 };

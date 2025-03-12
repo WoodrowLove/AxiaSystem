@@ -34,12 +34,22 @@ module {
         private let userCanister: UserCanisterInterface = createUserCanisterProxy(userCanisterId);
 
         public func getUserById(userId: Principal): async Result.Result<User, Text> {
-            try {
-                await userCanister.getUserById(userId)
-            } catch (e) {
-                #err("Failed to fetch user: " # Error.message(e))
-            }
+    try {
+        let userResult = await userCanister.getUserById(userId);
+        
+        switch userResult {
+            case (#ok(user)) {
+                return #ok(user);
+            };
+            case (#err(errorMessage)) {
+                return #err("User lookup failed: " # errorMessage);
+            };
         };
+    } catch (e) {
+        return #err("Failed to fetch user: " # Error.message(e));
+    }
+};
+
 
         public func createUser(username: Text, email: Text, password: Text): async Result.Result<User, Text> {
             try {

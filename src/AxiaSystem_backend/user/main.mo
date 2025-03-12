@@ -88,24 +88,22 @@ func customNatHash(n : Nat) : Hash.Hash {
     };
 
     // Public API: Get user by ID
-    public shared func getUserById(userId: Principal): async ?UserModule.User {
-        Debug.print("Main: Handling getUserById request for ID: " # Principal.toText(userId));
+public shared func getUserById(userId: Principal): async Result.Result<UserModule.User, Text> {
+    Debug.print("Main: Handling getUserById request for ID: " # Principal.toText(userId));
 
-        // Fetch the user from the manager
-        let userResult = await userManager.getUserById(userId);
+    let userResult = await userManager.getUserById(userId);
 
-        // Convert the result to optional type
-        switch userResult {
-            case (#ok(user)) {
-                Debug.print("Main: Found user ID: " # Principal.toText(user.id));
-                return ?user;
-            };
-            case (#err(err)) {
-                Debug.print("Main: User not found. Error: " # err);
-                return null;
-            };
+    switch userResult {
+        case (#ok(user)) {
+            Debug.print("Main: Found user ID: " # Principal.toText(user.id));
+            return #ok(user);
+        };
+        case (#err(err)) {
+            Debug.print("Main: User not found. Error: " # err);
+            return #err(err);
         };
     };
+};
 
 
     // Public API: Update a user
@@ -282,5 +280,10 @@ public shared func attachTokensToUser(userId: Principal, tokenId: Nat, amount: N
         };
     };
 };
+
+ public shared func isUserRegistered(userId: Principal): async Bool {
+        Debug.print("🔍 [Main] Checking if user is registered: " # Principal.toText(userId));
+        return await userService.isUserRegistered(userId);
+    };
 
 };

@@ -40,38 +40,49 @@ module {
     private var wallets: Trie.Trie<Principal, Wallet> = Trie.empty();
     let eventManager = EventManager.EventManager();
 
-    // Create a new wallet for a user
+    // ✅ Create a new wallet for a user
 public func createWallet(userId: Principal, initialBalance: Nat): async Result.Result<Wallet, Text> {
-  let userIdKey = { key = userId; hash = Principal.hash(userId) };
+    let userIdKey = { key = userId; hash = Principal.hash(userId) };
 
-  switch (Trie.find(wallets, userIdKey, Principal.equal)) {
-    case (?_) { #err("Wallet already exists for this user.") };
-    case null {
-      // Validate the user exists
-      let userCheck = await userProxy.getUserById(userId);
-      switch userCheck {
-        case (#err(error)) { return #err("Failed to validate user: " # error); };
-        case (#ok(_)) {
-          let walletId = Time.now(); // Using the current timestamp as the wallet ID
-          let newWallet = {
-            id = walletId;
-            owner = userId;
-            balance = initialBalance;
-            transactions = List.nil<WalletTransaction>();
-          };
-          wallets := Trie.put(wallets, userIdKey, Principal.equal, newWallet).0;
+    // ✅ Check if wallet already exists
+    switch (Trie.find(wallets, userIdKey, Principal.equal)) {
+        case (?_) return #err("Wallet already exists for this user.");
+        case null {
+            Debug.print("🔍 Checking if user exists: " # Principal.toText(userId));
 
-          // Emit wallet created event
-          await eventManager.emitWalletCreated(
-            userId,
-            "Wallet created with initial balance: " # Nat.toText(initialBalance)
-          );
+            // ✅ Validate the user exists
+            let userCheck = await userProxy.getUserById(userId);
 
-          #ok(newWallet)
+            switch userCheck {
+                case (#err(error)) { 
+                    Debug.print("❌ User validation failed: " # error);
+                    return #err("Failed to validate user: " # error); 
+                };
+                case (#ok(user)) {  // ✅ Unwrap user correctly
+                    Debug.print("✅ User found: " # user.username);
+
+                    let walletId = Time.now(); // ✅ Ensure unique wallet ID
+                    let newWallet = {
+                        id = walletId;
+                        owner = userId;
+                        balance = initialBalance;
+                        transactions = List.nil<WalletTransaction>();
+                    };
+
+                    wallets := Trie.put(wallets, userIdKey, Principal.equal, newWallet).0;
+
+                    // ✅ Emit wallet created event
+                    await eventManager.emitWalletCreated(
+                        userId,
+                        "Wallet created with initial balance: " # Nat.toText(initialBalance)
+                    );
+
+                    Debug.print("🎉 Wallet successfully created for: " # user.username);
+                    return #ok(newWallet);
+                };
+            };
         };
-      }
     };
-  }
 };
 
     // Adjust wallet balance

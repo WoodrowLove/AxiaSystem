@@ -27,6 +27,7 @@ module {
         updateIdentity: (Principal, Trie.Trie<Text, Text>) -> async Result.Result<Identity, Text>;
         getIdentity: (Principal) -> async ?Identity;
         getAllIdentities: () -> [Identity];
+        isUserRegistered: (Principal) -> async Bool;
     };
 
     public class IdentityManager(eventManager: EventManager.EventManager) : IdentityManagerInterface {
@@ -333,6 +334,13 @@ public func exportAllIdentities(): async Text {
         "\"updatedAt\": " # Int.toText(identity.updatedAt) # " }"
     });
     "[" # Text.join(", ", identitiesData.vals()) # "]"
+};
+
+public func isUserRegistered(userId: Principal) : async Bool {
+    switch (Array.find<Identity>(identities, func(identity) {identity.id == userId })) {
+        case (?_) true;
+        case null false;
+    };
 };
 
     };
