@@ -3,97 +3,97 @@
     "AxiaSystem_backend": {
       "main": "src/AxiaSystem_backend/main.mo",
       "type": "motoko",
-      "canister_id": "bkyz2-fmaaa-aaaaa-qaaaq-cai"
+      "canister_id": "be2us-64aaa-aaaaa-qaabq-cai"
     },
-    "admin": {
+    "admin2": {
       "type": "motoko",
       "main": "src/AxiaSystem_backend/admin/main.mo",
       "dependencies": ["identity", "user"],
-      "canister_id": "bd3sg-teaaa-aaaaa-qaaba-cai"
+      "canister_id": "br5f7-7uaaa-aaaaa-qaaca-cai"
     },
     "asset": {
       "type": "motoko",
       "main": "src/AxiaSystem_backend/asset/main.mo",
-      "canister_id": "be2us-64aaa-aaaaa-qaabq-cai"
+      "canister_id": "bw4dl-smaaa-aaaaa-qaacq-cai"
     },
     "asset_registry": {
       "main": "src/AxiaSystem_backend/asset_registry/main.mo",
       "type": "motoko",
       "dependencies": ["nft", "user"],
-      "canister_id": "br5f7-7uaaa-aaaaa-qaaca-cai"
+      "canister_id": "b77ix-eeaaa-aaaaa-qaada-cai"
     },
     "escrow": {
       "main": "src/AxiaSystem_backend/escrow/main.mo",
       "type": "motoko",
       "dependencies": ["payment", "wallet"],
-      "canister_id": "bw4dl-smaaa-aaaaa-qaacq-cai"
+      "canister_id": "by6od-j4aaa-aaaaa-qaadq-cai"
     },
     "governance": {
       "type": "motoko",
       "main": "src/AxiaSystem_backend/governance/main.mo",
-      "dependencies": ["identity", "admin"],
-      "canister_id": "b77ix-eeaaa-aaaaa-qaada-cai"
+      "dependencies": ["identity", "admin2"],
+      "canister_id": "avqkn-guaaa-aaaaa-qaaea-cai"
     },
     "identity": {
       "type": "motoko",
       "main": "src/AxiaSystem_backend/identity/main.mo",
-      "canister_id": "gc5gl-leaaa-aaaaa-qaara-cai"
+      "canister_id": "asrmz-lmaaa-aaaaa-qaaeq-cai"
     },
     "nft": {
       "main": "src/AxiaSystem_backend/nft/main.mo",
       "type": "motoko",
-      "canister_id": "avqkn-guaaa-aaaaa-qaaea-cai"
+      "canister_id": "a3shf-5eaaa-aaaaa-qaafa-cai"
     },
     "payment": {
       "main": "src/AxiaSystem_backend/payment/main.mo",
       "type": "motoko",
       "dependencies": ["wallet", "user"],
-      "canister_id": "asrmz-lmaaa-aaaaa-qaaeq-cai"
+      "canister_id": "a4tbr-q4aaa-aaaaa-qaafq-cai"
     },
     "payment_monitoring": {
       "main": "src/AxiaSystem_backend/payment_monitoring/main.mo",
       "type": "motoko",
       "dependencies": ["payment", "wallet", "user"],
-      "canister_id": "a3shf-5eaaa-aaaaa-qaafa-cai"
+      "canister_id": "ajuq4-ruaaa-aaaaa-qaaga-cai"
     },
     "payout": {
       "main": "src/AxiaSystem_backend/payout/main.mo",
       "type": "motoko",
       "dependencies": ["payment", "wallet"],
-      "canister_id": "a4tbr-q4aaa-aaaaa-qaafq-cai"
+      "canister_id": "aovwi-4maaa-aaaaa-qaagq-cai"
     },
     "split_payment": {
       "type": "motoko",
       "main": "src/AxiaSystem_backend/split_payment/main.mo",
       "dependencies": ["wallet", "payment"],
-      "canister_id": "ajuq4-ruaaa-aaaaa-qaaga-cai"
+      "canister_id": "ahw5u-keaaa-aaaaa-qaaha-cai"
     },
     "subscriptions": {
       "main": "src/AxiaSystem_backend/subscriptions/main.mo",
       "type": "motoko",
       "dependencies": ["user", "wallet"],
-      "canister_id": "aovwi-4maaa-aaaaa-qaagq-cai"
+      "canister_id": "aax3a-h4aaa-aaaaa-qaahq-cai"
     },
     "token": {
       "type": "motoko",
       "main": "src/AxiaSystem_backend/token/main.mo",
-      "canister_id": "ahw5u-keaaa-aaaaa-qaaha-cai"
+      "canister_id": "c5kvi-uuaaa-aaaaa-qaaia-cai"
     },
     "treasury": {
       "type": "motoko",
       "main": "src/AxiaSystem_backend/treasury/main.mo",
       "dependencies": ["wallet", "payment"],
-      "canister_id": "aax3a-h4aaa-aaaaa-qaahq-cai"
+      "canister_id": "c2lt4-zmaaa-aaaaa-qaaiq-cai"
     },
     "user": {
       "type": "motoko",
       "main": "src/AxiaSystem_backend/user/main.mo",
-      "canister_id": "c5kvi-uuaaa-aaaaa-qaaia-cai"
+      "canister_id": "ctiya-peaaa-aaaaa-qaaja-cai"
     },
     "wallet": {
       "main": "src/AxiaSystem_backend/wallet/main.mo",
       "type": "motoko",
-      "canister_id": "c2lt4-zmaaa-aaaaa-qaaiq-cai"
+      "canister_id": "cuj6u-c4aaa-aaaaa-qaajq-cai"
     }
   },
   "defaults": {

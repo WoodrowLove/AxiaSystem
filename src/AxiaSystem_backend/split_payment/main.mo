@@ -12,8 +12,8 @@ actor {
 
     // Initialize dependencies
     private let walletProxy = WalletCanisterProxy.WalletCanisterProxy(
-    Principal.fromText("c2lt4-zmaaa-aaaaa-qaaiq-cai"), // Wallet Canister ID
-    Principal.fromText("c5kvi-uuaaa-aaaaa-qaaia-cai")  // User Canister ID
+    Principal.fromText("cuj6u-c4aaa-aaaaa-qaajq-cai"), // Wallet Canister ID
+    Principal.fromText("ctiya-peaaa-aaaaa-qaaja-cai")  // User Canister ID
 );
     private let eventManager = EventManager.EventManager();
 

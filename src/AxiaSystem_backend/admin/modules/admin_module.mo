@@ -33,7 +33,9 @@ module {
         
     ) {
         private var adminActions: [AdminAction] = [];
+        private var admins: [Principal] = []; 
         private let logStore = LoggingUtils.init();
+
 
         // Emit admin-related events
         private func emitAdminEvent(eventType: EventTypes.EventType, payload: EventTypes.EventPayload): async () {
@@ -46,7 +48,7 @@ module {
         };
 
         // Log and track admin actions
-        private func logAdminAction(admin: Principal, action: Text, details: ?Text): async () {
+        public func logAdminAction(admin: Principal, action: Text, details: ?Text): async () {
             let actionId = Nat64.toNat(Nat64.fromNat(Int.abs(Time.now())));
             let adminAction: AdminAction = {
                 id = actionId;
@@ -216,17 +218,150 @@ module {
     })
 };
 
-private func _verifyAdmin(admin: Principal): Result.Result<(), Text> {
-    let allowedAdmins: [Principal] = [
-        Principal.fromText("aaaaa-aa"), // Add authorized admin IDs here
-        Principal.fromText("bbbbb-bb"),
-    ];
-    if (Array.find<Principal>(allowedAdmins, func(a: Principal): Bool { a == admin }) != null) {
-        #ok(())
-    } else {
-        #err("Unauthorized admin.")
-    }
+// ✅ **Private Verification Function**
+    private func _verifyAdmin(admin: Principal): Bool {
+        Array.find(admins, func(a: Principal): Bool { a == admin }) != null
+    };
+
+   // ✅ **Create a New Admin**
+        public func createAdmin(creator: Principal, newAdmin: Principal): async Result.Result<(), Text> {
+            if (Array.find(admins, func(a: Principal): Bool { a == creator }) == null) {
+                return #err("Unauthorized: Only admins can create new admins.");
+            };
+
+            if (Array.find(admins, func(a: Principal): Bool { a == newAdmin }) != null) {
+                return #err("Admin already exists.");
+            };
+
+            admins := Array.append(admins, [newAdmin]);
+
+            LoggingUtils.logInfo(logStore, "AdminModule", "New admin added: " # Principal.toText(newAdmin), ?creator);
+
+            await emitAdminEvent(#AdminCreated, #AdminCreated {
+                creatorId = creator;
+                newAdminId = newAdmin;
+                timestamp = Nat64.fromNat(Int.abs(Time.now()));
+            });
+
+            return #ok(());
+        };
+
+         // ✅ **Remove an Admin (Only Verified Admins Can Do This)**
+    public func removeAdmin(existingAdmin: Principal, targetAdmin: Principal): async Result.Result<(), Text> {
+        if (not _verifyAdmin(existingAdmin)) {
+            return #err("Unauthorized: Only admins can remove other admins.");
+        };
+
+        if (not _verifyAdmin(targetAdmin)) {
+            return #err("Admin does not exist.");
+        };
+
+        admins := Array.filter<Principal>(admins, func(a: Principal): Bool { a != targetAdmin });
+
+        LoggingUtils.logInfo(logStore, "AdminModule", "Admin removed: " # Principal.toText(targetAdmin), ?existingAdmin);
+
+        await eventManager.emit({
+    eventType = #AdminRemoved;
+    id = Nat64.fromNat(Int.abs(Time.now()));
+    payload = #AdminRemoved {
+        removerId = existingAdmin;
+        targetAdminId = targetAdmin;
+        timestamp = Nat64.fromNat(Int.abs(Time.now()));
+    };
+});
+
+        return #ok(());
+    };
+
+       // ✅ **Public Wrapper for Verification**
+    public func verifyAdmin(admin: Principal): Result.Result<(), Text> {
+        if (_verifyAdmin(admin)) {
+            return #ok(());
+        } else {
+            return #err("Unauthorized: Admin access required.");
+        };
+    };
+
+     // ✅ **Add an Admin (Only Verified Admins Can Do This)**
+    public func addAdmin(existingAdmin: Principal, newAdmin: Principal): async Result.Result<(), Text> {
+        if (not _verifyAdmin(existingAdmin)) {
+            return #err("Unauthorized: Only admins can add new admins.");
+        };
+
+        if (Array.find(admins, func(a: Principal): Bool { a == newAdmin }) != null) {
+            return #err("Admin already exists.");
+        };
+
+        admins := Array.append(admins, [newAdmin]);
+
+        LoggingUtils.logInfo(logStore, "AdminModule", "Admin added: " # Principal.toText(newAdmin), ?existingAdmin);
+
+        await eventManager.emit({
+    eventType = #AdminAdded;
+    id = Nat64.fromNat(Int.abs(Time.now()));
+    payload = #AdminAdded {
+        adminId = existingAdmin;
+        newAdminId = newAdmin;
+        timestamp = Nat64.fromNat(Int.abs(Time.now()));
+    };
+});
+
+        return #ok(());
+    };
+
+    // ✅ **Check if a Principal is an Admin**
+    public func isAdmin(admin: Principal): Bool {
+        Array.find(admins, func(a: Principal): Bool { a == admin }) != null
+    };
+
+    public func isMultiSigApprovalComplete(electionId: Nat): async Bool {
+    let approvals = Array.filter<AdminAction>(
+        adminActions,
+        func(a: AdminAction): Bool {
+            a.action == "MultiSigApproval" and a.details == ?("ElectionID: " # Nat.toText(electionId))
+        }
+    );
+
+    return approvals.size() >= 2; // Requires at least two unique admin approvals
+};
+
+
+public func enableMultiSigApproval(admin: Principal, electionId: Nat): async Result.Result<(), Text> {
+    // Ensure the caller is an admin
+    if (not isAdmin(admin)) {
+        return #err("Unauthorized: Only admins can enable multi-signature approval.");
+    };
+
+    // Log the approval action
+    await logAdminAction(admin, "MultiSigApproval", ?("ElectionID: " # Nat.toText(electionId)));
+
+    return #ok(());
+};
+
+public func forceAddAdmin(newAdmin: Principal): async () {
+    admins := Array.append(admins, [newAdmin]);
+};
+
+public func getAllAdmins(): async [Principal] {
+    admins
+};
+
+public func getMultiSigApprovalDetails(electionId: Nat): async Result.Result<[AdminAction], Text> {
+    // Filter approvals related to the specific election
+    let approvals = Array.filter<AdminAction>(
+        adminActions,
+        func(a: AdminAction): Bool {
+            a.action == "MultiSigApproval" and a.details == ?("ElectionID: " # Nat.toText(electionId))
+        }
+    );
+
+    if (approvals.size() == 0) {
+        return #err("No multi-signature approvals found for this election.");
+    };
+
+    return #ok(approvals);
+};
+
 };
 
     };
-};

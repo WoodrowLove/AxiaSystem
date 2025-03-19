@@ -38,23 +38,23 @@ import SharedTypes "shared_types";
 
 
 actor AxiaSystem_backend {
-    // Initialize proxies for all canisters
-    private let tokenProxy = TokenCanisterProxy.TokenCanisterProxy(Principal.fromText("avqkn-guaaa-aaaaa-qaaea-cai"));
-    private let userProxy = UserCanisterProxy.UserCanisterProxy(Principal.fromText("c5kvi-uuaaa-aaaaa-qaaia-cai"));
-    private let walletProxy = WalletCanisterProxy.WalletCanisterProxy(
-    Principal.fromText("c2lt4-zmaaa-aaaaa-qaaiq-cai"), // Wallet Canister ID
-    Principal.fromText("c5kvi-uuaaa-aaaaa-qaaia-cai")  // User Canister ID
+private let tokenProxy = TokenCanisterProxy.TokenCanisterProxy(Principal.fromText("c5kvi-uuaaa-aaaaa-qaaia-cai")); // Token Canister ID
+private let userProxy = UserCanisterProxy.UserCanisterProxy(Principal.fromText("ctiya-peaaa-aaaaa-qaaja-cai")); // User Canister ID
+private let walletProxy = WalletCanisterProxy.WalletCanisterProxy(
+    Principal.fromText("cuj6u-c4aaa-aaaaa-qaajq-cai"), // Wallet Canister ID
+    Principal.fromText("ctiya-peaaa-aaaaa-qaaja-cai")  // User Canister ID
 );
-    private let _paymentProxy = PaymentCanisterProxy.PaymentCanisterProxy(Principal.fromText("asrmz-lmaaa-aaaaa-qaaeq-cai"));
-    private let paymentMonitoringProxy = PaymentMonitoringProxy.PaymentMonitoringProxy(Principal.fromText("a3shf-5eaaa-aaaaa-qaafa-cai"));
-    private var localSubscriptions: [(Principal, SubscriptionCanisterProxy.Subscription)] = [];
-    private let escrowCanisterProxy = EscrowCanisterProxy.EscrowCanisterProxy(Principal.fromText("bw4dl-smaaa-aaaaa-qaacq-cai"));
-    private let subscriptionProxy = SubscriptionCanisterProxy.SubscriptionProxy(Principal.fromText("aovwi-4maaa-aaaaa-qaagq-cai"));
-    private let splitPaymentProxy = SplitPaymentProxy.SplitPaymentProxy(Principal.fromText("ajuq4-ruaaa-aaaaa-qaaga-cai"));
-    private let _payoutProxy = PayoutProxy.PayoutProxy(Principal.fromText("a4tbr-q4aaa-aaaaa-qaafq-cai"));
-    private let _assetRegistryProxy = AssetRegistryProxy.AssetRegistryProxy(Principal.fromText("br5f7-7uaaa-aaaaa-qaaca-cai"));
-    private let assetProxy = AssetProxy.AssetProxy(Principal.fromText("be2us-64aaa-aaaaa-qaabq-cai"));
-    private let _governanceProxy = GovernanceProxy.GovernanceProxy(Principal.fromText("b77ix-eeaaa-aaaaa-qaada-cai"));
+private let _paymentProxy = PaymentCanisterProxy.PaymentCanisterProxy(Principal.fromText("a4tbr-q4aaa-aaaaa-qaafq-cai")); // Payment Canister ID
+private let paymentMonitoringProxy = PaymentMonitoringProxy.PaymentMonitoringProxy(Principal.fromText("ajuq4-ruaaa-aaaaa-qaaga-cai")); // Payment Monitoring Canister ID
+private var localSubscriptions: [(Principal, SubscriptionCanisterProxy.Subscription)] = [];
+private let escrowCanisterProxy = EscrowCanisterProxy.EscrowCanisterProxy(Principal.fromText("bw4dl-smaaa-aaaaa-qaacq-cai")); // Escrow Canister ID
+private let subscriptionProxy = SubscriptionCanisterProxy.SubscriptionProxy(Principal.fromText("aax3a-h4aaa-aaaaa-qaahq-cai")); // Subscription Canister ID
+private let splitPaymentProxy = SplitPaymentProxy.SplitPaymentProxy(Principal.fromText("ahw5u-keaaa-aaaaa-qaaha-cai")); // Split Payment Canister ID
+private let _payoutProxy = PayoutProxy.PayoutProxy(Principal.fromText("aovwi-4maaa-aaaaa-qaagq-cai")); // Payout Canister ID
+private let _assetRegistryProxy = AssetRegistryProxy.AssetRegistryProxy(Principal.fromText("br5f7-7uaaa-aaaaa-qaaca-cai")); // Asset Registry Canister ID
+private let assetProxy = AssetProxy.AssetProxy(Principal.fromText("be2us-64aaa-aaaaa-qaabq-cai")); // Asset Canister ID
+private let _governanceProxy = GovernanceProxy.GovernanceProxy(Principal.fromText("avqkn-guaaa-aaaaa-qaaea-cai")); // Governance Canister ID
+
 
     private let eventManager = EventManager.EventManager();
     private let governanceManager = GovernanceModule.GovernanceModule(eventManager);

@@ -56,7 +56,7 @@ module {
   private var eventLog: [Text] = [];
   private let logStore = LoggingUtils.init();
   private let tokenEvents = TokenEvents.TokenEvents();
-  private let userProxy = UserCanisterProxy.UserCanisterProxy(Principal.fromText("c5kvi-uuaaa-aaaaa-qaaia-cai"));
+  private let userProxy = UserCanisterProxy.UserCanisterProxy(Principal.fromText("ctiya-peaaa-aaaaa-qaaja-cai"));
   
   
 

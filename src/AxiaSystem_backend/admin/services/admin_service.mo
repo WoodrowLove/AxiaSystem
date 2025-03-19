@@ -86,5 +86,41 @@ private func _logAdminAction(admin: Principal, action: Text, details: ?Text): as
             LoggingUtils.logInfo(logStore, "AdminService", "Fetching filtered admin actions", null);
             await adminManager.getFilteredAdminActions(admin, action, since);
         };
+
+         // ✅ **Create Admin**
+        public func createAdmin(creator: Principal, newAdmin: Principal): async Result.Result<(), Text> {
+            LoggingUtils.logInfo(
+                logStore,
+                "AdminService",
+                "Creating new admin: " # Principal.toText(newAdmin) # " by " # Principal.toText(creator),
+                ?creator
+            );
+            await adminManager.createAdmin(creator, newAdmin);
+        };
+
+
+        // ✅ **Verify Admin Access**
+        public func verifyAdmin(admin: Principal): Result.Result<(), Text> {
+            LoggingUtils.logInfo(logStore, "AdminService", "Verifying admin access: " # Principal.toText(admin), ?admin);
+            adminManager.verifyAdmin(admin);
+        };
+
+
+    // ✅ **Remove Admin**
+    public func removeAdmin(existingAdmin: Principal, targetAdmin: Principal): async Result.Result<(), Text> {
+        LoggingUtils.logInfo(
+            logStore,
+            "AdminService",
+            "Removing admin: " # Principal.toText(targetAdmin) # " by " # Principal.toText(existingAdmin),
+            ?existingAdmin
+        );
+        await adminManager.removeAdmin(existingAdmin, targetAdmin);
+    };
+
+    // ✅ **Check if a Principal is an Admin**
+    public func isAdmin(admin: Principal): Bool {
+        return adminManager.isAdmin(admin);
     };
 };
+    };
+
