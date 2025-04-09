@@ -8,6 +8,7 @@ import Text "mo:base/Text";
 import Error "mo:base/Error";
 import Nat64 "mo:base/Nat64";
 import LoggingUtils "../utils/logging_utils";
+import UpgradeProposals "modules/upgrade_proposals";
 
 actor GovernanceCanister {
     // Dependencies
@@ -16,6 +17,8 @@ actor GovernanceCanister {
 
     // Governance Manager
     private let governanceManager = GovernanceModule.GovernanceModule(eventManager);
+
+    let upgradeProposals = UpgradeProposals.UpgradeProposalModule(eventManager);
 
     // Public APIs
 
@@ -139,6 +142,28 @@ actor GovernanceCanister {
 public query func getAllProposals(): async [GovernanceModule.Proposal] {
     governanceManager.getAllProposalsSync()
 };
+
+public shared ({ caller }) func proposeCanisterUpgrade(
+  canisterId: Principal,
+  proposedVersion: Text
+): async Result.Result<UpgradeProposals.UpgradeProposal, Text> {
+  await upgradeProposals.proposeCanisterUpgrade(caller, canisterId, proposedVersion);
+};
+
+ public shared({ caller }) func approveUpgradeProposal(proposalId: Nat): async Result.Result<UpgradeProposals.UpgradeProposal, Text> {
+   await upgradeProposals.approveUpgradeProposal(proposalId, caller);
+  };
+
+  public shared ({ caller }) func rejectUpgradeProposal(proposalId: Nat, reason: Text): async Result.Result<UpgradeProposals.UpgradeProposal, Text> {
+    await upgradeProposals.rejectUpgradeProposal(proposalId, caller, reason);
+};
+
+public shared({ caller }) func executeUpgradeProposal(
+  proposalId: Nat
+): async Result.Result<UpgradeProposals.UpgradeProposal, Text> {
+  await upgradeProposals.executeUpgradeProposal(proposalId);
+};
+
 
      public shared func onProposalEvent(event: EventTypes.Event): async () {
     switch (event.payload) {

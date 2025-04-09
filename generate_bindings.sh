@@ -26,7 +26,12 @@ didc bind -t rs "$DECLARATIONS_DIR/admin/admin.did" > "$BINDINGS_DIR/admin.rs"
 didc bind -t rs "$DECLARATIONS_DIR/treasury/treasury.did" > "$BINDINGS_DIR/treasury.rs"
 didc bind -t rs "$DECLARATIONS_DIR/governance/governance.did" > "$BINDINGS_DIR/governance.rs"
 
-# Add Debug trait to all generated Rust files
-find "$BINDINGS_DIR" -type f -name "*.rs" -exec sed -i 's/\(#[derive(CandidType, Deserialize)\)/\1, Debug/' {} +
-
 echo "✅ Rust bindings updated successfully with Debug trait!"
+
+
+# AxiaVote Canisters
+didc bind -t rs "/home/woodrowlove/axiavote/.dfx/local/canisters/election/election.did" > "$BINDINGS_DIR/election.rs"
+didc bind -t rs "/home/woodrowlove/axiavote/.dfx/local/canisters/vote/vote.did" > "$BINDINGS_DIR/vote.rs"
+
+# AxiaSocial Canister
+didc bind -t rs "/home/woodrowlove/axia_social/src/declarations/social_credit/social_credit.did" > "$BINDINGS_DIR/social_credit.rs"
