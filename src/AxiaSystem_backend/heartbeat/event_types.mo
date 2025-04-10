@@ -69,6 +69,7 @@ module {
         #TokensUnlocked;
         #TreasuryBalanceChecked;
         #TreasuryTransactionLogged;
+        #UpgradeElectionCreated;
         #UpgradeProposalApproved;
         #UpgradeProposalCreated;
         #UpgradeProposalExecuted;
@@ -107,9 +108,9 @@ module {
         #AssetTransferred : { assetId: Nat; previousOwner: Principal; newOwner: Principal; transferTime: Int };
         #BalancesSynchronized : { senderId: Principal; receiverId: Principal; amount: Nat; tokenId: Nat };
         #DeviceRegistered : { userId: Text; deviceKey: Text; timestamp: Nat64; };
-        #EscrowCanceled : {};
+        #EscrowCanceled: { escrowId: Text; sender: Text; amount: Nat; tokenId: Text; };
         #EscrowCreated : { escrowId: Nat; sender: Principal; receiver: Principal; tokenId: Nat; amount: Nat };
-        #EscrowReleased : {};
+        #EscrowReleased: { escrowId: Text; sender: Text; receiver: Text; amount: Nat; tokenId: Text; };
         #EscrowTimeoutProcessed : { timeoutCount: Nat; timestamp: Nat64; };
         #FundsDeposited : { userId: Text; amount: Nat; tokenId: ?Nat; timestamp: Nat64 };
         #FundsWithdrawn : { userId: Text; amount: Nat; tokenId: ?Nat; timestamp: Nat64 };
@@ -159,6 +160,7 @@ module {
         #TokensUnlocked : { tokenId: Nat; amount: Nat; owner: Principal };
         #TreasuryBalanceChecked : { tokenId: ?Nat; balance: Nat; timestamp: Nat64 };
         #TreasuryTransactionLogged : { transactionId: Nat; description: Text; transactionType: Text; timestamp: Nat64 };
+        #UpgradeElectionCreated : { proposalId : Nat; electionId : Nat; triggeredAt : Nat64; };
         #UpgradeProposalApproved: { proposalId: Nat; approver: Text; approvedAt: Nat64; };
         #UpgradeProposalCreated : { proposalId: Nat; canisterId: Text; proposedVersion: Text; submitter: Text; submittedAt: Nat64; };
         #UpgradeProposalExecuted : { proposalId: Nat; executedAt: Nat64; outcome: Text; };
@@ -257,6 +259,7 @@ module {
             case (#UpgradeProposalCreated) { 73 };
             case (#UpgradeProposalRejected) { 74 };
             case (#UpgradeProposalExecuted) { 75 };
+            case (#UpgradeElectionCreated) { 76 };
         };
     };
 

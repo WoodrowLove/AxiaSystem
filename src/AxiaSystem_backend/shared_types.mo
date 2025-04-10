@@ -5,6 +5,10 @@
     import Int "mo:base/Int";
     import Bool "mo:base/Bool";
     import Result "mo:base/Result";
+import Nat32 "mo:base/Nat32";
+import Nat8 "mo:base/Nat8";
+import Nat "mo:base/Nat";
+import Blob "mo:base/Blob";
 
     module {
 
@@ -71,4 +75,167 @@
         getActiveSubscriptions: () -> async [(Principal, Subscription)];
         getAllSubscriptions: () -> async [(Principal, Subscription)];
     };
-}
+
+      public type ElectionConfig = {
+        name: Text;
+        creator: Principal;
+        startTime: Nat;
+        endTime: Nat;
+        candidates: [Text];
+        electionType: ElectionType;
+        voteWeighting: ?VoteWeightingRules;
+        encryption: EncryptionType; 
+    };
+
+    public type ElectionType = {
+        #Basic;
+        #Government;
+    };
+
+    public type Election = {
+        id: Nat;
+        name: Text;
+        creator: Principal;
+        startTime: Nat;
+        endTime: Nat;
+        candidates: [Text];
+        voters: [Principal];
+        status: ElectionStatus;
+        electionType: ElectionType; 
+        voteWeighting: ?VoteWeightingRules;  //this is optional
+        encryption: EncryptionType;
+        accessControlRules: AccessControlRules;
+        visibilityRules: VisibilitySettings; 
+        escrowSettings: ?EscrowSettings;
+    };
+
+    public type ElectionStatus = {
+        #Pending;
+        #Active;
+        #Closed;
+        #Finalized;
+    };
+
+    // ✅ Election result structure
+    public type ElectionResult = {
+        winner: ?Text;
+        totalVotes: Nat;
+        candidateVotes: [(Text, Nat)];
+    };
+    
+
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    public type VoterId = Principal;
+
+    public type VoteWeightingRules = {
+        #StakeBased : { tokenCanisterId : Principal };
+        #DelegateBased : {governanceCanisterId : Principal };
+        //#Custom: Text;
+    };
+
+
+     // ✅ Vote record to store votes with weight
+    public type VoteRecord = {
+        voter: Principal;
+        candidate: Text;
+        weight: Nat;
+    };
+
+
+
+    public type AdminAction = {
+        id: Nat;
+        timestamp: Int;
+        admin: Principal;
+        action: Text;
+        details: ?Text;
+    }; 
+
+    public type AuditReport = {
+    electionId: Nat;
+    electionName: Text;
+    totalVotes: Nat;
+    candidateVoteCounts: [(Text, Nat)];
+    voterParticipationRate: Nat;
+    auditTimestamp: Nat;
+    };
+
+ // Multi-signature approval tracking
+    public type MultiSigApproval = {
+        requiredAdmins: [Principal];  // List of admins required to approve
+        approvedAdmins: [Principal];  // List of admins who have approved
+    };
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+     public type EncryptionType = {
+        #None;
+        #BasicEncryption;
+        #AdvancedEncryption;
+        #Homomorphic;
+        #ZeroKnowledge;
+    };
+
+    public type AccessControlRules = {
+    #Open;  // Anyone can vote
+    #Restricted: { allowedVoters: [Principal] };  // Specific voter list
+    #AdminOnly: { adminList: [Principal] };  // Only admins can access
+    };
+
+
+    public type PublicLedgerEntry = {
+    electionId: Nat;
+    timestamp: Nat;
+    resultHash: Text;
+    };
+
+    // ✅ Convert Text → [Nat8]
+public func textToUtf8Bytes(input: Text) : [Nat8] {
+    let blob: Blob = Text.encodeUtf8(input);
+    return Blob.toArray(blob);
+};
+
+// ✅ Custom Hash Function for Election Results (FNV-1a)
+public func customHash(input: Text) : Nat {
+    let utf8Bytes: [Nat8] = textToUtf8Bytes(input);
+    var hash: Nat32 = 2166136261; // ✅ FNV-1a 32-bit offset basis
+    let prime: Nat32 = 16777619;
+
+    for (byte in utf8Bytes.vals()) {
+        let byteAsNat32 = Nat32.fromNat(Nat8.toNat(byte));
+        hash := (hash ^ byteAsNat32) * prime;
+    };
+
+    return Nat32.toNat(hash); // ✅ Convert Nat32 → Nat
+};
+
+     // ✅ Hash function for election results
+    public func hashElectionResult(electionId: Nat, resultData: Text) : Text {
+        let rawData = Nat.toText(electionId) # ":" # resultData;
+        let hashValue: Nat = customHash(rawData);
+        return Nat.toText(hashValue);
+    };
+
+    public type VisibilitySettings = {
+  #Disabled;
+  #Enabled: {
+    authorizedViewers: ?[Principal];
+    liveTracking: Bool;
+  };
+};
+
+// ✅ Challenge Record
+public type ElectionChallenge = {
+  submittedBy: Principal;
+  reason: Text;
+  timestamp: Nat;
+};
+
+public type TokenId = Text;
+
+public type EscrowSettings = {
+    token: TokenId;
+    minStake: Nat;
+};
+};

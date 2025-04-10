@@ -158,10 +158,23 @@ public shared ({ caller }) func proposeCanisterUpgrade(
     await upgradeProposals.rejectUpgradeProposal(proposalId, caller, reason);
 };
 
-public shared({ caller }) func executeUpgradeProposal(
+public shared({ caller = _ }) func executeUpgradeProposal(
   proposalId: Nat
 ): async Result.Result<UpgradeProposals.UpgradeProposal, Text> {
   await upgradeProposals.executeUpgradeProposal(proposalId);
+};
+
+public shared({ caller =_ }) func createUpgradeElection(proposalId: Nat) : async Result.Result<Nat, Text> {
+  let result = await upgradeProposals.createUpgradeElection(proposalId);
+  switch (result) {
+    case (#ok(proposal)) {
+      switch (proposal.electionId) {
+        case (?id) #ok(id);
+        case null #err("Election was created but no ID was returned.");
+      }
+    };
+    case (#err(msg)) #err(msg);
+  }
 };
 
 

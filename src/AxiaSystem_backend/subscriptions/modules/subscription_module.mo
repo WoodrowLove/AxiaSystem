@@ -28,7 +28,7 @@ public func createSubscription(userId: Principal, duration: Int): async Result.R
 
     let subscription: Subscription = {
         id = Nat64.toNat(Nat64.fromIntWrap(startDate)); // Generate a unique ID
-        userId = userId; // Include the userId in the subscription
+        //userId = Principal; // Include the userId in the subscription
         startDate = startDate;
         endDate = endDate;
         status = "Active";

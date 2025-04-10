@@ -7,8 +7,14 @@ import Nat64 "mo:base/Nat64";
 import Array "mo:base/Array";
 import EventManager "../../heartbeat/event_manager";
 import EventTypes "../../heartbeat/event_types";
+import SharedTypes "../../shared_types";
 
 module {
+
+    private let electionCanister : actor {
+  createElection: (SharedTypes.ElectionConfig) -> async Nat;
+} = actor("cgpjn-omaaa-aaaaa-qaakq-cai");
+
   public type UpgradeProposal = {
     id: Nat;
     canisterId: Principal;
@@ -18,6 +24,7 @@ module {
     approved: Bool;
     rejected: Bool;
     statusMessage: ?Text;
+    electionId: ?Nat;
   };
 
   public type UpgradeProposalManager = {
@@ -57,6 +64,7 @@ module {
         approved = false;
         rejected = false;
         statusMessage = null;
+        electionId = null;
       };
 
       proposals := Array.append(proposals, [proposal]);
@@ -206,5 +214,58 @@ public func executeUpgradeProposal(proposalId: Nat) : async Result.Result<Upgrad
         }
     }
 };
-  };
+
+public func createUpgradeElection(proposalId: Nat) : async Result.Result<UpgradeProposal, Text> {
+    let found = Array.find<UpgradeProposal>(proposals, func(p: UpgradeProposal) = p.id == proposalId);
+
+    switch (found) {
+        case null {
+            return #err("Proposal not found.");
+        };
+        case (?proposal) {
+            if (proposal.rejected or proposal.approved) {
+                return #err("Proposal has already been finalized.");
+            };
+
+            // Build election config using AxiaVote-compatible fields
+            let config: SharedTypes.ElectionConfig = {
+                name = "Upgrade Approval - " # Principal.toText(proposal.canisterId);
+                startTime = Nat64.toNat(Nat64.fromIntWrap(Time.now()));
+                endTime = Nat64.toNat(Nat64.fromIntWrap(Time.now() + 3 * 24 * 60 * 60 * 1_000_000_000)); // 3 days from now
+                candidates = ["Approve Upgrade", "Reject Upgrade"];
+                creator = proposal.submitter;
+                electionType = #Government;
+                voteWeighting = null;
+                encryption = #BasicEncryption;
+            };
+
+            // Cross-canister call to create the election in AxiaVote
+            let electionId = await electionCanister.createElection(config);
+
+            // Update the local proposal with the electionId
+            proposals := Array.map<UpgradeProposal, UpgradeProposal>(proposals, func(p: UpgradeProposal) {
+                if (p.id == proposalId) {
+                    { p with electionId = ?electionId }
+                } else {
+                    p
+                }
+            });
+
+            // Emit UpgradeElectionCreated event
+            await emitUpgradeEvent(#UpgradeElectionCreated, #UpgradeElectionCreated({
+                proposalId = proposalId;
+                electionId = electionId;
+                triggeredAt = Nat64.fromIntWrap(Time.now());
+            }));
+
+            // Return the updated proposal
+            let updatedProposal = Array.find<UpgradeProposal>(proposals, func(p: UpgradeProposal) = p.id == proposalId);
+            switch (updatedProposal) {
+                case (?p) #ok(p);
+                case null #err("Proposal linked to election but could not be retrieved.");
+            };
+        };
+    };
+};
+};
 };

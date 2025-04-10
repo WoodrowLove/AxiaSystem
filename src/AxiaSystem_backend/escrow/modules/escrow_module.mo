@@ -134,7 +134,7 @@ await emitEscrowEvent(
                     sender = Principal.toText(escrow.sender);
                     receiver = Principal.toText(escrow.receiver);
                     amount = escrow.amount;
-                    tokenId = escrow.tokenId;
+                    tokenId = Nat.toText(escrow.tokenId);
                 }
             );
 
@@ -174,7 +174,7 @@ await emitEscrowEvent(
                     escrowId = Nat.toText(escrowId);
                     sender = Principal.toText(escrow.sender);
                     amount = escrow.amount;
-                    tokenId = escrow.tokenId;
+                    tokenId = Nat.toText(escrow.tokenId);
                 }
             );
 

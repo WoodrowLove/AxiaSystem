@@ -94,6 +94,17 @@
       "main": "src/AxiaSystem_backend/wallet/main.mo",
       "type": "motoko",
       "canister_id": "cuj6u-c4aaa-aaaaa-qaajq-cai"
+    },
+    "election": {
+      "type": "custom",
+      "candid": "src/declarations/election/election.did",
+      "wasm": "",
+      "remote": {
+        "id": {
+          "local": "cgpjn-omaaa-aaaaa-qaakq-cai"
+        },
+        "provider": "local"
+      }
     }
   },
   "defaults": {
