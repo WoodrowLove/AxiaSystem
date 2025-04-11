@@ -22,6 +22,11 @@ actor GovernanceCanister {
 
     // Public APIs
 
+    system func heartbeat() : async () {
+      await upgradeProposals.monitorPendingUpgradeElections();
+      await upgradeProposals.autoFinalizeExecutedProposals ();
+    };
+    
     // Create a new proposal
     public func propose(
         proposer: Principal,
@@ -177,7 +182,13 @@ public shared({ caller =_ }) func createUpgradeElection(proposalId: Nat) : async
   }
 };
 
+public shared({ caller = _ }) func syncUpgradeVoteResult(proposalId: Nat) : async Result.Result<Text, Text> {
+    await upgradeProposals.syncUpgradeVoteResult(proposalId);
+};
 
+public shared({ caller }) func emergencyExecuteUpgradeProposal(proposalId: Nat): async Result.Result<UpgradeProposals.UpgradeProposal, Text> {
+  await upgradeProposals.emergencyExecuteUpgradeProposal(proposalId, caller);
+};
      public shared func onProposalEvent(event: EventTypes.Event): async () {
     switch (event.payload) {
       case (#ProposalCreated { proposalId; proposer; description; createdAt }) {
@@ -244,4 +255,36 @@ public shared({ caller =_ }) func createUpgradeElection(proposalId: Nat) : async
     await eventManager.subscribe(#ProposalRejected, onProposalEvent);
     await eventManager.subscribe(#ProposalExpired, onProposalEvent);
   };
+
+  public shared func monitorPendingUpgradeElections() : async () {
+  await upgradeProposals.monitorPendingUpgradeElections();
+};
+
+public shared ({ caller = _ }) func markProposalAsFinalized(proposalId: Nat) : async Result.Result<Bool, Text> {
+  await upgradeProposals.markProposalAsFinalized(proposalId);
+};
+
+public shared func listPendingUpgradeElectionSyncs() : async [UpgradeProposals.UpgradeProposal] {
+ await upgradeProposals.listPendingUpgradeElectionSyncs();
+};
+
+// ✅ Get list of executable proposals
+public shared func listExecutableProposals() : async [UpgradeProposals.UpgradeProposal] {
+  await upgradeProposals.listExecutableProposals();
+};
+
+// ✅ Check if a proposal has been executed
+public shared func hasBeenExecuted(proposalId: Nat) : async Bool {
+  await upgradeProposals.hasBeenExecuted(proposalId);
+};
+
+// ✅ Get current execution status
+public shared func getExecutionStatus(proposalId: Nat) : async Text {
+  await upgradeProposals.getExecutionStatus(proposalId);
+};
+
+public shared({ caller = _ }) func autoFinalizeExecutedProposals() : async () {
+  await upgradeProposals.autoFinalizeExecutedProposals();
+};
+
 };

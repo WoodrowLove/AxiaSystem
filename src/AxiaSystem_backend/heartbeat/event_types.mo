@@ -73,6 +73,7 @@ module {
         #UpgradeProposalApproved;
         #UpgradeProposalCreated;
         #UpgradeProposalExecuted;
+        #UpgradeProposalFinalized;
         #UpgradeProposalRejected;
         #UserCreated;
         #UserDeactivated;
@@ -161,9 +162,10 @@ module {
         #TreasuryBalanceChecked : { tokenId: ?Nat; balance: Nat; timestamp: Nat64 };
         #TreasuryTransactionLogged : { transactionId: Nat; description: Text; transactionType: Text; timestamp: Nat64 };
         #UpgradeElectionCreated : { proposalId : Nat; electionId : Nat; triggeredAt : Nat64; };
-        #UpgradeProposalApproved: { proposalId: Nat; approver: Text; approvedAt: Nat64; };
+        #UpgradeProposalApproved: { proposalId: Nat; approver: Text; approvedAt: Nat64; reason : Text; };
         #UpgradeProposalCreated : { proposalId: Nat; canisterId: Text; proposedVersion: Text; submitter: Text; submittedAt: Nat64; };
         #UpgradeProposalExecuted : { proposalId: Nat; executedAt: Nat64; outcome: Text; };
+        #UpgradeProposalFinalized: { proposalId: Nat; finalizedAt: Nat64; };
         #UpgradeProposalRejected : { proposalId: Nat; rejectedBy: Text; rejectedAt: Nat64; reason: Text; };
         #UserCreated : { UserId: Text; username: Text; email: Text; };
         #UserDeactivated : { UserId: Text };
@@ -260,6 +262,7 @@ module {
             case (#UpgradeProposalRejected) { 74 };
             case (#UpgradeProposalExecuted) { 75 };
             case (#UpgradeElectionCreated) { 76 };
+            case (#UpgradeProposalFinalized) { 77 };
         };
     };
 

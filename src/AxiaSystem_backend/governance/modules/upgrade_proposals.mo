@@ -13,6 +13,7 @@ module {
 
     private let electionCanister : actor {
   createElection: (SharedTypes.ElectionConfig) -> async Nat;
+  getElectionResults : shared Nat -> async ?SharedTypes.ElectionResult
 } = actor("cgpjn-omaaa-aaaaa-qaakq-cai");
 
   public type UpgradeProposal = {
@@ -25,6 +26,8 @@ module {
     rejected: Bool;
     statusMessage: ?Text;
     electionId: ?Nat;
+    emergencyOverride: Bool;
+    executed: Bool;
   };
 
   public type UpgradeProposalManager = {
@@ -36,6 +39,13 @@ module {
   public class UpgradeProposalModule(eventManager: EventManager.EventManager) : UpgradeProposalManager {
     private var proposals: [UpgradeProposal] = [];
     private var nextId: Nat = 1;
+    
+    let adminCanisterId : Principal = Principal.fromText("br5f7-7uaaa-aaaaa-qaaca-cai");
+    // Finalized proposal tracking
+    var finalizedProposals: [Nat] = [];
+
+    
+
 
     private func emitUpgradeEvent(eventType: EventTypes.EventType, payload: EventTypes.EventPayload): async () {
       let event: EventTypes.Event = {
@@ -65,6 +75,8 @@ module {
         rejected = false;
         statusMessage = null;
         electionId = null;
+        emergencyOverride = false;
+        executed = false;
       };
 
       proposals := Array.append(proposals, [proposal]);
@@ -121,6 +133,7 @@ module {
                 proposalId = proposalId;
                 approver = Principal.toText(approver);
                 approvedAt = Nat64.fromIntWrap(Time.now());
+                reason = "Upgrade approved via vote";
             }));
 
             #ok(updated)
@@ -266,6 +279,191 @@ public func createUpgradeElection(proposalId: Nat) : async Result.Result<Upgrade
             };
         };
     };
+};
+
+public func syncUpgradeVoteResult(proposalId: Nat) : async Result.Result<Text, Text> {
+    let maybeProposal = Array.find<UpgradeProposal>(proposals, func(p) = p.id == proposalId);
+    switch (maybeProposal) {
+        case null return #err("Upgrade proposal not found.");
+        case (?proposal) {
+            let maybeElectionId = proposal.electionId;
+            switch (maybeElectionId) {
+                case null return #err("No election linked to this proposal.");
+                case (?electionId) {
+                    let resultOpt = await electionCanister.getElectionResults(electionId);
+                    switch (resultOpt) {
+                        case null return #err("Election results not yet available.");
+                        case (?result) {
+                            switch (result.winner) {
+                                case null return #err("Election has no declared winner.");
+                                case (?winner) {
+                                    if (winner == "Approve Upgrade") {
+                                        let updated = {
+                                            proposal with
+                                            approved = true;
+                                            statusMessage = ?"Upgrade approved via election."
+                                        };
+                                        proposals := Array.map<UpgradeProposal, UpgradeProposal>(proposals, func(p: UpgradeProposal): UpgradeProposal {
+    if (p.id == proposalId) { updated } else { p }
+});
+
+                                        await emitUpgradeEvent(#UpgradeProposalApproved, #UpgradeProposalApproved({
+                                            proposalId = proposalId;
+                                            approver = "Election"; // System flag
+                                            approvedAt = Nat64.fromIntWrap(Time.now());
+                                            reason = "Upgrade approved via vote";
+                                        }));
+
+                                        return #ok("Upgrade approved based on vote.");
+                                    } else {
+                                        let updated = {
+                                            proposal with
+                                            rejected = true;
+                                            statusMessage = ?"Upgrade rejected via election."
+                                        };
+                                        proposals := Array.map<UpgradeProposal, UpgradeProposal>(proposals, func(p: UpgradeProposal): UpgradeProposal {
+    if (p.id == proposalId) { updated } else { p }
+});
+
+                                        await emitUpgradeEvent(#UpgradeProposalRejected, #UpgradeProposalRejected({
+                                            proposalId = proposalId;
+                                            rejectedBy = "Election";
+                                            rejectedAt = Nat64.fromIntWrap(Time.now());
+                                            reason = "Upgrade rejected via vote";
+                                        }));
+
+                                        return #ok("Upgrade rejected based on vote.");
+                                    };
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+    };
+};
+
+public func emergencyExecuteUpgradeProposal(proposalId: Nat, caller: Principal): async Result.Result<UpgradeProposal, Text> {
+  if (Principal.toText(caller) != Principal.toText(adminCanisterId)) {
+    return #err("Unauthorized: Only Admin Canister may perform emergency execution.");
+  };
+
+  let maybeProposal = Array.find<UpgradeProposal>(proposals, func(p: UpgradeProposal) = p.id == proposalId);
+  switch (maybeProposal) {
+    case null return #err("Upgrade proposal not found.");
+    case (?proposal) {
+      let updated = {
+        proposal with
+        emergencyOverride = true;
+        statusMessage = ?"Emergency override triggered";
+      };
+
+      proposals := Array.map<UpgradeProposal, UpgradeProposal>(proposals, func(p: UpgradeProposal): UpgradeProposal {
+        if (p.id == proposalId) { updated } else { p }
+      });
+
+      return await executeUpgradeProposal(proposalId);
+    };
+  };
+};
+
+
+
+
+public func markProposalAsFinalized(proposalId: Nat) : async Result.Result<Bool, Text> {
+  let alreadyFinalized: ?Nat = Array.indexOf<Nat>(
+    proposalId,
+    finalizedProposals,
+    func(a: Nat, b: Nat) : Bool { a == b }
+  );
+
+  switch (alreadyFinalized) {
+    case (?_) return #err("Proposal already finalized.");
+    case null {
+      finalizedProposals := Array.append<Nat>(finalizedProposals, [proposalId]);
+      return #ok(true);
+    };
+  };
+};
+
+public func listPendingUpgradeElectionSyncs() : async [UpgradeProposal] {
+  Array.filter<UpgradeProposal>(proposals, func(p: UpgradeProposal) : Bool {
+    let alreadyFinalized: ?Nat = Array.indexOf<Nat>(
+    p.id,
+    finalizedProposals,
+      
+      func(a: Nat, b: Nat) : Bool { a == b }
+    );
+
+    p.electionId != null and
+    not p.approved and
+    not p.rejected and
+    alreadyFinalized == null
+  })
+};
+
+public func monitorPendingUpgradeElections() : async () {
+  let pending = await listPendingUpgradeElectionSyncs();
+  for (p in pending.vals()) {
+    let _ = await syncUpgradeVoteResult(p.id); // Ignore individual errors
+  }
+};
+
+public func listExecutableProposals() : async [UpgradeProposal] {
+  Array.filter<UpgradeProposal>(proposals, func(p) {
+    p.approved and not p.rejected and not p.executed
+  });
+};
+
+
+public func hasBeenExecuted(proposalId: Nat) : async Bool {
+  let found = Array.find<UpgradeProposal>(proposals, func(p) {
+    p.id == proposalId
+  });
+
+  switch (found) {
+    case (?p) return p.executed;
+    case null return false;
+  };
+};
+
+public func getExecutionStatus(proposalId: Nat) : async Text {
+  let found = Array.find<UpgradeProposal>(proposals, func(p) {
+    p.id == proposalId
+  });
+
+  switch (found) {
+    case (?p) {
+      if (p.executed) return "executed";
+      if (p.approved) return "approved";
+      if (p.rejected) return "rejected";
+      return "pending";
+    };
+    case null return "not_found";
+  };
+};
+
+public func autoFinalizeExecutedProposals() : async () {
+  let toFinalize = Array.filter<UpgradeProposal>(proposals, func(p: UpgradeProposal) : Bool {
+    p.executed and Array.indexOf<Nat>(
+      p.id,
+      finalizedProposals,
+      func(a: Nat, b: Nat) : Bool { a == b }
+    ) == null
+  });
+
+  for (p in toFinalize.vals()) {
+    finalizedProposals := Array.append<Nat>(finalizedProposals, [p.id]);
+
+    await emitUpgradeEvent(
+      #UpgradeProposalFinalized,
+      #UpgradeProposalFinalized({
+        proposalId = p.id;
+        finalizedAt = Nat64.fromIntWrap(Time.now());
+      })
+    );
+  };
 };
 };
 };
