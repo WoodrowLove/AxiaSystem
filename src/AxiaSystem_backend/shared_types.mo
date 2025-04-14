@@ -143,7 +143,12 @@ import Blob "mo:base/Blob";
         weight: Nat;
     };
 
-
+    public type GeneralVoteRecord = {
+  proposalId: Nat;
+  voter: Principal;
+  choice: Bool;
+  timestamp: Nat64;
+};
 
     public type AdminAction = {
         id: Nat;
@@ -237,5 +242,18 @@ public type TokenId = Text;
 public type EscrowSettings = {
     token: TokenId;
     minStake: Nat;
+};
+
+public type GeneralTallyResult = {
+  yes: Nat;
+  no: Nat;
+  total: Nat;
+};
+
+public type GeneralProposalStatus = {
+  #Pending;
+  #Approved;
+  #Rejected;
+  #NotFound;
 };
 };

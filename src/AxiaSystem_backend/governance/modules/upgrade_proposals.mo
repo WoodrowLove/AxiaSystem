@@ -465,5 +465,42 @@ public func autoFinalizeExecutedProposals() : async () {
     );
   };
 };
+
+public func enableEmergencyOverride(proposalId: Nat, caller: Principal): async Result.Result<UpgradeProposal, Text> {
+  if (Principal.toText(caller) != Principal.toText(adminCanisterId)) {
+    return #err("Unauthorized: Only Admin Canister may enable emergency override.");
+  };
+
+  let maybeProposal = Array.find<UpgradeProposal>(proposals, func(p: UpgradeProposal) = p.id == proposalId);
+  switch (maybeProposal) {
+    case null return #err("Upgrade proposal not found.");
+    case (?proposal) {
+      if (proposal.emergencyOverride) {
+        return #err("Emergency override already enabled.");
+      };
+
+      let updated = {
+        proposal with
+        emergencyOverride = true;
+        statusMessage = ?"Emergency override enabled manually"
+      };
+
+      proposals := Array.map<UpgradeProposal, UpgradeProposal>(proposals, func(p: UpgradeProposal): UpgradeProposal {
+  if (p.id == proposalId) { updated } else { p }
+});
+
+      await emitUpgradeEvent(
+        #EmergencyOverrideEnabled,
+        #EmergencyOverrideEnabled({
+          proposalId = proposalId;
+          enabledBy = Principal.toText(caller);
+          timestamp = Nat64.fromIntWrap(Time.now());
+        })
+      );
+
+      #ok(updated)
+    }
+  }
+};
 };
 };

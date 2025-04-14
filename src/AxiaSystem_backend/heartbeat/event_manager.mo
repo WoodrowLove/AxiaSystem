@@ -19,7 +19,26 @@ module {
 
         // Queue for event emission (optional for decoupled execution)
         private var eventQueue: [EventTypes.Event] = [];
-         private var isHeartbeatRunning: Bool = false; // Tracks if heartbeat is running
+        private var isHeartbeatRunning: Bool = false; // Tracks if heartbeat is running
+
+        private var emitTimestamps: [Nat64] = [];
+        private var lastEmitTime: ?Nat64 = null;
+        private var eventErrorCount: Nat = 0;
+
+        public func runDiagnostics(): async () {
+        let avgRate = await getAverageEmitRate();
+        let lastTime = await getLastEventTime();
+        let errors = await getEventErrorCount();
+
+  Debug.print("Emit Rate: " # Nat.toText(avgRate));
+  Debug.print("Last Emit Time: " # debug_show(lastTime));
+  Debug.print("Emit Errors: " # Nat.toText(errors));
+};
+
+         // Returns the number of pending events in the queue
+    public func getEventQueueLength(): async Nat {
+         eventQueue.size();
+    };
 
        public func subscribe(eventType: EventTypes.EventType, listener: shared EventTypes.Event -> async ()) : async () {
     let currentListeners = switch (listeners.get(eventType)) {
@@ -29,13 +48,22 @@ module {
     listeners.put(eventType, Array.append(currentListeners, [listener]));
 };
 
-        public func emit(eventType: EventTypes.Event) : async () {
-    let registeredListeners = switch (listeners.get(eventType.eventType)) {
+        public func emit(event: EventTypes.Event): async () {
+    emitTimestamps := Array.append<Nat64>(emitTimestamps, [event.id]);
+    lastEmitTime := ?event.id;
+
+    let registeredListeners = switch (listeners.get(event.eventType)) {
         case null { [] };
         case (?arr) { arr };
     };
+
     for (listener in registeredListeners.vals()) {
-        await listener(eventType);
+        try {
+            await listener(event);
+        } catch (e) {
+            eventErrorCount += 1;
+            Debug.print("Error emitting to listener: " # Error.message(e));
+        };
     };
 };
 
@@ -466,6 +494,31 @@ public func emitLoginFailure(principal: ?Principal, email: ?Text, reason: Text):
         });
     };
     await emit(event);
+};
+
+// Returns average emit rate (events per second over last 60 seconds)
+public func getAverageEmitRate(): async Nat {
+    let now = Time.now();
+    let oneMinuteAgo = Nat64.fromIntWrap(now - 60_000_000_000); // convert to Nat64 for comparison
+
+    let recentTimestamps = Array.filter<Nat64>(
+        emitTimestamps,
+        func(t: Nat64): Bool {
+            t >= oneMinuteAgo
+        }
+    );
+
+    recentTimestamps.size();
+};
+
+// Returns the timestamp of the last emitted event
+public func getLastEventTime(): async ?Nat64 {
+    lastEmitTime;
+};
+
+// Returns the number of emit errors encountered
+public func getEventErrorCount(): async Nat {
+    eventErrorCount;
 };
 
 };

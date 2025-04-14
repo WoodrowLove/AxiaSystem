@@ -9,6 +9,10 @@ import Error "mo:base/Error";
 import Nat64 "mo:base/Nat64";
 import LoggingUtils "../utils/logging_utils";
 import UpgradeProposals "modules/upgrade_proposals";
+import GeneralProposals "modules/general_proposals";
+import UpgradeEngineModule "modules/upgrade_engine";
+import SharedTypes "../shared_types";
+import MonitorModule "modules/monitor";
 
 actor GovernanceCanister {
     // Dependencies
@@ -19,14 +23,21 @@ actor GovernanceCanister {
     private let governanceManager = GovernanceModule.GovernanceModule(eventManager);
 
     let upgradeProposals = UpgradeProposals.UpgradeProposalModule(eventManager);
+    let generalProposalModule = GeneralProposals.GeneralProposalModule(eventManager);
+
+    let upgradeEngine = UpgradeEngineModule.UpgradeEngine();
+
+    let monitor = MonitorModule.Monitor(eventManager);
 
     // Public APIs
 
     system func heartbeat() : async () {
       await upgradeProposals.monitorPendingUpgradeElections();
       await upgradeProposals.autoFinalizeExecutedProposals ();
+      let queueLen = await eventManager.getEventQueueLength();
+      await monitor.runHealthCheck(queueLen);
     };
-    
+
     // Create a new proposal
     public func propose(
         proposer: Principal,
@@ -287,4 +298,108 @@ public shared({ caller = _ }) func autoFinalizeExecutedProposals() : async () {
   await upgradeProposals.autoFinalizeExecutedProposals();
 };
 
+public shared({ caller }) func submitGeneralProposal( title: Text, 
+description: Text
+): async Result.Result<GeneralProposals.GeneralProposal, Text> {
+  await generalProposalModule.submitGeneralProposal(caller, title, description);
+};
+
+public shared func getGeneralProposal(proposalId: Nat): async Result.Result<GeneralProposals.GeneralProposal, Text> {
+  await generalProposalModule.getGeneralProposal(proposalId);
+};
+
+public shared func listGeneralProposals(): async [GeneralProposals.GeneralProposal] {
+  await generalProposalModule.listGeneralProposals();
+};
+
+public shared({ caller }) func deleteGeneralProposal(proposalId: Nat): async Bool {
+  await generalProposalModule.deleteGeneralProposal(proposalId, caller);
+};
+
+public shared ({ caller }) func castGeneralVote(proposalId: Nat, choice: Bool): async Bool {
+  await generalProposalModule.castGeneralVote(proposalId, caller, choice);
+};
+
+public shared func getGeneralVotes(proposalId: Nat) : async [SharedTypes.GeneralVoteRecord] {
+  await generalProposalModule.getGeneralVotes(proposalId);
+};
+
+public shared func hasVoted(proposalId: Nat, voter: Principal) : async Bool {
+  await generalProposalModule.hasVoted(proposalId, voter);
+};
+
+public shared func getGeneralProposalStatus(proposalId: Nat): async SharedTypes.GeneralProposalStatus {
+  await generalProposalModule.getGeneralProposalStatus(proposalId);
+};
+
+public shared func finalizeGeneralProposal(proposalId: Nat): async Result.Result<Text, Text> {
+  await generalProposalModule.finalizeGeneralProposal(proposalId);
+};
+
+public shared func tallyGeneralProposal(proposalId: Nat): async SharedTypes.GeneralTallyResult {
+  await generalProposalModule.tallyGeneralProposal(proposalId);
+};
+
+public shared func getGeneralProposalHistory(proposalId: Nat) : async [Text] {
+  await generalProposalModule.getGeneralProposalHistory(proposalId);
+};
+
+public shared func getGeneralVoteBreakdown(proposalId: Nat) : async (Nat, Nat, Nat) {
+  await generalProposalModule.getGeneralVoteBreakdown(proposalId);
+};
+
+public shared({ caller = _}) func flagGeneralProposal(proposalId: Nat, reason: Text) : async Bool {
+  await generalProposalModule.flagGeneralProposal(proposalId, reason);
+};
+
+public shared({ caller }) func resolveFlaggedProposal(proposalId: Nat, resolution: Text) : async Bool {
+  await generalProposalModule.resolveFlaggedProposal(proposalId, caller, resolution);
+};
+
+public shared({ caller = _ }) func registerCanisterForUpgrade(canisterId: Principal): async Bool {
+  await upgradeEngine.registerCanisterForUpgrade(canisterId);
+};
+
+public shared func getRegisteredUpgradeTargets(): async [Principal] {
+  await upgradeEngine.getRegisteredUpgradeTargets();
+};
+
+// Upload Wasm
+public shared({ caller = _ }) func uploadUpgradeWasm(canisterId: Principal, version: Text, wasmModule: Blob): async Bool {
+  await upgradeEngine.uploadUpgradeWasm(canisterId, version, wasmModule);
+};
+
+// Get version of uploaded Wasm
+public shared func getWasmVersion(canisterId: Principal): async ?Text {
+  await upgradeEngine.getWasmVersion(canisterId);
+};
+
+// Get actual Wasm Blob
+public shared func getStoredWasm(canisterId: Principal): async ?Blob {
+  await upgradeEngine.getStoredWasm(canisterId);
+};
+
+public shared({ caller = _ }) func executeUpgrade(canisterId: Principal): async Result.Result<Text, Text> {
+  await upgradeEngine.executeUpgrade(canisterId);
+};
+
+public shared func verifyUpgradeIntegrity(canisterId: Principal): async Bool {
+  await upgradeEngine.verifyUpgradeIntegrity(canisterId);
+};
+
+public shared({ caller = _ }) func rollbackUpgrade(canisterId: Principal): async Result.Result<Text, Text> {
+  await upgradeEngine.rollbackUpgrade(canisterId);
+};
+
+public shared func listUpgradeHistory(canisterId: Principal): async [Text] {
+  await upgradeEngine.listUpgradeHistory(canisterId);
+};
+
+ public func reportGovernanceError(errorMsg: Text) : async () {
+    monitor.logError(errorMsg);
+  };
+
+  public func reportVotingAnomaly() : async () {
+    monitor.logVotingAnomaly();
+  };
 };

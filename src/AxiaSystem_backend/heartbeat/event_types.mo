@@ -10,6 +10,7 @@ module {
         #AdminAdded;
         #AdminCreated;
         #AdminRemoved;
+        #AlertRaised;
         #AllPaymentsRetrieved;
         #AssetDeactivated;
         #AssetReactivated;
@@ -17,12 +18,17 @@ module {
         #AssetTransferred;
         #BalancesSynchronized;
         #DeviceRegistered;
+        #EmergencyOverrideEnabled;
         #EscrowCanceled;
         #EscrowCreated;
         #EscrowReleased;
         #EscrowTimeoutProcessed;
         #FundsDeposited;
         #FundsWithdrawn;
+        #GeneralProposalFlagged;
+        #GeneralProposalResolved;
+        #GeneralProposalSubmitted;
+        #GeneralVoteCast;
         #GovernanceBalanceUpdated;
         #IdentityCreated;
         #IdentityDeleted;
@@ -102,6 +108,8 @@ module {
         #AdminAdded : { adminId: Principal; newAdminId: Principal; timestamp: Nat64; };
         #AdminCreated : { creatorId: Principal; newAdminId: Principal; timestamp: Nat64; };
         #AdminRemoved : { removerId: Principal; targetAdminId: Principal; timestamp: Nat64; };
+        #AlertRaised : { alertType : Text; message : Text; timestamp : Nat64; };
+
         #AllPaymentsRetrieved : { totalTransactions: Nat };
         #AssetDeactivated : { assetId: Nat; owner: Principal; deactivatedAt: Int };
         #AssetReactivated : { assetId: Nat; owner: Principal; reactivatedAt: Int };
@@ -109,12 +117,17 @@ module {
         #AssetTransferred : { assetId: Nat; previousOwner: Principal; newOwner: Principal; transferTime: Int };
         #BalancesSynchronized : { senderId: Principal; receiverId: Principal; amount: Nat; tokenId: Nat };
         #DeviceRegistered : { userId: Text; deviceKey: Text; timestamp: Nat64; };
+        #EmergencyOverrideEnabled : { proposalId: Nat; enabledBy: Text; timestamp: Nat64; };
         #EscrowCanceled: { escrowId: Text; sender: Text; amount: Nat; tokenId: Text; };
         #EscrowCreated : { escrowId: Nat; sender: Principal; receiver: Principal; tokenId: Nat; amount: Nat };
         #EscrowReleased: { escrowId: Text; sender: Text; receiver: Text; amount: Nat; tokenId: Text; };
         #EscrowTimeoutProcessed : { timeoutCount: Nat; timestamp: Nat64; };
         #FundsDeposited : { userId: Text; amount: Nat; tokenId: ?Nat; timestamp: Nat64 };
         #FundsWithdrawn : { userId: Text; amount: Nat; tokenId: ?Nat; timestamp: Nat64 };
+        #GeneralProposalFlagged: { proposalId: Nat; reason: Text; flaggedAt: Nat64; };
+        #GeneralProposalResolved: { proposalId: Nat; resolution: Text; resolvedBy: Text; resolvedAt: Nat64; };
+        #GeneralProposalSubmitted : { proposalId: Nat; title: Text; submittedBy: Text; submittedAt: Nat64; };
+        #GeneralVoteCast : { proposalId : Nat; voter : Text; choice : Bool; timestamp : Nat64; };
         #GovernanceBalanceUpdated : { tokenId: ?Nat; newBalance: Nat; updatedAt: Nat64; };
         #IdentityCreated : { id: Principal; metadata: Trie.Trie<Text, Text>; createdAt: Int; };
         #IdentityDeleted : { id: Principal; deletedAt: Int; };
@@ -263,6 +276,12 @@ module {
             case (#UpgradeProposalExecuted) { 75 };
             case (#UpgradeElectionCreated) { 76 };
             case (#UpgradeProposalFinalized) { 77 };
+            case (#GeneralProposalSubmitted) { 78 };
+            case (#GeneralVoteCast) { 79 };
+            case (#GeneralProposalFlagged) { 80 };
+            case (#GeneralProposalResolved) { 81 };
+            case (#EmergencyOverrideEnabled) { 82 };
+            case (#AlertRaised) { 83 };
         };
     };
 
