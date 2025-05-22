@@ -521,6 +521,42 @@ public func getEventErrorCount(): async Nat {
     eventErrorCount;
 };
 
+public func emitProjectRegistered(projectId: Text, owner: Principal, name: Text): async Result.Result<(), Text> {
+    try {
+        await emit({
+            id = Nat64.fromIntWrap(Time.now());
+            eventType = #ProjectRegistered;
+            payload = #ProjectRegistered({
+                projectId = projectId;
+                owner = owner;
+                name = name;
+                timestamp = Nat64.fromIntWrap(Time.now());
+            });
+        });
+        return #ok(());
+    } catch (e) {
+        return #err("Failed to emit ProjectRegistered event: " # Error.message(e));
+    }
+};
+
+
+public func emitModuleLinkedToProject(projectId: Text, moduleName: Text): async Result.Result<(), Text> {
+    try {
+        await emit({
+            id = Nat64.fromIntWrap(Time.now());
+            eventType = #ModuleLinkedToProject;
+            payload = #ModuleLinkedToProject({
+                projectId = projectId;
+                moduleName = moduleName;
+                linkedAt = Nat64.fromIntWrap(Time.now());
+            });
+        });
+        return #ok(());
+    } catch (e) {
+        return #err("Failed to emit ModuleLinkedToProject event: " # Error.message(e));
+    }
+};
+
 };
 
     };

@@ -13,6 +13,7 @@ import AdminModule "../admin/modules/admin_module";
 import WalletCanisterProxy "../wallet/utils/wallet_canister_proxy";
 import UserCanisterProxy "../user/utils/user_canister_proxy";
 import TokenCanisterProxy "../token/utils/token_canister_proxy";
+import SharedTypes "../shared_types";
 
 actor {
     // Dependencies
@@ -23,6 +24,17 @@ actor {
     private let eventManager = EventManager.EventManager();
     private let userProxy = UserCanisterProxy.UserCanisterProxy(Principal.fromText("ctiya-peaaa-aaaaa-qaaja-cai"));
     private let tokenProxy = TokenCanisterProxy.TokenCanisterProxy(Principal.fromText("c5kvi-uuaaa-aaaaa-qaaia-cai"));
+
+    // Aegis canisters
+    private let aegisCanister : actor {
+  logSecureAdminAction : (Principal, Text, ?Text) -> async Bool;
+  validateSecureCaller : (Principal) -> async Bool;
+  logSecureAction : (Principal, Text, ?Text) -> async ();
+  cloakPrincipal : (Principal) -> async Principal;
+  cloakActionRecord : (record: SharedTypes.AdminAction) -> async SharedTypes.CloakedRecord;
+  verifyActionIntegrity : (Nat) -> async Bool;
+} = actor("uxrrr-q7777-77774-qaaaq-cai");
+    
 
     // Managers
     private let escrowManager = EscrowManager.EscrowManager(walletProxy, eventManager);
@@ -36,7 +48,8 @@ actor {
         escrowManager,
         payoutManager,
         splitPaymentManager,
-        paymentManager
+        paymentManager,
+        aegisCanister
     );
 
     // ✅ **Public API - Create Admin**

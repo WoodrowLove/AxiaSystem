@@ -36,10 +36,13 @@ import UserModule "user/modules/user_module";
 import UserService "user/service/user_service";
 import SharedTypes "shared_types";
 
+import ProjectRegistryModule "./modules/project_registry";
+import AxiaState "./state/axia_state";
+
 
 actor AxiaSystem_backend {
 private let tokenProxy = TokenCanisterProxy.TokenCanisterProxy(Principal.fromText("c5kvi-uuaaa-aaaaa-qaaia-cai")); // Token Canister ID
-private let userProxy = UserCanisterProxy.UserCanisterProxy(Principal.fromText("ctiya-peaaa-aaaaa-qaaja-cai")); // User Canister ID
+private let userProxy = UserCanisterProxy.UserCanisterProxy(Principal.fromText("xad5d-bh777-77774-qaaia-cai")); // User Canister ID
 private let walletProxy = WalletCanisterProxy.WalletCanisterProxy(
     Principal.fromText("cuj6u-c4aaa-aaaaa-qaajq-cai"), // Wallet Canister ID
     Principal.fromText("ctiya-peaaa-aaaaa-qaaja-cai")  // User Canister ID
@@ -65,7 +68,9 @@ private let _governanceProxy = GovernanceProxy.GovernanceProxy(Principal.fromTex
     private let assetRegistryService = AssetRegistryService.createAssetRegistryService(eventManager);
     private let _payoutManager = PayoutModule.PayoutManager(walletProxy, eventManager);
     private let payoutService = PayoutService.createPayoutService(walletProxy, eventManager);
-    
+
+    private let projectRegistryState = AxiaState.ProjectRegistryState();
+    private let projectRegistry = ProjectRegistryModule.ProjectRegistry(projectRegistryState, eventManager);
 
     // Exposed APIs to connect with frontend or other services
 
@@ -863,6 +868,26 @@ public shared func resetPassword(userId: Principal, newPassword: Text): async Re
 public shared func deleteUser(userId: Principal): async Result.Result<(), Text> {
     Debug.print("Global main received deleteUser request for: " # Principal.toText(userId));
     return await userService.deleteUser(userId);
+};
+
+// Register a new project
+public shared(msg) func registerProject(projectId: Text, name: Text, description: Text): async Result.Result<Text, Text> {
+    await projectRegistry.registerProject(msg.caller, projectId, name, description);
+};
+
+// Link a module to a project
+public shared(msg) func linkModuleToProject(projectId: Text, moduleName: Text): async Result.Result<Text, Text> {
+    await projectRegistry.linkModuleToProject(msg.caller, projectId, moduleName);
+};
+
+// Get all projects created by caller
+public shared(msg) func getMyProjects(): async [AxiaState.Project] {
+    projectRegistry.getProjectsByCaller(msg.caller);
+};
+
+// Get a specific project (if caller is owner)
+public shared(msg) func getMyProjectById(projectId: Text): async ?AxiaState.Project {
+    projectRegistry.getProjectByIdIfOwner(msg.caller, projectId);
 };
     
 };

@@ -39,6 +39,7 @@ module {
         #LoginAttempt;
         #LoginFailure;
         #LoginSuccess;
+        #ModuleLinkedToProject;
         #PasswordReset;
         #PaymentHistoryRetrieved;
         #PaymentProcessed;
@@ -52,6 +53,7 @@ module {
         #PayoutInitiated;
         #PayoutRetryCompleted;
         #PendingPaymentsMonitored;
+        #ProjectRegistered;
         #ProposalCreated;
         #ProposalExecuted;
         #ProposalExpired;
@@ -138,6 +140,7 @@ module {
         #LoginAttempt : { principal: ?Text; email: ?Text; status: Text; /* "Success" or "Failure" */ timestamp: Nat64; };
         #LoginFailure : { principal: ?Text; email: ?Text; reason: Text; timestamp: Nat64; };
         #LoginSuccess : { userId: Text; principal: ?Text; email: ?Text; timestamp: Nat64; };
+        #ModuleLinkedToProject : { projectId: Text; moduleName: Text; linkedAt: Nat64; };
         #PasswordReset : { UserId : Text; };
         #PaymentHistoryRetrieved : { userId: Principal; transactionCount: Nat };
         #PaymentProcessed : { userId: Principal; amount: Nat; walletId: Text };
@@ -151,6 +154,7 @@ module {
         #PayoutExecuted : { payoutId: Nat; totalAmount: Nat; recipients: [(Principal, Nat)]; executionTime: Int };
         #PayoutInitiated : { payoutId: Nat; totalAmount: Nat; recipients: [Principal]; description: ?Text; timestamp: Int };
         #PayoutRetryCompleted : { retryCount: Nat; timestamp: Nat64; };
+        #ProjectRegistered : { projectId: Text; owner: Principal; name: Text; timestamp: Nat64; };
         #ProposalCreated : { proposalId: Nat; proposer: Text; description: Text; createdAt: Nat64; };
         #ProposalExecuted : { proposalId: Nat; executedAt: Nat64; outcome: Text; /* "Success" or "Failure" */ };
         #ProposalExpired : { proposalId: Nat; expiredAt: Nat64; };
@@ -282,6 +286,8 @@ module {
             case (#GeneralProposalResolved) { 81 };
             case (#EmergencyOverrideEnabled) { 82 };
             case (#AlertRaised) { 83 };
+            case (#ProjectRegistered) { 84 };
+            case (#ModuleLinkedToProject) { 85 };
         };
     };
 

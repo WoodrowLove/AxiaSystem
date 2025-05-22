@@ -7,6 +7,7 @@ import Nat64 "mo:base/Nat64";
 import Time "mo:base/Time";
 import Int "mo:base/Int";
 import Option "mo:base/Option";
+
 import LoggingUtils "../../utils/logging_utils";
 import EventManager "../../heartbeat/event_manager";
 import EventTypes "../../heartbeat/event_types";
@@ -14,66 +15,62 @@ import EscrowManager "../../escrow/modules/escrow_module";
 import PayoutManager "../../payout/modules/payout_module";
 import SplitPaymentManager "../../split_payment/modules/split_payment_module";
 import PaymentManager "../../payment/modules/payment_module";
+import SharedTypes "../../shared_types";
 
 module {
-    public type AdminAction = {
-        id: Nat;
-        timestamp: Int;
-        admin: Principal;
-        action: Text; // Action description
-        details: ?Text;
+  public type AdminAction = {
+    id: Nat;
+    timestamp: Int;
+    admin: Principal;
+    action: Text;
+    details: ?Text;
+  };
+
+  public class AdminManager(
+    eventManager: EventManager.EventManager,
+    escrowManager: EscrowManager.EscrowManager,
+    payoutManager: PayoutManager.PayoutManager,
+    splitPaymentManager: SplitPaymentManager.PaymentSplitManager,
+    _paymentManager: PaymentManager.PaymentManager,
+    aegisCanister: actor {
+      logSecureAdminAction : (Principal, Text, ?Text) -> async Bool;
+      validateSecureCaller : (Principal) -> async Bool;
+      logSecureAction : (Principal, Text, ?Text) -> async ();
+      cloakPrincipal : (Principal) -> async Principal;
+      cloakActionRecord : (SharedTypes.AdminAction) -> async SharedTypes.CloakedRecord;
+      verifyActionIntegrity : (Nat) -> async Bool;
+    }
+  ) {
+    private var adminActions: [AdminAction] = [];
+    private var admins: [Principal] = [];
+    private let logStore = LoggingUtils.init();
+
+    // Emit admin-related events (optional legacy diagnostic use)
+    private func emitAdminEvent(
+      eventType: EventTypes.EventType,
+      payload: EventTypes.EventPayload
+    ): async () {
+      let event: EventTypes.Event = {
+        id = Nat64.fromNat(Int.abs(Time.now()));
+        eventType = eventType;
+        payload = payload;
+      };
+      await eventManager.emit(event);
     };
 
-    public class AdminManager(
-        eventManager: EventManager.EventManager,
-        escrowManager: EscrowManager.EscrowManager,
-        payoutManager: PayoutManager.PayoutManager,
-        splitPaymentManager: SplitPaymentManager.PaymentSplitManager,
-        _paymentManager: PaymentManager.PaymentManager
-        
-    ) {
-        private var adminActions: [AdminAction] = [];
-        private var admins: [Principal] = []; 
-        private let logStore = LoggingUtils.init();
+    // ✅ Secure logging via Aegis
+    public func logAdminAction(admin: Principal, action: Text, details: ?Text): async () {
+      // Forward to Aegis secure logging system
+      await aegisCanister.logSecureAction(admin, action, details);
 
-
-        // Emit admin-related events
-        private func emitAdminEvent(eventType: EventTypes.EventType, payload: EventTypes.EventPayload): async () {
-            let event: EventTypes.Event = {
-                id = Nat64.fromNat(Int.abs(Time.now()));
-                eventType = eventType;
-                payload = payload;
-            };
-            await eventManager.emit(event);
-        };
-
-        // Log and track admin actions
-        public func logAdminAction(admin: Principal, action: Text, details: ?Text): async () {
-            let actionId = Nat64.toNat(Nat64.fromNat(Int.abs(Time.now())));
-            let adminAction: AdminAction = {
-                id = actionId;
-                timestamp = Time.now();
-                admin = admin;
-                action = action;
-                details = details;
-            };
-            adminActions := Array.append(adminActions, [adminAction]);
-
-            LoggingUtils.logInfo(
-                logStore,
-                "AdminModule",
-                "Action logged by admin: " # Principal.toText(admin) # ", Action: " # action,
-                ?admin
-            );
-
-            // Emit admin action event
-            await emitAdminEvent(#AdminActionLogged, #AdminActionLogged {
-                adminId = admin;
-                actionId = actionId;
-                action = action;
-                timestamp = Nat64.fromNat(Int.abs(Time.now()));
-            });
-        };
+      // Internal logging utility (optional, retained for diagnostics)
+      LoggingUtils.logInfo(
+        logStore,
+        "AdminModule",
+        "Action securely logged by admin: " # Principal.toText(admin) # ", Action: " # action,
+        ?admin
+      );
+    };
 
         // View all logged admin actions
         public func getAllAdminActions(): async [AdminAction] {

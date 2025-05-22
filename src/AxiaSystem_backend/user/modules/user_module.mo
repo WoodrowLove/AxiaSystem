@@ -117,6 +117,8 @@ private func keyPrincipal(p: Principal): Trie.Key<Principal> = {
 
         /// Function to create a new user
         public func createUser(username: Text, email: Text, password: Text): async Result.Result<User, Text> {
+
+            Debug.print("📥 AxiaSystem.createUser received: username = " # username # ", email = [" # email # "]");
             // Validate email
             if (not ValidationUtils.isValidEmail(email)) {
                 return #err("Invalid email format");
@@ -124,7 +126,7 @@ private func keyPrincipal(p: Principal): Trie.Key<Principal> = {
 
             // Check if the user already exists
             switch (findUserByEmail(email)) {
-                case (?_) { return #err("User with this email already exists."); };
+                case (?_) { return #err("User with thi6s email already exists."); };
                 case null {};
             };
 

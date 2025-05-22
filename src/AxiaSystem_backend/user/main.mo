@@ -21,7 +21,7 @@ actor UserCanister {
     private stable var users : Trie.Trie<Principal, UserModule.User> = Trie.empty();
     // Initialize the event manager
     private let eventManager = EventManager.EventManager();
-    let userProxy = UserCanisterProxy.UserCanisterProxy(Principal.fromText("ctiya-peaaa-aaaaa-qaaja-cai"));
+    let userProxy = UserCanisterProxy.UserCanisterProxy(Principal.fromText("xad5d-bh777-77774-qaaia-cai"));
 
     // Initialize the user manager with the event manager
     private let userManager = UserModule.UserManager(eventManager);

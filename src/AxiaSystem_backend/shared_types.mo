@@ -256,4 +256,27 @@ public type GeneralProposalStatus = {
   #Rejected;
   #NotFound;
 };
+
+ public type SecureLogEntry = {
+    id: Nat;
+    user: Principal;
+    action: Text;
+    details: ?Text;
+    timestamp: Int;
+  };
+
+  public type CloakedRecord = {
+  id: Nat;
+  userHash: Text;
+  action: Text;
+  context: ?Text;
+  timestamp: Int;
+};
+
+public type ActionIntegrityCheck = {
+  id: Nat;
+  passed: Bool;
+  reason: ?Text;
+};
+
 };
