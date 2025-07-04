@@ -11,8 +11,8 @@ import EscrowService "./services/escrow_service";
 
 actor {
     private let walletProxy = WalletCanisterProxy.WalletCanisterProxy(
-    Principal.fromText("cuj6u-c4aaa-aaaaa-qaajq-cai"), // Wallet Canister ID
-    Principal.fromText("ctiya-peaaa-aaaaa-qaaja-cai")  // User Canister ID
+    Principal.fromText("xhc3x-m7777-77774-qaaiq-cai"), // Wallet Canister ID
+    Principal.fromText("xad5d-bh777-77774-qaaia-cai")  // User Canister ID
 );
     private let eventManager = EventManager.EventManager();
 
@@ -65,6 +65,15 @@ actor {
             }
         } catch (e) {
             "Escrow health check failed: " # Error.message(e);
+        }
+    };
+
+      // API: Process escrow timeouts
+    public shared func processEscrowTimeouts(timeoutThreshold: Nat): async Result.Result<Nat, Text> {
+        try {
+            await escrowService.processEscrowTimeouts(timeoutThreshold);
+        } catch (e) {
+            #err("Timeout processing failed: " # Error.message(e))
         }
     };
 

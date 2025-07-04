@@ -17,11 +17,11 @@ import LoggingUtils "../utils/logging_utils";
 actor PaymentCanister {
     // Instantiate proxies for inter-canister communication
     private let walletProxy = WalletCanisterProxy.WalletCanisterProxy(
-    Principal.fromText("cuj6u-c4aaa-aaaaa-qaajq-cai"), // Wallet Canister ID
-    Principal.fromText("ctiya-peaaa-aaaaa-qaaja-cai")  // User Canister ID
+    Principal.fromText("xhc3x-m7777-77774-qaaiq-cai"), // Wallet Canister ID
+    Principal.fromText("xad5d-bh777-77774-qaaia-cai")  // User Canister ID
 );
-    private let userProxy = UserCanisterProxy.UserCanisterProxy(Principal.fromText("ctiya-peaaa-aaaaa-qaaja-cai"));
-    private let tokenProxy = TokenCanisterProxy.TokenCanisterProxy(Principal.fromText("c5kvi-uuaaa-aaaaa-qaaia-cai"));
+    private let userProxy = UserCanisterProxy.UserCanisterProxy(Principal.fromText("xad5d-bh777-77774-qaaia-cai"));
+    private let tokenProxy = TokenCanisterProxy.TokenCanisterProxy(Principal.fromText("v27v7-7x777-77774-qaaha-cai"));
 
     let logstore : LoggingUtils.LogStore = LoggingUtils.init();
 

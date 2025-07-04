@@ -56,7 +56,7 @@ module {
   private var eventLog: [Text] = [];
   private let logStore = LoggingUtils.init();
   private let tokenEvents = TokenEvents.TokenEvents();
-  private let userProxy = UserCanisterProxy.UserCanisterProxy(Principal.fromText("ctiya-peaaa-aaaaa-qaaja-cai"));
+  private let userProxy = UserCanisterProxy.UserCanisterProxy(Principal.fromText("xad5d-bh777-77774-qaaia-cai"));
   
   
 
@@ -256,7 +256,7 @@ public func onError(err: Text): async () {
 // Check if a caller is authorized to create tokens
 private func _isAuthorizedToCreate(caller: Principal): Bool {
     // Define authorized users (for now, assume only specific Principal is authorized)
-    let authorizedUsers = [Principal.fromText("bnz7o-iuaaa-aaaaa-qaaaa-cai")]; // Replace with actual authorized Principal IDs
+    let authorizedUsers = [Principal.fromText("snust-azxyz-uobmd-qude3-nc4by-n3sfh-ccker-drkb5-gjspk-axsoa-mae")]; // Replace with actual authorized Principal IDs
     Array.find(authorizedUsers, func(user: Principal): Bool { user == caller }) != null
 };
 

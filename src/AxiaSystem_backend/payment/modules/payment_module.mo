@@ -59,8 +59,8 @@ public func validateCustomRules(
 
     // Example Rule: Specific users are not allowed to make payments
     let blacklistedUsers: [Principal] = [
-        Principal.fromText("aaaaa-aa"),
-        Principal.fromText("bbbbb-bb"),
+        Principal.fromText("2vxsx-fae"),
+        Principal.fromText("2vxsx-fae"),
     ];
     if (Array.find<Principal>(blacklistedUsers, func (user : Principal) : Bool { user == sender }) != null) {
     return #err("Sender is not authorized to make payments.");

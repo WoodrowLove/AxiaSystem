@@ -13,28 +13,16 @@ import AdminModule "../admin/modules/admin_module";
 import WalletCanisterProxy "../wallet/utils/wallet_canister_proxy";
 import UserCanisterProxy "../user/utils/user_canister_proxy";
 import TokenCanisterProxy "../token/utils/token_canister_proxy";
-import SharedTypes "../shared_types";
 
 actor {
     // Dependencies
     private let walletProxy = WalletCanisterProxy.WalletCanisterProxy(
-        Principal.fromText("cuj6u-c4aaa-aaaaa-qaajq-cai"), // Wallet Canister ID
-        Principal.fromText("ctiya-peaaa-aaaaa-qaaja-cai")  // User Canister ID
+        Principal.fromText("xhc3x-m7777-77774-qaaiq-cai"), // Wallet Canister ID
+        Principal.fromText("xad5d-bh777-77774-qaaia-cai")  // User Canister ID
     );
     private let eventManager = EventManager.EventManager();
-    private let userProxy = UserCanisterProxy.UserCanisterProxy(Principal.fromText("ctiya-peaaa-aaaaa-qaaja-cai"));
-    private let tokenProxy = TokenCanisterProxy.TokenCanisterProxy(Principal.fromText("c5kvi-uuaaa-aaaaa-qaaia-cai"));
-
-    // Aegis canisters
-    private let aegisCanister : actor {
-  logSecureAdminAction : (Principal, Text, ?Text) -> async Bool;
-  validateSecureCaller : (Principal) -> async Bool;
-  logSecureAction : (Principal, Text, ?Text) -> async ();
-  cloakPrincipal : (Principal) -> async Principal;
-  cloakActionRecord : (record: SharedTypes.AdminAction) -> async SharedTypes.CloakedRecord;
-  verifyActionIntegrity : (Nat) -> async Bool;
-} = actor("uxrrr-q7777-77774-qaaaq-cai");
-    
+    private let userProxy = UserCanisterProxy.UserCanisterProxy(Principal.fromText("xad5d-bh777-77774-qaaia-cai"));
+    private let tokenProxy = TokenCanisterProxy.TokenCanisterProxy(Principal.fromText("v27v7-7x777-77774-qaaha-cai"));
 
     // Managers
     private let escrowManager = EscrowManager.EscrowManager(walletProxy, eventManager);
@@ -49,7 +37,6 @@ actor {
         payoutManager,
         splitPaymentManager,
         paymentManager,
-        aegisCanister
     );
 
     // ✅ **Public API - Create Admin**

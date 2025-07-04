@@ -16,7 +16,7 @@ module {
         paymentManager: PaymentModule.PaymentManager,
         walletProxy: WalletCanisterProxy.WalletCanisterProxy,
         _tokenProxy: TokenCanisterProxy.TokenCanisterProxy,
-        _userProxy: UserCanisterProxy.UserCanisterProxyManager
+        _userProxy: UserCanisterProxy.UserCanisterProxy
     ) {
         private let logStore = LoggingUtils.init();
 

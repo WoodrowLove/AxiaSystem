@@ -15,7 +15,7 @@ import EscrowManager "../../escrow/modules/escrow_module";
 import PayoutManager "../../payout/modules/payout_module";
 import SplitPaymentManager "../../split_payment/modules/split_payment_module";
 import PaymentManager "../../payment/modules/payment_module";
-import SharedTypes "../../shared_types";
+import _SharedTypes "../../shared_types";
 
 module {
   public type AdminAction = {
@@ -32,14 +32,7 @@ module {
     payoutManager: PayoutManager.PayoutManager,
     splitPaymentManager: SplitPaymentManager.PaymentSplitManager,
     _paymentManager: PaymentManager.PaymentManager,
-    aegisCanister: actor {
-      logSecureAdminAction : (Principal, Text, ?Text) -> async Bool;
-      validateSecureCaller : (Principal) -> async Bool;
-      logSecureAction : (Principal, Text, ?Text) -> async ();
-      cloakPrincipal : (Principal) -> async Principal;
-      cloakActionRecord : (SharedTypes.AdminAction) -> async SharedTypes.CloakedRecord;
-      verifyActionIntegrity : (Nat) -> async Bool;
-    }
+
   ) {
     private var adminActions: [AdminAction] = [];
     private var admins: [Principal] = [];
@@ -58,16 +51,19 @@ module {
       await eventManager.emit(event);
     };
 
-    // ✅ Secure logging via Aegis
     public func logAdminAction(admin: Principal, action: Text, details: ?Text): async () {
-      // Forward to Aegis secure logging system
-      await aegisCanister.logSecureAction(admin, action, details);
-
-      // Internal logging utility (optional, retained for diagnostics)
+      let newAction: AdminAction = {
+        id = adminActions.size();
+        admin = admin;
+        action = action;
+        details = details;
+        timestamp = Time.now();
+      };
+      adminActions := Array.append(adminActions, [newAction]);
       LoggingUtils.logInfo(
         logStore,
         "AdminModule",
-        "Action securely logged by admin: " # Principal.toText(admin) # ", Action: " # action,
+        "Action logged by admin: " # Principal.toText(admin) # ", Action: " # action,
         ?admin
       );
     };
@@ -359,6 +355,12 @@ public func getMultiSigApprovalDetails(electionId: Nat): async Result.Result<[Ad
     return #ok(approvals);
 };
 
+public func clearState(): async () {
+    adminActions := [];
+    admins := [];
+    LoggingUtils.logInfo(logStore, "AdminModule", "State cleared.", null);
+
 };
 
     };
+};

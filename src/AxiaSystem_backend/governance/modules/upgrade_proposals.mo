@@ -40,7 +40,7 @@ module {
     private var proposals: [UpgradeProposal] = [];
     private var nextId: Nat = 1;
     
-    let adminCanisterId : Principal = Principal.fromText("br5f7-7uaaa-aaaaa-qaaca-cai");
+    let adminCanisterId : Principal = Principal.fromText("u6s2n-gx777-77774-qaaba-cai");
     // Finalized proposal tracking
     var finalizedProposals: [Nat] = [];
 

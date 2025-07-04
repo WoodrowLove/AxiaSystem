@@ -37,8 +37,8 @@ private func _logAdminAction(admin: Principal, action: Text, details: ?Text): as
         // Verify if the admin has proper access
         public func verifyAdminAccess(admin: Principal): Result.Result<(), Text> {
             let allowedAdmins: [Principal] = [
-                Principal.fromText("aaaaa-aa"), // Example authorized admin
-                Principal.fromText("bbbbb-bb")
+                Principal.fromText("2vxsx-fae"), // Example authorized admin
+                Principal.fromText("2vxsx-fae")
             ];
 
            if (Array.find<Principal>(allowedAdmins, func(a : Principal) : Bool { a == admin }) != null) {
