@@ -14,7 +14,25 @@ import WalletCanisterProxy "../wallet/utils/wallet_canister_proxy";
 import UserCanisterProxy "../user/utils/user_canister_proxy";
 import TokenCanisterProxy "../token/utils/token_canister_proxy";
 
+// 🧠 NamoraAI Observability Imports
+import Insight "../types/insight";
+import Time "mo:base/Time";
+import Debug "mo:base/Debug";
+
 actor {
+
+    // 🧠 NamoraAI Observability Helper
+    private func emitInsight(severity: Text, message: Text) : async () {
+        let _insight : Insight.SystemInsight = {
+            source = "admin";
+            severity = severity;
+            message = message;
+            timestamp = Time.now();
+        };
+        Debug.print("🧠 ADMIN INSIGHT [" # severity # "]: " # message);
+        // await NamoraAI.pushInsight(insight);
+    };
+
     // Dependencies
     private let walletProxy = WalletCanisterProxy.WalletCanisterProxy(
         Principal.fromText("xhc3x-m7777-77774-qaaiq-cai"), // Wallet Canister ID
@@ -41,7 +59,19 @@ actor {
 
     // ✅ **Public API - Create Admin**
     public func createAdmin(creator: Principal, newAdmin: Principal): async Result.Result<(), Text> {
-        await adminManager.createAdmin(creator, newAdmin);
+        await emitInsight("info", "Admin creation requested by: " # Principal.toText(creator) # " for new admin: " # Principal.toText(newAdmin));
+        let result = await adminManager.createAdmin(creator, newAdmin);
+        
+        switch (result) {
+            case (#ok(())) {
+                await emitInsight("info", "Admin successfully created: " # Principal.toText(newAdmin));
+            };
+            case (#err(error)) {
+                await emitInsight("error", "Admin creation failed: " # error);
+            };
+        };
+        
+        result
     };
 
     // ✅ **Public API - Remove Admin**

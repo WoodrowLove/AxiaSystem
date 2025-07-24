@@ -7,7 +7,25 @@ import Result "mo:base/Result";
 import Text "mo:base/Text";
 import _Array "mo:base/Array";
 
+// 🧠 NamoraAI Observability Imports
+import Insight "../types/insight";
+import Time "mo:base/Time";
+import Debug "mo:base/Debug";
+
 actor IdentityCanister {
+
+    // 🧠 NamoraAI Observability Helper
+    private func emitInsight(severity: Text, message: Text) : async () {
+        let _insight : Insight.SystemInsight = {
+            source = "identity";
+            severity = severity;
+            message = message;
+            timestamp = Time.now();
+        };
+        Debug.print("🧠 IDENTITY INSIGHT [" # severity # "]: " # message);
+        // await NamoraAI.pushInsight(insight);
+    };
+
     private let eventManager = EventManager.EventManager();
     private let identityManager = IdentityModule.IdentityManager(eventManager);
 
@@ -23,8 +41,21 @@ actor IdentityCanister {
 
     // Public API: Create a new identity
     public shared func createIdentity(userId: Principal, details: [(Text, Text)]): async Result.Result<IdentityModule.Identity, Text> {
+        await emitInsight("info", "Identity creation initiated for user: " # Principal.toText(userId));
+        
         let metadata = createTrie(details);
-        await identityManager.createIdentity(userId, metadata);
+        let result = await identityManager.createIdentity(userId, metadata);
+        
+        switch (result) {
+            case (#ok(_identity)) {
+                await emitInsight("info", "Identity successfully created for user: " # Principal.toText(userId));
+            };
+            case (#err(error)) {
+                await emitInsight("error", "Identity creation failed for user: " # Principal.toText(userId) # " - " # error);
+            };
+        };
+        
+        result
     };
 
     // Public API: Update an existing identity

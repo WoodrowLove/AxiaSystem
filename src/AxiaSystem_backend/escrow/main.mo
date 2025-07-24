@@ -9,7 +9,24 @@ import EventManager "../heartbeat/event_manager";
 import EscrowModule "./modules/escrow_module";
 import EscrowService "./services/escrow_service";
 
+// 🧠 NamoraAI Observability Imports
+import Insight "../types/insight";
+import Time "mo:base/Time";
+
 actor {
+
+    // 🧠 NamoraAI Observability Helper
+    private func emitInsight(severity: Text, message: Text) : async () {
+        let _insight : Insight.SystemInsight = {
+            source = "escrow";
+            severity = severity;
+            message = message;
+            timestamp = Time.now();
+        };
+        Debug.print("🧠 ESCROW INSIGHT [" # severity # "]: " # message);
+        // await NamoraAI.pushInsight(insight);
+    };
+
     private let walletProxy = WalletCanisterProxy.WalletCanisterProxy(
     Principal.fromText("xhc3x-m7777-77774-qaaiq-cai"), // Wallet Canister ID
     Principal.fromText("xad5d-bh777-77774-qaaia-cai")  // User Canister ID
@@ -27,12 +44,38 @@ actor {
         amount: Nat,
         conditions: Text
     ): async Result.Result<Nat, Text> {
-        await escrowService.createEscrow(sender, receiver, tokenId, amount, conditions);
+        await emitInsight("info", "Escrow creation initiated from " # Principal.toText(sender) # " to " # Principal.toText(receiver) # " for amount: " # Nat.toText(amount));
+        
+        let result = await escrowService.createEscrow(sender, receiver, tokenId, amount, conditions);
+        
+        switch (result) {
+            case (#ok(escrowId)) {
+                await emitInsight("info", "Escrow #" # Nat.toText(escrowId) # " successfully created - amount: " # Nat.toText(amount));
+            };
+            case (#err(error)) {
+                await emitInsight("error", "Escrow creation failed: " # error);
+            };
+        };
+        
+        result
     };
 
     // API: Release an escrow
     public shared func releaseEscrow(escrowId: Nat): async Result.Result<(), Text> {
-        await escrowService.releaseEscrow(escrowId);
+        await emitInsight("info", "Escrow release requested for escrow #" # Nat.toText(escrowId));
+        
+        let result = await escrowService.releaseEscrow(escrowId);
+        
+        switch (result) {
+            case (#ok(())) {
+                await emitInsight("info", "Escrow #" # Nat.toText(escrowId) # " successfully released to receiver");
+            };
+            case (#err(error)) {
+                await emitInsight("error", "Escrow release failed for #" # Nat.toText(escrowId) # ": " # error);
+            };
+        };
+        
+        result
     };
 
     // API: Cancel an escrow

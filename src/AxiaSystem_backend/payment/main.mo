@@ -13,8 +13,25 @@ import Array "mo:base/Array";
 import Debug "mo:base/Debug";
 import LoggingUtils "../utils/logging_utils";
 
+// 🧠 NamoraAI Observability Imports
+import Insight "../types/insight";
+import Time "mo:base/Time";
+
 
 actor PaymentCanister {
+
+    // 🧠 NamoraAI Observability Helper
+    private func emitInsight(severity: Text, message: Text) : async () {
+        let _insight : Insight.SystemInsight = {
+            source = "payment";
+            severity = severity;
+            message = message;
+            timestamp = Time.now();
+        };
+        Debug.print("🧠 PAYMENT INSIGHT [" # severity # "]: " # message);
+        // await NamoraAI.pushInsight(insight);
+    };
+
     // Instantiate proxies for inter-canister communication
     private let walletProxy = WalletCanisterProxy.WalletCanisterProxy(
     Principal.fromText("xhc3x-m7777-77774-qaaiq-cai"), // Wallet Canister ID
@@ -36,29 +53,34 @@ actor PaymentCanister {
     tokenId: ?Nat,
     description: ?Text
 ): async Result.Result<PaymentModule.PaymentTransaction, Text> {
+    await emitInsight("info", "Payment initiation requested from " # Principal.toText(sender) # " to " # Principal.toText(receiver) # " for amount: " # Nat.toText(amount));
+    
     try {
         let result = await paymentManager.initiatePayment(sender, receiver, amount, tokenId, description);
         switch result {
             case (#ok(transaction)) {
-    LoggingUtils.logInfo(
-        logstore,
-        "Payment initiated successfully. Transaction ID: " # Nat.toText(transaction.id),
-        "PaymentCanister",
-        ?sender
-    );
-    #ok(transaction)
-};
-case (#err(e)) {
-    LoggingUtils.logInfo(
-        logstore,
-        "Failed to initiate payment: " # e,
-        "PaymentCanister",
-        ?sender
-    );
-    #err(e)
-};
+                LoggingUtils.logInfo(
+                    logstore,
+                    "Payment initiated successfully. Transaction ID: " # Nat.toText(transaction.id),
+                    "PaymentCanister",
+                    ?sender
+                );
+                await emitInsight("info", "Payment successfully initiated - Transaction ID: " # Nat.toText(transaction.id) # ", Amount: " # Nat.toText(amount));
+                #ok(transaction)
+            };
+            case (#err(e)) {
+                LoggingUtils.logInfo(
+                    logstore,
+                    "Failed to initiate payment: " # e,
+                    "PaymentCanister",
+                    ?sender
+                );
+                await emitInsight("error", "Payment initiation failed from " # Principal.toText(sender) # " to " # Principal.toText(receiver) # " - " # e);
+                #err(e)
+            };
         }
     } catch (error) {
+        await emitInsight("error", "Payment system error - " # Error.message(error));
         #err("Failed to initiate payment: " # Error.message(error))
     }
 };

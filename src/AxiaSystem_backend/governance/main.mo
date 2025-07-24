@@ -14,7 +14,25 @@ import UpgradeEngineModule "modules/upgrade_engine";
 import SharedTypes "../shared_types";
 import MonitorModule "modules/monitor";
 
+// 🧠 NamoraAI Observability Imports
+import Insight "../types/insight";
+import Time "mo:base/Time";
+import Debug "mo:base/Debug";
+
 actor GovernanceCanister {
+
+    // 🧠 NamoraAI Observability Helper
+    private func emitInsight(severity: Text, message: Text) : async () {
+        let _insight : Insight.SystemInsight = {
+            source = "governance";
+            severity = severity;
+            message = message;
+            timestamp = Time.now();
+        };
+        Debug.print("🧠 GOVERNANCE INSIGHT [" # severity # "]: " # message);
+        // await NamoraAI.pushInsight(insight);
+    };
+
     // Dependencies
     private let eventManager = EventManager.EventManager();
     private let logStore = LoggingUtils.init();
@@ -32,9 +50,15 @@ actor GovernanceCanister {
     // Public APIs
 
     system func heartbeat() : async () {
+      await emitInsight("info", "Governance heartbeat monitoring cycle initiated");
       await upgradeProposals.monitorPendingUpgradeElections();
       await upgradeProposals.autoFinalizeExecutedProposals ();
       let queueLen = await eventManager.getEventQueueLength();
+      
+      if (queueLen > 100) {
+        await emitInsight("warning", "High event queue length detected: " # Nat.toText(queueLen) # " events pending");
+      };
+      
       await monitor.runHealthCheck(queueLen);
     };
 
@@ -43,11 +67,14 @@ actor GovernanceCanister {
         proposer: Principal,
         description: Text
     ): async Result.Result<GovernanceModule.Proposal, Text> {
+        await emitInsight("info", "New governance proposal submitted by: " # Principal.toText(proposer));
+        
         try {
             let result = await governanceManager.propose(proposer, description);
             switch result {
                 case (#ok(proposal)) {
                     LoggingUtils.logInfo(logStore, "GovernanceCanister", "Proposal created successfully: " # Nat.toText(proposal.id), ?proposer);
+                    await emitInsight("info", "Governance proposal #" # Nat.toText(proposal.id) # " successfully created by " # Principal.toText(proposer));
                     #ok(proposal)
                 };
                 case (#err(e)) {

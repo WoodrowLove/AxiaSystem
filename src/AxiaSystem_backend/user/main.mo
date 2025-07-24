@@ -16,7 +16,23 @@ import Hash "mo:base/Hash";
 import Nat32 "mo:base/Nat32";
 import UserCanisterProxy "utils/user_canister_proxy";
 
+// 🧠 NamoraAI Observability Imports
+import Insight "../types/insight";
+
 actor UserCanister {
+
+    // 🧠 NamoraAI Observability Helper
+    private func emitInsight(severity: Text, message: Text) : async () {
+        // TODO: Replace with actual NamoraAI canister call when deployed
+        let _insight : Insight.SystemInsight = {
+            source = "user";
+            severity = severity;
+            message = message;
+            timestamp = Time.now();
+        };
+        Debug.print("🧠 USER INSIGHT [" # severity # "]: " # message);
+        // await NamoraAI.pushInsight(insight);
+    };
 
     private stable var users : Trie.Trie<Principal, UserModule.User> = Trie.empty();
     // Initialize the event manager
@@ -31,6 +47,8 @@ actor UserCanister {
 
     /// Attach tokens to a user and persist the update in the Trie
 private func _attachTokensToUser(userId: Principal, tokenId: Nat, amount: Nat): async Result.Result<(), Text> {
+    await emitInsight("info", "Token attachment initiated for user: " # Principal.toText(userId) # ", tokenId: " # Nat.toText(tokenId) # ", amount: " # Nat.toText(amount));
+    
     // Define Trie keys for Principal and Nat
     func keyPrincipal(p: Principal): Trie.Key<Principal> = { key = p; hash = Principal.hash(p) };
     func keyNat(n: Nat): Trie.Key<Nat> = { key = n; hash = customNatHash(n) };
@@ -38,7 +56,10 @@ private func _attachTokensToUser(userId: Principal, tokenId: Nat, amount: Nat): 
     // Retrieve user from Trie
     let userOpt = Trie.get(users, keyPrincipal(userId), Principal.equal);
     switch userOpt {
-        case null { return #err("User not found."); };
+        case null { 
+            await emitInsight("error", "Token attachment failed: User not found for ID: " # Principal.toText(userId));
+            return #err("User not found."); 
+        };
         case (?user) {
             // Retrieve current balance
             let currentBalanceOpt = Trie.get(user.tokens, keyNat(tokenId), Nat.equal);
@@ -71,6 +92,7 @@ private func _attachTokensToUser(userId: Principal, tokenId: Nat, amount: Nat): 
                 });
             });
 
+            await emitInsight("info", "Tokens successfully attached to user: " # Principal.toText(userId) # ", tokenId: " # Nat.toText(tokenId) # ", newBalance: " # Nat.toText(newBalance));
             return #ok(());
         };
     };
@@ -84,7 +106,20 @@ func customNatHash(n : Nat) : Hash.Hash {
 
     // Public API: Create a new user
     public shared func createUser(username: Text, email: Text, password: Text): async Result.Result<UserModule.User, Text> {
-        await userManager.createUser(username, email, password);
+        await emitInsight("info", "User creation attempt initiated for username: " # username);
+        
+        let result = await userManager.createUser(username, email, password);
+        
+        switch (result) {
+            case (#ok(user)) {
+                await emitInsight("info", "User successfully created with ID: " # Principal.toText(user.id) # ", username: " # username);
+            };
+            case (#err(error)) {
+                await emitInsight("error", "User creation failed for username: " # username # " - " # error);
+            };
+        };
+        
+        result
     };
 
     // Public API: Get user by ID
@@ -96,10 +131,12 @@ public shared func getUserById(userId: Principal): async Result.Result<UserModul
     switch userResult {
         case (#ok(user)) {
             Debug.print("Main: Found user ID: " # Principal.toText(user.id));
+            await emitInsight("info", "User lookup successful for ID: " # Principal.toText(userId));
             return #ok(user);
         };
         case (#err(err)) {
             Debug.print("Main: User not found. Error: " # err);
+            await emitInsight("warning", "User lookup failed for ID: " # Principal.toText(userId) # " - " # err);
             return #err(err);
         };
     };
@@ -109,6 +146,7 @@ public shared func getUserById(userId: Principal): async Result.Result<UserModul
     // Public API: Update a user
 public shared func updateUser(userId: Principal, newUsername: ?Text, newEmail: ?Text, newPassword: ?Text): async Result.Result<UserModule.User, Text> {
     Debug.print("Main: Handling updateUser request for ID: " # Principal.toText(userId));
+    await emitInsight("info", "User update attempt for ID: " # Principal.toText(userId));
 
     // Delegate to the user manager
     let updateResult = await userManager.updateUser(userId, newUsername, newEmail, newPassword);
@@ -117,10 +155,12 @@ public shared func updateUser(userId: Principal, newUsername: ?Text, newEmail: ?
     switch updateResult {
         case (#ok(updatedUser)) {
             Debug.print("Main: User updated successfully for ID: " # Principal.toText(updatedUser.id));
+            await emitInsight("info", "User profile updated successfully for ID: " # Principal.toText(userId));
             return #ok(updatedUser);
         };
         case (#err(errMsg)) {
             Debug.print("Main: Failed to update user: " # errMsg);
+            await emitInsight("error", "User update failed for ID: " # Principal.toText(userId) # " - " # errMsg);
             return #err(errMsg);
         };
     };
@@ -129,6 +169,7 @@ public shared func updateUser(userId: Principal, newUsername: ?Text, newEmail: ?
     // Public API: Deactivate a user
 public shared func deactivateUser(userId: Principal): async Result.Result<(), Text> {
     Debug.print("Main: Handling deactivateUser request for ID: " # Principal.toText(userId));
+    await emitInsight("warning", "User deactivation requested for ID: " # Principal.toText(userId));
 
     // Delegate to the user manager
     let deactivateResult = await userManager.deactivateUser(userId);
@@ -137,10 +178,12 @@ public shared func deactivateUser(userId: Principal): async Result.Result<(), Te
     switch deactivateResult {
         case (#ok(())) {
             Debug.print("Main: User deactivated successfully for ID: " # Principal.toText(userId));
+            await emitInsight("warning", "User account deactivated for ID: " # Principal.toText(userId));
             return #ok(());
         };
         case (#err(errMsg)) {
             Debug.print("Main: Failed to deactivate user: " # errMsg);
+            await emitInsight("error", "User deactivation failed for ID: " # Principal.toText(userId) # " - " # errMsg);
             return #err(errMsg);
         };
     };

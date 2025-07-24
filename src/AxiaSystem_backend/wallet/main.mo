@@ -10,7 +10,25 @@ import Nat "mo:base/Nat";
 import Int "mo:base/Int";
 import EventManager "../heartbeat/event_manager";
 
+// 🧠 NamoraAI Observability Imports
+import Insight "../types/insight";
+import Time "mo:base/Time";
+import Debug "mo:base/Debug";
+
 actor WalletCanister {
+
+    // 🧠 NamoraAI Observability Helper
+    private func emitInsight(severity: Text, message: Text) : async () {
+        let _insight : Insight.SystemInsight = {
+            source = "wallet";
+            severity = severity;
+            message = message;
+            timestamp = Time.now();
+        };
+        Debug.print("🧠 WALLET INSIGHT [" # severity # "]: " # message);
+        // await NamoraAI.pushInsight(insight);
+    };
+
     private let userProxy = UserCanisterProxy.UserCanisterProxy(Principal.fromText("xad5d-bh777-77774-qaaia-cai"));
     private let tokenCanisterProxy = TokenCanisterProxy.TokenCanisterProxy(Principal.fromText("v27v7-7x777-77774-qaaha-cai"));
 
@@ -28,7 +46,20 @@ actor WalletCanister {
     
     // Create a wallet for a user
     public func createWallet(userId: Principal, initialBalance: Nat): async Result.Result<WalletModule.Wallet, Text> {
-        await walletService.createWallet(userId, initialBalance);
+        await emitInsight("info", "Wallet creation initiated for user: " # Principal.toText(userId) # " with balance: " # Nat.toText(initialBalance));
+        
+        let result = await walletService.createWallet(userId, initialBalance);
+        
+        switch (result) {
+            case (#ok(_wallet)) {
+                await emitInsight("info", "Wallet successfully created for user: " # Principal.toText(userId));
+            };
+            case (#err(error)) {
+                await emitInsight("error", "Wallet creation failed for user: " # Principal.toText(userId) # " - " # error);
+            };
+        };
+        
+        result
     };
 
     // Get a wallet by the owner's Principal
@@ -36,9 +67,11 @@ actor WalletCanister {
         let walletResult = await walletService.getWalletByOwner(ownerId);
         switch (walletResult) {
             case (#ok(wallet)) {
+                await emitInsight("info", "Wallet lookup successful for owner: " # Principal.toText(ownerId));
                 #ok(wallet);
             };
             case (#err(error)) {
+                await emitInsight("warning", "Wallet lookup failed for owner: " # Principal.toText(ownerId) # " - " # error);
                 #err("Failed to retrieve wallet: " # error);
             };
         }
@@ -46,7 +79,24 @@ actor WalletCanister {
 
     // Update the wallet balance
     public func updateBalance(ownerId: Principal, amount: Int): async Result.Result<Nat, Text> {
-        await walletService.updateBalance(ownerId, amount);
+        let amountStr = if (amount >= 0) { "+" # Int.toText(amount) } else { Int.toText(amount) };
+        await emitInsight("info", "Balance update initiated for owner: " # Principal.toText(ownerId) # ", amount: " # amountStr);
+        
+        let result = await walletService.updateBalance(ownerId, amount);
+        
+        switch (result) {
+            case (#ok(newBalance)) {
+                await emitInsight("info", "Balance successfully updated for owner: " # Principal.toText(ownerId) # ", new balance: " # Nat.toText(newBalance));
+                if (newBalance < 100) { // Warning for low balance
+                    await emitInsight("warning", "Low balance detected for owner: " # Principal.toText(ownerId) # " - current balance: " # Nat.toText(newBalance));
+                };
+            };
+            case (#err(error)) {
+                await emitInsight("error", "Balance update failed for owner: " # Principal.toText(ownerId) # " - " # error);
+            };
+        };
+        
+        result
     };
 
     // Get transaction history for a wallet
