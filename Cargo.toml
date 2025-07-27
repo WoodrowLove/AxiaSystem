@@ -1,0 +1,4 @@
+[workspace]
+members = [
+    "xrpl_bridge"
+]

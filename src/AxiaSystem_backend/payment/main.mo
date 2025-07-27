@@ -18,7 +18,7 @@ import Insight "../types/insight";
 import Time "mo:base/Time";
 
 
-actor PaymentCanister {
+persistent actor PaymentCanister {
 
     // 🧠 NamoraAI Observability Helper
     private func emitInsight(severity: Text, message: Text) : async () {
@@ -33,17 +33,17 @@ actor PaymentCanister {
     };
 
     // Instantiate proxies for inter-canister communication
-    private let walletProxy = WalletCanisterProxy.WalletCanisterProxy(
+    private transient let walletProxy = WalletCanisterProxy.WalletCanisterProxy(
     Principal.fromText("xhc3x-m7777-77774-qaaiq-cai"), // Wallet Canister ID
     Principal.fromText("xad5d-bh777-77774-qaaia-cai")  // User Canister ID
 );
-    private let userProxy = UserCanisterProxy.UserCanisterProxy(Principal.fromText("xad5d-bh777-77774-qaaia-cai"));
-    private let tokenProxy = TokenCanisterProxy.TokenCanisterProxy(Principal.fromText("v27v7-7x777-77774-qaaha-cai"));
+    private transient let userProxy = UserCanisterProxy.UserCanisterProxy(Principal.fromText("xad5d-bh777-77774-qaaia-cai"));
+    private transient let tokenProxy = TokenCanisterProxy.TokenCanisterProxy(Principal.fromText("v27v7-7x777-77774-qaaha-cai"));
 
-    let logstore : LoggingUtils.LogStore = LoggingUtils.init();
+   transient let logstore : LoggingUtils.LogStore = LoggingUtils.init();
 
     // Initialize the Payment Manager
-    private let paymentManager = PaymentModule.PaymentManager(walletProxy, userProxy, tokenProxy);
+    private transient let paymentManager = PaymentModule.PaymentManager(walletProxy, userProxy, tokenProxy);
 
     // Initiate a payment
     public func initiatePayment(
@@ -206,7 +206,7 @@ public func reversePayment(paymentId: Nat): async Result.Result<(), Text> {
     };
 
     // Instantiate the Event Manager
-private let eventManager = EventManager.EventManager();
+private transient let eventManager = EventManager.EventManager();
 
  public shared func onPaymentProcessed(event: EventTypes.Event) : async () {
     switch (event.payload) {

@@ -8,17 +8,17 @@ import WalletCanisterProxy "../wallet/utils/wallet_canister_proxy";
 import EventManager "../heartbeat/event_manager";
 import SplitPaymentModule "modules/split_payment_module";
 
-actor {
+persistent actor {
 
     // Initialize dependencies
-    private let walletProxy = WalletCanisterProxy.WalletCanisterProxy(
+    private transient let walletProxy = WalletCanisterProxy.WalletCanisterProxy(
     Principal.fromText("xhc3x-m7777-77774-qaaiq-cai"), // Wallet Canister ID
     Principal.fromText("xad5d-bh777-77774-qaaia-cai")  // User Canister ID
 );
-    private let eventManager = EventManager.EventManager();
+    private transient let eventManager = EventManager.EventManager();
 
     // Initialize the Split Payment Service
-    private let splitPaymentService = SplitPaymentService.createSplitPaymentService(walletProxy, eventManager);
+    private transient let splitPaymentService = SplitPaymentService.createSplitPaymentService(walletProxy, eventManager);
 
     // Public methods for Split Payment functionality
 

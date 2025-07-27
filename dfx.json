@@ -68,6 +68,12 @@
       "dependencies": ["wallet", "payment"],
       "canister_id": "ahw5u-keaaa-aaaaa-qaaha-cai"
     },
+    "namora_ai": {
+      "type": "motoko",
+      "main": "src/AxiaSystem_backend/namora_ai/main.mo",
+      "dependencies": ["user", "payment", "escrow", "identity"],
+      "canister_id": "rdmx6-jaaaa-aaaah-qdrqq-cai"
+    },
     "subscriptions": {
       "main": "src/AxiaSystem_backend/subscriptions/main.mo",
       "type": "motoko",
@@ -105,6 +111,18 @@
         },
         "provider": "local"
       }
+    },
+    "AxiaSystem_frontend": {
+      "dependencies": [
+        "AxiaSystem_backend"
+      ],
+      "frontend": {
+        "entrypoint": "src/AxiaSystem_frontend/dist/index.html"
+      },
+      "source": [
+        "src/AxiaSystem_frontend/dist/"
+      ],
+      "type": "assets"
     }
   },
   "defaults": {

@@ -8,12 +8,12 @@ import EventManager "../heartbeat/event_manager";
 import AssetRegistryModule "./modules/asset_registry_module";
 import AssetRegistryService "./services/asset_registry_service";
 
-actor AssetRegistryCanister {
+persistent actor AssetRegistryCanister {
     // Initialize the event manager
-    private let eventManager = EventManager.EventManager();
+    private transient let eventManager = EventManager.EventManager();
 
     // Initialize the Asset Registry Service
-    private let assetRegistryService = AssetRegistryService.createAssetRegistryService(eventManager);
+    private transient let assetRegistryService = AssetRegistryService.createAssetRegistryService(eventManager);
 
     // Public APIs
 

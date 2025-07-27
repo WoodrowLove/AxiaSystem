@@ -9,18 +9,18 @@ import Text "mo:base/Text";
 import Nat "mo:base/Nat";
 import _Iter "mo:base/Iter";
 
-actor {
+persistent actor {
     // Initialize Event Manager
-    private let _eventManager = EventManager.EventManager();
+    private transient let _eventManager = EventManager.EventManager();
 
     // Initialize the User Proxy for user-related operations
-private let userProxy = UserCanisterProxy.UserCanisterProxy(Principal.fromText("xad5d-bh777-77774-qaaia-cai"));
+private transient let userProxy = UserCanisterProxy.UserCanisterProxy(Principal.fromText("xad5d-bh777-77774-qaaia-cai"));
 
 // Initialize Subscription Service with the correct dependency
-private let subscriptionService = SubscriptionService.createSubscriptionService(userProxy);
+private transient let subscriptionService = SubscriptionService.createSubscriptionService(userProxy);
 
     // Logging utility
-    private let _logStore = LoggingUtils.init();
+    private transient let _logStore = LoggingUtils.init();
 
     // Public API: Create a subscription
     public func createSubscription(userId: Principal, duration: Int): async Result.Result<SubscriptionModule.Subscription, Text> {

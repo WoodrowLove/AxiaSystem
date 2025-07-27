@@ -5,10 +5,10 @@ import Nat "mo:base/Nat";
 import EventManager "../heartbeat/event_manager";
 import UserModule "../user/modules/user_module";
 
-actor TokenActor {
-     private let eventManager = EventManager.EventManager();  // Ensure this matches expected type
-    private let userManager = UserModule.UserManager(eventManager); // Pass eventManager
-    private let tokenManager = TokenModule.TokenManager(eventManager, userManager); // Pass both
+persistent actor TokenActor {
+     private transient let eventManager = EventManager.EventManager();  // Ensure this matches expected type
+    private transient let userManager = UserModule.UserManager(eventManager); // Pass eventManager
+    private transient let tokenManager = TokenModule.TokenManager(eventManager, userManager); // Pass both
 
     // Core Token Operations
     public func createToken(

@@ -8,12 +8,12 @@ import EventManager "../heartbeat/event_manager";
 import _EventTypes "../heartbeat/event_types";
 import NFTModule "./modules/nft_module"; // Your provided NFTManager module
 
-actor NFTCanister {
+persistent actor NFTCanister {
     // Initialize the Event Manager
-    private let eventManager = EventManager.EventManager();
+    private transient let eventManager = EventManager.EventManager();
 
     // Initialize the NFT Manager
-    private let nftManager = NFTModule.NFTManager(eventManager);
+    private transient let nftManager = NFTModule.NFTManager(eventManager);
 
     // Public APIs
 

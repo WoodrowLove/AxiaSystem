@@ -1,16 +1,15 @@
 use std::error::Error;
-use std::sync::Arc;
 use std::time::Duration;
 
 use tokio::time;
-use xrpl_bridge::config::{BridgeConfig, ExtendedBridgeConfig};
-use xrpl_bridge::log::bridge_log_event;
-use xrpl_bridge::monitor::start_monitor_server;
-use xrpl_bridge::state::memory::init_memory_state;
-use xrpl_bridge::state::db::{load_pending_actions};
-use xrpl_bridge::state::queue::{enqueue_action, dequeue_pending_action};
-use xrpl_bridge::ic_trigger::{route_action_to_canister, create_agent_from_env};
-use xrpl_bridge::xrpl::client::connect_to_xrpl;
+use namora_bridge::config::{BridgeConfig, ExtendedBridgeConfig};
+use namora_bridge::log::bridge_log_event;
+use namora_bridge::monitor::start_monitor_server;
+use namora_bridge::state::memory::init_memory_state;
+use namora_bridge::state::db::{load_pending_actions};
+use namora_bridge::state::queue::{enqueue_action, dequeue_pending_action};
+use namora_bridge::ic_trigger::{route_action_to_canister, create_agent_from_env};
+use namora_bridge::xrpl::client::connect_to_xrpl;
 
 /// Setup logging format and targets (stdout, file, etc.)
 fn setup_logging() {

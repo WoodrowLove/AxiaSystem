@@ -13,7 +13,7 @@ import EscrowService "./services/escrow_service";
 import Insight "../types/insight";
 import Time "mo:base/Time";
 
-actor {
+persistent actor {
 
     // 🧠 NamoraAI Observability Helper
     private func emitInsight(severity: Text, message: Text) : async () {
@@ -27,14 +27,14 @@ actor {
         // await NamoraAI.pushInsight(insight);
     };
 
-    private let walletProxy = WalletCanisterProxy.WalletCanisterProxy(
+    private transient let walletProxy = WalletCanisterProxy.WalletCanisterProxy(
     Principal.fromText("xhc3x-m7777-77774-qaaiq-cai"), // Wallet Canister ID
     Principal.fromText("xad5d-bh777-77774-qaaia-cai")  // User Canister ID
 );
-    private let eventManager = EventManager.EventManager();
+    private transient let eventManager = EventManager.EventManager();
 
     // Initialize the Escrow Service
-    private let escrowService = EscrowService.createEscrowService(walletProxy, eventManager);
+    private transient let escrowService = EscrowService.createEscrowService(walletProxy, eventManager);
 
     // API: Create a new escrow
     public shared func createEscrow(

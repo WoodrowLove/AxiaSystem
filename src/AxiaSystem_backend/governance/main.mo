@@ -19,7 +19,7 @@ import Insight "../types/insight";
 import Time "mo:base/Time";
 import Debug "mo:base/Debug";
 
-actor GovernanceCanister {
+persistent actor GovernanceCanister {
 
     // 🧠 NamoraAI Observability Helper
     private func emitInsight(severity: Text, message: Text) : async () {
@@ -34,18 +34,18 @@ actor GovernanceCanister {
     };
 
     // Dependencies
-    private let eventManager = EventManager.EventManager();
-    private let logStore = LoggingUtils.init();
+    private transient let eventManager = EventManager.EventManager();
+    private transient let logStore = LoggingUtils.init();
 
     // Governance Manager
-    private let governanceManager = GovernanceModule.GovernanceModule(eventManager);
+    private transient let governanceManager = GovernanceModule.GovernanceModule(eventManager);
 
-    let upgradeProposals = UpgradeProposals.UpgradeProposalModule(eventManager);
-    let generalProposalModule = GeneralProposals.GeneralProposalModule(eventManager);
+    transient let upgradeProposals = UpgradeProposals.UpgradeProposalModule(eventManager);
+    transient let generalProposalModule = GeneralProposals.GeneralProposalModule(eventManager);
 
-    let upgradeEngine = UpgradeEngineModule.UpgradeEngine();
+    transient let upgradeEngine = UpgradeEngineModule.UpgradeEngine();
 
-    let monitor = MonitorModule.Monitor(eventManager);
+    transient let monitor = MonitorModule.Monitor(eventManager);
 
     // Public APIs
 

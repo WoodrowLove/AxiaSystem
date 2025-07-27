@@ -2,7 +2,7 @@
 
 ## Overview
 
-This guide covers the complete integration of the NamoraAI observability layer with your live AxiaSystem deployment, transforming the current mock data implementation into a fully functional real-time monitoring system.
+This guide covers the complete integration of the NamoraAI observability layer with your live AxiaSystem deployment, including the new **Namora Bridge** (Rust-based middleware) that serves as the neural stem for cross-canister communication, transforming the current mock data implementation into a fully functional real-time monitoring system.
 
 ## Current State ✅
 
@@ -14,6 +14,31 @@ This guide covers the complete integration of the NamoraAI observability layer w
 - **Frontend Components**: 
   - `NamoraInsights.svelte` - Basic insights dashboard
   - `SmartAlerts.svelte` - Advanced alerts and health monitoring
+  - `TraceViewer.svelte` - Cross-canister event timeline analysis
+  - `BridgePanel.svelte` - **NEW** Real-time bridge monitoring
+- **Rust Bridge**: **NEW** High-performance IC agent middleware layer
+
+### 🌉 Namora Bridge Architecture
+
+The Namora Bridge serves as the central nervous system connecting all components:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Frontend (SvelteKit)                    │
+├─────────────────────────────────────────────────────────────┤
+│                      API Routes                            │
+│  /api/bridge/health  │  /api/bridge/metadata  │  /calls    │
+├─────────────────────────────────────────────────────────────┤
+│                   FFI Interface (Rust)                     │
+│  rust_bridge_health()  │  rust_push_insight()  │  etc.     │
+├─────────────────────────────────────────────────────────────┤
+│                  Namora Bridge Core                        │
+│  IC Agent  │  Identity Mgmt  │  Canister Service Layer     │
+├─────────────────────────────────────────────────────────────┤
+│                Internet Computer Network                   │
+│  namora_ai  │  user  │  payment  │  escrow  │  identity    │
+└─────────────────────────────────────────────────────────────┘
+```
 
 ### Current Mock Data
 The frontend currently uses mock data to demonstrate functionality. The following components need live canister integration:
@@ -23,6 +48,51 @@ The frontend currently uses mock data to demonstrate functionality. The followin
 const mockInsights = [...];
 const mockAlerts = [...];
 const mockSystemHealth = {...};
+```
+
+## Phase 0: Build and Deploy Namora Bridge
+
+### 0.1 Build the Rust Bridge
+```bash
+# Navigate to the bridge directory
+cd /home/woodrowlove/AxiaSystem/xrpl_bridge
+
+# Build the bridge as a dynamic library
+cargo build --release
+
+# The bridge will be available as:
+# target/release/libnamora_bridge.so (Linux)
+# target/release/libnamora_bridge.dylib (macOS)
+```
+
+### 0.2 Install FFI Dependencies
+```bash
+# In your frontend directory
+cd src/AxiaSystem_frontend
+npm install ffi-napi
+# or
+npm install napi-rs
+```
+
+### 0.3 Initialize Bridge Configuration
+```bash
+# Create bridge configuration
+cat > bridge_config.json << 'EOF'
+{
+  "network_url": "https://ic0.app",
+  "identity_path": "./identity.pem",
+  "timeout_seconds": 30,
+  "canister_endpoints": {
+    "namora_ai": "your_namora_ai_canister_id",
+    "user": "your_user_canister_id",
+    "payment": "your_payment_canister_id",
+    "escrow": "your_escrow_canister_id",
+    "asset": "your_asset_canister_id",
+    "identity": "your_identity_canister_id",
+    "governance": "your_governance_canister_id"
+  }
+}
+EOF
 ```
 
 ## Phase 1: Deploy NamoraAI Canister

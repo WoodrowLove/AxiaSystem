@@ -15,7 +15,7 @@ import Insight "../types/insight";
 import Time "mo:base/Time";
 import Debug "mo:base/Debug";
 
-actor WalletCanister {
+persistent actor WalletCanister {
 
     // 🧠 NamoraAI Observability Helper
     private func emitInsight(severity: Text, message: Text) : async () {
@@ -29,10 +29,10 @@ actor WalletCanister {
         // await NamoraAI.pushInsight(insight);
     };
 
-    private let userProxy = UserCanisterProxy.UserCanisterProxy(Principal.fromText("xad5d-bh777-77774-qaaia-cai"));
-    private let tokenCanisterProxy = TokenCanisterProxy.TokenCanisterProxy(Principal.fromText("v27v7-7x777-77774-qaaha-cai"));
+    private transient let userProxy = UserCanisterProxy.UserCanisterProxy(Principal.fromText("xad5d-bh777-77774-qaaia-cai"));
+    private transient let tokenCanisterProxy = TokenCanisterProxy.TokenCanisterProxy(Principal.fromText("v27v7-7x777-77774-qaaha-cai"));
 
-    private let tokenProxy = {
+    private transient let tokenProxy = {
         getAllTokens = tokenCanisterProxy.getAllTokens;
         getToken = tokenCanisterProxy.getToken;
         updateToken = tokenCanisterProxy.updateToken;
@@ -40,8 +40,8 @@ actor WalletCanister {
         attachTokensToUser = tokenCanisterProxy.attachTokensToUser;
     };
 
-    private let walletManager = WalletModule.WalletManager(userProxy, tokenProxy);
-    private let walletService = WalletService.WalletService(walletManager, EventManager.EventManager());
+    private transient let walletManager = WalletModule.WalletManager(userProxy, tokenProxy);
+    private transient let walletService = WalletService.WalletService(walletManager, EventManager.EventManager());
 
     
     // Create a wallet for a user

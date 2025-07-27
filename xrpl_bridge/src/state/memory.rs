@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 use std::sync::RwLock;
-use std::time::{Instant, SystemTime};
+use std::time::Instant;
 use once_cell::sync::Lazy;
 
 static TX_CACHE: Lazy<RwLock<HashSet<String>>> = Lazy::new(|| RwLock::new(HashSet::new()));

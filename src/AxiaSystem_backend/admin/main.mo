@@ -19,7 +19,7 @@ import Insight "../types/insight";
 import Time "mo:base/Time";
 import Debug "mo:base/Debug";
 
-actor {
+persistent actor {
 
     // 🧠 NamoraAI Observability Helper
     private func emitInsight(severity: Text, message: Text) : async () {
@@ -34,22 +34,24 @@ actor {
     };
 
     // Dependencies
-    private let walletProxy = WalletCanisterProxy.WalletCanisterProxy(
+    private transient let walletProxy = WalletCanisterProxy.WalletCanisterProxy(
         Principal.fromText("xhc3x-m7777-77774-qaaiq-cai"), // Wallet Canister ID
         Principal.fromText("xad5d-bh777-77774-qaaia-cai")  // User Canister ID
     );
-    private let eventManager = EventManager.EventManager();
-    private let userProxy = UserCanisterProxy.UserCanisterProxy(Principal.fromText("xad5d-bh777-77774-qaaia-cai"));
-    private let tokenProxy = TokenCanisterProxy.TokenCanisterProxy(Principal.fromText("v27v7-7x777-77774-qaaha-cai"));
+
+
+    private transient let eventManager = EventManager.EventManager();
+    private transient let userProxy = UserCanisterProxy.UserCanisterProxy(Principal.fromText("xad5d-bh777-77774-qaaia-cai"));
+    private transient let tokenProxy = TokenCanisterProxy.TokenCanisterProxy(Principal.fromText("v27v7-7x777-77774-qaaha-cai"));
 
     // Managers
-    private let escrowManager = EscrowManager.EscrowManager(walletProxy, eventManager);
-    private let payoutManager = PayoutManager.PayoutManager(walletProxy, eventManager);
-    private let splitPaymentManager = SplitPaymentManager.PaymentSplitManager(walletProxy, eventManager);
-    private let paymentManager = PaymentManager.PaymentManager(walletProxy, userProxy, tokenProxy);
+    private transient let escrowManager = EscrowManager.EscrowManager(walletProxy, eventManager);
+    private transient let payoutManager = PayoutManager.PayoutManager(walletProxy, eventManager);
+    private transient let splitPaymentManager = SplitPaymentManager.PaymentSplitManager(walletProxy, eventManager);
+    private transient let paymentManager = PaymentManager.PaymentManager(walletProxy, userProxy, tokenProxy);
 
     // AdminManager instance
-    private let adminManager = AdminModule.AdminManager(
+    private transient let adminManager = AdminModule.AdminManager(
         eventManager,
         escrowManager,
         payoutManager,

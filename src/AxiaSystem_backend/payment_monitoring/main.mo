@@ -8,19 +8,19 @@ import PaymentCanisterProxy "../payment/utils/payment_canister_proxy";
 import TokenCanisterProxy "../token/utils/token_canister_proxy";
 import EventManager "../heartbeat/event_manager";
 
-actor {
+persistent actor {
     // Instantiate proxies and dependencies
-    private let walletProxy = WalletCanisterProxy.WalletCanisterProxy(
+    private transient let walletProxy = WalletCanisterProxy.WalletCanisterProxy(
     Principal.fromText("xhc3x-m7777-77774-qaaiq-cai"), // Wallet Canister ID
     Principal.fromText("xad5d-bh777-77774-qaaia-cai")  // User Canister ID
 );
-    private let paymentProxy = PaymentCanisterProxy.PaymentCanisterProxy(Principal.fromText("a4tbr-q4aaa-aaaaa-qaafq-cai"));
-    private let tokenProxy = TokenCanisterProxy.TokenCanisterProxy(Principal.fromText("v27v7-7x777-77774-qaaha-cai"));
-    private let eventManager = EventManager.EventManager();
-    private let subscriptionManagerPrincipal = (Principal.fromText("aax3a-h4aaa-aaaaa-qaahq-cai"));
+    private transient let paymentProxy = PaymentCanisterProxy.PaymentCanisterProxy(Principal.fromText("a4tbr-q4aaa-aaaaa-qaafq-cai"));
+    private transient let tokenProxy = TokenCanisterProxy.TokenCanisterProxy(Principal.fromText("v27v7-7x777-77774-qaaha-cai"));
+    private transient let eventManager = EventManager.EventManager();
+    private transient let subscriptionManagerPrincipal = (Principal.fromText("aax3a-h4aaa-aaaaa-qaahq-cai"));
 
     // Initialize the Payment Monitoring Manager
-    private let paymentMonitoringManager = PaymentMonitoringService.createPaymentMonitoringService(
+    private transient let paymentMonitoringManager = PaymentMonitoringService.createPaymentMonitoringService(
         walletProxy,
         paymentProxy,
         tokenProxy,

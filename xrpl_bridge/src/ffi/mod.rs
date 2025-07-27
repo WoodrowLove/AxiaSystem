@@ -19,7 +19,7 @@ pub extern "C" fn rust_tip_artist_via_xrpl(json_payload: *const c_char) -> *mut 
     };
 
     match parse_tip_request(&json_str) {
-        Ok(req) => {
+        Ok(_req) => {
             // Simulate tip logic: (in real case you'd handle the tx and queue)
             let mock_tx_hash = "ABC123TIP";
             let response = format!(r#"{{"status":"ok","tx_hash":"{}"}}"#, mock_tx_hash);

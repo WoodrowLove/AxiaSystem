@@ -6,12 +6,12 @@ import AssetService "./services/asset_service";
 import EventManager "../heartbeat/event_manager";
 import AssetModule "./modules/asset_module";
 
-actor AssetCanister {
+persistent actor AssetCanister {
     // Initialize the event manager
-    private let eventManager = EventManager.EventManager();
+    private transient let eventManager = EventManager.EventManager();
 
     // Initialize the Asset Manager
-    private let assetManager = AssetService.createAssetService(eventManager);
+    private transient let assetManager = AssetService.createAssetService(eventManager);
 
     // Public APIs
 

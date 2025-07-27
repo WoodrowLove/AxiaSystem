@@ -40,37 +40,37 @@ import ProjectRegistryModule "./modules/project_registry";
 import AxiaState "./state/axia_state";
 
 
-actor AxiaSystem_backend {
-private let tokenProxy = TokenCanisterProxy.TokenCanisterProxy(Principal.fromText("v27v7-7x777-77774-qaaha-cai")); // Token Canister ID
-private let userProxy = UserCanisterProxy.UserCanisterProxy(Principal.fromText("xad5d-bh777-77774-qaaia-cai")); // User Canister ID
-private let walletProxy = WalletCanisterProxy.WalletCanisterProxy(
+persistent actor AxiaSystem_backend {
+private transient let tokenProxy = TokenCanisterProxy.TokenCanisterProxy(Principal.fromText("v27v7-7x777-77774-qaaha-cai")); // Token Canister ID
+private transient let userProxy = UserCanisterProxy.UserCanisterProxy(Principal.fromText("xad5d-bh777-77774-qaaia-cai")); // User Canister ID
+private transient let walletProxy = WalletCanisterProxy.WalletCanisterProxy(
     Principal.fromText("xhc3x-m7777-77774-qaaiq-cai"), // Wallet Canister ID
     Principal.fromText("xad5d-bh777-77774-qaaia-cai")  // User Canister ID
 );
-private let _paymentProxy = PaymentCanisterProxy.PaymentCanisterProxy(Principal.fromText("a4tbr-q4aaa-aaaaa-qaafq-cai")); // Payment Canister ID
-private let paymentMonitoringProxy = PaymentMonitoringProxy.PaymentMonitoringProxy(Principal.fromText("ajuq4-ruaaa-aaaaa-qaaga-cai")); // Payment Monitoring Canister ID
-private var localSubscriptions: [(Principal, SubscriptionCanisterProxy.Subscription)] = [];
-private let escrowCanisterProxy = EscrowCanisterProxy.EscrowCanisterProxy(Principal.fromText("bw4dl-smaaa-aaaaa-qaacq-cai")); // Escrow Canister ID
-private let subscriptionProxy = SubscriptionCanisterProxy.SubscriptionProxy(Principal.fromText("aax3a-h4aaa-aaaaa-qaahq-cai")); // Subscription Canister ID
-private let splitPaymentProxy = SplitPaymentProxy.SplitPaymentProxy(Principal.fromText("ahw5u-keaaa-aaaaa-qaaha-cai")); // Split Payment Canister ID
-private let _payoutProxy = PayoutProxy.PayoutProxy(Principal.fromText("aovwi-4maaa-aaaaa-qaagq-cai")); // Payout Canister ID
-private let _assetRegistryProxy = AssetRegistryProxy.AssetRegistryProxy(Principal.fromText("br5f7-7uaaa-aaaaa-qaaca-cai")); // Asset Registry Canister ID
-private let assetProxy = AssetProxy.AssetProxy(Principal.fromText("be2us-64aaa-aaaaa-qaabq-cai")); // Asset Canister ID
-private let _governanceProxy = GovernanceProxy.GovernanceProxy(Principal.fromText("avqkn-guaaa-aaaaa-qaaea-cai")); // Governance Canister ID
+private transient let _paymentProxy = PaymentCanisterProxy.PaymentCanisterProxy(Principal.fromText("a4tbr-q4aaa-aaaaa-qaafq-cai")); // Payment Canister ID
+private transient let paymentMonitoringProxy = PaymentMonitoringProxy.PaymentMonitoringProxy(Principal.fromText("ajuq4-ruaaa-aaaaa-qaaga-cai")); // Payment Monitoring Canister ID
+private transient var localSubscriptions: [(Principal, SubscriptionCanisterProxy.Subscription)] = [];
+private transient let escrowCanisterProxy = EscrowCanisterProxy.EscrowCanisterProxy(Principal.fromText("bw4dl-smaaa-aaaaa-qaacq-cai")); // Escrow Canister ID
+private transient let subscriptionProxy = SubscriptionCanisterProxy.SubscriptionProxy(Principal.fromText("aax3a-h4aaa-aaaaa-qaahq-cai")); // Subscription Canister ID
+private transient let splitPaymentProxy = SplitPaymentProxy.SplitPaymentProxy(Principal.fromText("ahw5u-keaaa-aaaaa-qaaha-cai")); // Split Payment Canister ID
+private transient let _payoutProxy = PayoutProxy.PayoutProxy(Principal.fromText("aovwi-4maaa-aaaaa-qaagq-cai")); // Payout Canister ID
+private transient let _assetRegistryProxy = AssetRegistryProxy.AssetRegistryProxy(Principal.fromText("br5f7-7uaaa-aaaaa-qaaca-cai")); // Asset Registry Canister ID
+private transient let assetProxy = AssetProxy.AssetProxy(Principal.fromText("be2us-64aaa-aaaaa-qaabq-cai")); // Asset Canister ID
+private transient let _governanceProxy = GovernanceProxy.GovernanceProxy(Principal.fromText("avqkn-guaaa-aaaaa-qaaea-cai")); // Governance Canister ID
 
 
-    private let eventManager = EventManager.EventManager();
-    private let governanceManager = GovernanceModule.GovernanceModule(eventManager);
-    private let governanceService = GovernanceService.GovernanceService(governanceManager, eventManager);
-    let userModule = UserModule.UserManager(eventManager);
-    let userService = UserService.UserService(userModule, eventManager, userProxy);
-    private let identityManager : IdentityModule.IdentityManager = IdentityModule.IdentityManager(eventManager);
-    private let assetRegistryService = AssetRegistryService.createAssetRegistryService(eventManager);
-    private let _payoutManager = PayoutModule.PayoutManager(walletProxy, eventManager);
-    private let payoutService = PayoutService.createPayoutService(walletProxy, eventManager);
+    private transient let eventManager = EventManager.EventManager();
+    private transient let governanceManager = GovernanceModule.GovernanceModule(eventManager);
+    private transient let governanceService = GovernanceService.GovernanceService(governanceManager, eventManager);
+    transient let userModule = UserModule.UserManager(eventManager);
+    transient let userService = UserService.UserService(userModule, eventManager, userProxy);
+    private transient let identityManager : IdentityModule.IdentityManager = IdentityModule.IdentityManager(eventManager);
+    private transient let assetRegistryService = AssetRegistryService.createAssetRegistryService(eventManager);
+    private transient let _payoutManager = PayoutModule.PayoutManager(walletProxy, eventManager);
+    private transient let payoutService = PayoutService.createPayoutService(walletProxy, eventManager);
 
-    private let projectRegistryState = AxiaState.ProjectRegistryState();
-    private let projectRegistry = ProjectRegistryModule.ProjectRegistry(projectRegistryState, eventManager);
+    private transient let projectRegistryState = AxiaState.ProjectRegistryState();
+    transient let projectRegistry = ProjectRegistryModule.ProjectRegistry(projectRegistryState, eventManager);
 
     // Exposed APIs to connect with frontend or other services
 

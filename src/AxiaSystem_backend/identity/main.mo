@@ -12,7 +12,7 @@ import Insight "../types/insight";
 import Time "mo:base/Time";
 import Debug "mo:base/Debug";
 
-actor IdentityCanister {
+persistent actor IdentityCanister {
 
     // 🧠 NamoraAI Observability Helper
     private func emitInsight(severity: Text, message: Text) : async () {
@@ -26,8 +26,8 @@ actor IdentityCanister {
         // await NamoraAI.pushInsight(insight);
     };
 
-    private let eventManager = EventManager.EventManager();
-    private let identityManager = IdentityModule.IdentityManager(eventManager);
+    private transient let eventManager = EventManager.EventManager();
+    private transient let identityManager = IdentityModule.IdentityManager(eventManager);
 
     // Helper function to create a Trie from an array of key-value pairs
     func createTrie(entries: [(Text, Text)]) : Trie.Trie<Text, Text> {

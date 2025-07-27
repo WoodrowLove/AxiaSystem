@@ -290,7 +290,7 @@ pub async fn xrpl_health_check(endpoint: &str) -> Result<bool, XRPLError> {
 }
 
 // Dummy until connected to full logic
-pub fn submit_raw_xrpl_tx(raw_json: &str) -> Result<XRPLSubmitResult, String> {
+pub fn submit_raw_xrpl_tx(_raw_json: &str) -> Result<XRPLSubmitResult, String> {
     Ok(XRPLSubmitResult {
         tx_hash: "mock_tx_hash".to_string(), // Mock response
         ledger_index: 0, // Provide a mock or default value

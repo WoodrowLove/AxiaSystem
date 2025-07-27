@@ -88,7 +88,7 @@ pub async fn dispatch_verified_tx(
 /// Registers an Axia asset (e.g., NFT or token) on XRPL by initiating a mirror.
 /// This could mint a side-chain representation or IOU depending on config/purpose.
 pub fn register_axia_asset_on_xrpl(
-    asset_id: Nat,
+    _asset_id: Nat,
     artist_principal: String,
     metadata_uri: String,
     mirror_type: String, // e.g., "IOU", "NFT"

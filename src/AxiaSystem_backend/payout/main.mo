@@ -8,16 +8,16 @@ import WalletCanisterProxy "../wallet/utils/wallet_canister_proxy";
 import EventManager "../heartbeat/event_manager";
 import PayoutModule "modules/payout_module";
 
-actor {
+persistent actor {
     // Initialize dependencies
-    private let walletProxy = WalletCanisterProxy.WalletCanisterProxy(
+    private transient let walletProxy = WalletCanisterProxy.WalletCanisterProxy(
     Principal.fromText("xhc3x-m7777-77774-qaaiq-cai"), // Wallet Canister ID
     Principal.fromText("xad5d-bh777-77774-qaaia-cai")  // User Canister ID
 );
-    private let eventManager = EventManager.EventManager();
+    private transient let eventManager = EventManager.EventManager();
 
     // Initialize the Payout Service
-    private let payoutService = PayoutService.createPayoutService(walletProxy, eventManager);
+    private transient let payoutService = PayoutService.createPayoutService(walletProxy, eventManager);
 
     // Public APIs
 

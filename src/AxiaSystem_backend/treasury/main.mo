@@ -12,18 +12,18 @@ import Error "mo:base/Error";
 import Nat64 "mo:base/Nat64";
 import LoggingUtils "../utils/logging_utils";
 
-actor TreasuryCanister {
+persistent actor TreasuryCanister {
     // Dependencies
-    private let walletProxy = WalletCanisterProxy.WalletCanisterProxy(
+    private transient let walletProxy = WalletCanisterProxy.WalletCanisterProxy(
     Principal.fromText("xhc3x-m7777-77774-qaaiq-cai"), // Wallet Canister ID
     Principal.fromText("xad5d-bh777-77774-qaaia-cai")  // User Canister ID
 );
-    private let tokenProxy = TokenCanisterProxy.TokenCanisterProxy(Principal.fromText("v27v7-7x777-77774-qaaha-cai"));
-    private let eventManager = EventManager.EventManager();
-    private let logStore = LoggingUtils.init();
+    private transient let tokenProxy = TokenCanisterProxy.TokenCanisterProxy(Principal.fromText("v27v7-7x777-77774-qaaha-cai"));
+    private transient let eventManager = EventManager.EventManager();
+    private transient let logStore = LoggingUtils.init();
 
     // Treasury Manager
-    private let treasuryManager = TreasuryModule.TreasuryManager(walletProxy, tokenProxy, eventManager);
+    private transient let treasuryManager = TreasuryModule.TreasuryManager(walletProxy, tokenProxy, eventManager);
 
     // Add funds to the treasury
     public func addFunds(

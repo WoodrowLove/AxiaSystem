@@ -19,7 +19,7 @@ import UserCanisterProxy "utils/user_canister_proxy";
 // 🧠 NamoraAI Observability Imports
 import Insight "../types/insight";
 
-actor UserCanister {
+persistent actor UserCanister {
 
     // 🧠 NamoraAI Observability Helper
     private func emitInsight(severity: Text, message: Text) : async () {
@@ -34,15 +34,15 @@ actor UserCanister {
         // await NamoraAI.pushInsight(insight);
     };
 
-    private stable var users : Trie.Trie<Principal, UserModule.User> = Trie.empty();
+    private var users : Trie.Trie<Principal, UserModule.User> = Trie.empty();
     // Initialize the event manager
-    private let eventManager = EventManager.EventManager();
-    let userProxy = UserCanisterProxy.UserCanisterProxy(Principal.fromText("xad5d-bh777-77774-qaaia-cai"));
+    private transient let eventManager = EventManager.EventManager();
+    transient let userProxy = UserCanisterProxy.UserCanisterProxy(Principal.fromText("xad5d-bh777-77774-qaaia-cai"));
 
     // Initialize the user manager with the event manager
-    private let userManager = UserModule.UserManager(eventManager);
+    private transient let userManager = UserModule.UserManager(eventManager);
 
-    private let userService = UserService.UserService(userManager, eventManager, userProxy);
+    private transient let userService = UserService.UserService(userManager, eventManager, userProxy);
 
 
     /// Attach tokens to a user and persist the update in the Trie
