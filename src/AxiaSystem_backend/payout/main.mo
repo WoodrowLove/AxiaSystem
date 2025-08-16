@@ -7,6 +7,7 @@ import PayoutService "../payout/services/payout_service";
 import WalletCanisterProxy "../wallet/utils/wallet_canister_proxy";
 import EventManager "../heartbeat/event_manager";
 import PayoutModule "modules/payout_module";
+import RefundModule "../modules/refund_module";
 
 persistent actor {
     // Initialize dependencies
@@ -15,6 +16,9 @@ persistent actor {
     Principal.fromText("xad5d-bh777-77774-qaaia-cai")  // User Canister ID
 );
     private transient let eventManager = EventManager.EventManager();
+
+    // Initialize the Refund Manager for payout-specific refunds
+    private transient let refundManager = RefundModule.RefundManager("Payout", eventManager);
 
     // Initialize the Payout Service
     private transient let payoutService = PayoutService.createPayoutService(walletProxy, eventManager);
@@ -71,4 +75,67 @@ public shared func healthCheck(): async Text {
         "Payout canister health check failed: " # Error.message(e);
     }
 };
+
+    // ======= REFUND MANAGEMENT API =======
+
+    // API: Create a payout refund request
+    public shared func createPayoutRefundRequest(
+        payoutId: Nat,
+        requestedBy: Principal,
+        amount: Nat,
+        reason: ?Text
+    ): async Result.Result<Nat, Text> {
+        // Default to user funds for payout refunds
+        let refundSource = #UserFunds({ fromUser = requestedBy });
+        await refundManager.createRefundRequest(payoutId, requestedBy, amount, refundSource, reason)
+    };
+
+    // API: List payout refund requests
+    public shared func listPayoutRefundRequests(
+        status: ?Text,
+        requestedBy: ?Principal,
+        fromTime: ?Int,
+        toTime: ?Int,
+        offset: Nat,
+        limit: Nat
+    ): async Result.Result<[RefundModule.RefundRequest], Text> {
+        await refundManager.listRefundRequests(status, requestedBy, fromTime, toTime, offset, limit)
+    };
+
+    // API: Get specific payout refund request
+    public shared func getPayoutRefundRequest(refundId: Nat): async Result.Result<RefundModule.RefundRequest, Text> {
+        await refundManager.getRefundRequest(refundId)
+    };
+
+    // API: Approve payout refund request (Admin only)
+    public shared func approvePayoutRefundRequest(
+        refundId: Nat,
+        adminPrincipal: Principal,
+        adminNote: ?Text
+    ): async Result.Result<(), Text> {
+        await refundManager.approveRefundRequest(refundId, adminPrincipal, adminNote)
+    };
+
+    // API: Deny payout refund request (Admin only)
+    public shared func denyPayoutRefundRequest(
+        refundId: Nat,
+        adminPrincipal: Principal,
+        adminNote: ?Text
+    ): async Result.Result<(), Text> {
+        await refundManager.denyRefundRequest(refundId, adminPrincipal, adminNote)
+    };
+
+    // API: Mark payout refund as processed
+    public shared func markPayoutRefundProcessed(
+        refundId: Nat,
+        success: Bool,
+        errorMsg: ?Text
+    ): async Result.Result<(), Text> {
+        await refundManager.markRefundProcessed(refundId, success, errorMsg)
+    };
+
+    // API: Get payout refund statistics
+    public shared func getPayoutRefundStats(): async RefundModule.RefundStats {
+        await refundManager.getRefundStats()
+    };
 };

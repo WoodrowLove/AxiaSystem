@@ -255,7 +255,7 @@ module {
     };
     
     /// Get recent alerts
-    public query func getRecentAlerts() : async [Alert.SmartAlert] {
+    public func getRecentAlerts() : async [Alert.SmartAlert] {
       let recentAlerts = Buffer.toArray(alerts);
       // Return last 20 alerts
       if (recentAlerts.size() <= 20) {
@@ -266,7 +266,7 @@ module {
     };
     
     /// Get alerts by severity
-    public query func getAlertsBySeverity(severity: Alert.AlertSeverity) : async [Alert.SmartAlert] {
+    public func getAlertsBySeverity(severity: Alert.AlertSeverity) : async [Alert.SmartAlert] {
       let allAlerts = Buffer.toArray(alerts);
       Array.filter<Alert.SmartAlert>(allAlerts, func(alert) {
         alert.severity == severity

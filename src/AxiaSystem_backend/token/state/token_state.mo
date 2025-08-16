@@ -340,6 +340,55 @@ public func mintTokens(tokenId: Nat, amount: Nat): Result.Result<(), Text> {
     }
 };
 
+// Mint tokens to a specific user (atomic supply increment + balance update)
+public func mintToUser(tokenId: Nat, userId: Principal, amount: Nat): Result.Result<(), Text> {
+    switch (getToken(tokenId)) {
+        case null {
+            LoggingUtils.logError(logStore, "TokenState", "Token not found: ID " # Nat.toText(tokenId), null);
+            #err("Token not found: ID " # Nat.toText(tokenId));
+        };
+        case (?token) {
+            // Get current balance of the user
+            let currentBalance = Trie.get(token.balances, { key = userId; hash = Principal.hash(userId) }, Principal.equal);
+            let newBalance = switch (currentBalance) {
+                case null amount;
+                case (?balance) balance + amount;
+            };
+
+            // Update token balances for the user
+            let updatedBalances = Trie.put(
+                token.balances,
+                { key = userId; hash = Principal.hash(userId) },
+                Principal.equal,
+                newBalance
+            ).0;
+
+            // Atomically update both totalSupply and user balance
+            let updatedToken = { 
+                token with 
+                balances = updatedBalances;
+                totalSupply = token.totalSupply + amount;
+            };
+            
+            switch (updateToken(updatedToken)) {
+                case (#ok(())) {
+                    LoggingUtils.logInfo(
+                        logStore,
+                        "TokenState",
+                        "Minted " # Nat.toText(amount) # " tokens to user " # Principal.toText(userId) # " for token ID " # Nat.toText(tokenId),
+                        null
+                    );
+                    #ok(());
+                };
+                case (#err(e)) {
+                    LoggingUtils.logError(logStore, "TokenState", "Failed to mint tokens to user: " # e, null);
+                    #err("Failed to mint tokens to user: " # e);
+                };
+            };
+        };
+    };
+};
+
 // Decrease the total supply for a token
 public func burnToken(tokenId: Nat, amount: Nat): Result.Result<(), Text> {
     switch (getToken(tokenId)) {
@@ -382,11 +431,10 @@ public func attachTokensToUser(
         newBalance
       ).0;
 
-      // Update the token state
+      // Update the token state - FIXED: Only update balances, NOT totalSupply
       let updatedToken = { 
         token with 
         balances = updatedBalances;
-        totalSupply = token.totalSupply + amount;
       };
       
       switch (updateToken(updatedToken)) {
@@ -406,6 +454,41 @@ public func attachTokensToUser(
       };
     };
   };
+};
+
+// Get balance of a specific user for a specific token
+public func getBalanceOf(tokenId: Nat, userId: Principal): Result.Result<Nat, Text> {
+    switch (getToken(tokenId)) {
+        case null {
+            #err("Token not found: ID " # Nat.toText(tokenId));
+        };
+        case (?token) {
+            let balance = Trie.get(token.balances, { key = userId; hash = Principal.hash(userId) }, Principal.equal);
+            switch (balance) {
+                case null #ok(0);
+                case (?bal) #ok(bal);
+            };
+        };
+    };
+};
+
+// Get all token balances for a specific user
+public func getBalancesForUser(userId: Principal): [(Nat, Nat)] {
+    let allTokens = getAllTokens();
+    let userBalances = _Array.mapFilter<Token, (Nat, Nat)>(allTokens, func(token: Token): ?(Nat, Nat) {
+        let balance = Trie.get(token.balances, { key = userId; hash = Principal.hash(userId) }, Principal.equal);
+        switch (balance) {
+            case null null; // User has no balance for this token
+            case (?bal) {
+                if (bal > 0) {
+                    ?(token.id, bal)
+                } else {
+                    null
+                }
+            };
+        };
+    });
+    userBalances
 };
 
   };

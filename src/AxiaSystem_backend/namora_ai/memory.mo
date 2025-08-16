@@ -107,7 +107,7 @@ module {
     };
     
     /// Get memory access analytics for performance optimization
-    public query func getAccessAnalytics(): async [(Text, Nat, Float)] {
+    public func getAccessAnalytics(): async [(Text, Nat, Float)] {
       let recent = Buffer.toArray(accessPatterns);
       let analyticsBuf = Buffer.Buffer<(Text, Nat, Float)>(10);
       let operations = ["remember", "recallAll", "recallByCategory", "recallByTrace", "search"];
@@ -197,7 +197,7 @@ module {
     };
 
     /// Retrieve all memory entries, ordered by timestamp (most recent first)
-    public query func recallAll(): async [MemoryEntry] {
+    public func recallAll(): async [MemoryEntry] {
       recordAccess("recallAll");
       let sortedEntries = Array.sort<MemoryEntry>(
         memoryIndex.entries,
@@ -211,7 +211,7 @@ module {
     };
 
     /// Retrieve memory entries filtered by category
-    public query func recallByCategory(category: Text): async [MemoryEntry] {
+    public func recallByCategory(category: Text): async [MemoryEntry] {
       let filtered = Array.filter<MemoryEntry>(
         memoryIndex.entries,
         func(entry: MemoryEntry): Bool {
@@ -231,7 +231,7 @@ module {
     };
 
     /// Retrieve memory entries filtered by trace ID
-    public query func recallByTrace(traceId: Text): async [MemoryEntry] {
+    public func recallByTrace(traceId: Text): async [MemoryEntry] {
       let filtered = Array.filter<MemoryEntry>(
         memoryIndex.entries,
         func(entry: MemoryEntry): Bool {
@@ -254,7 +254,7 @@ module {
     };
 
     /// Get the last N memory entries (most recent first)
-    public query func getLastN(n: Nat): async [MemoryEntry] {
+    public func getLastN(n: Nat): async [MemoryEntry] {
       let sortedEntries = Array.sort<MemoryEntry>(
         memoryIndex.entries,
         func(a: MemoryEntry, b: MemoryEntry): {#less; #equal; #greater} {
@@ -272,7 +272,7 @@ module {
     };
 
     /// Retrieve memory entries within a specific time range
-    public query func recallByTimeRange(startTime: Int, endTime: Int): async [MemoryEntry] {
+    public func recallByTimeRange(startTime: Int, endTime: Int): async [MemoryEntry] {
       let filtered = Array.filter<MemoryEntry>(
         memoryIndex.entries,
         func(entry: MemoryEntry): Bool {
@@ -292,7 +292,7 @@ module {
     };
 
     /// Get comprehensive memory statistics and category breakdown
-    public query func summarize(): async MemoryStats {
+    public func summarize(): async MemoryStats {
       let entries = memoryIndex.entries;
       let total = entries.size();
       
@@ -400,7 +400,7 @@ module {
     };
 
     /// Search memory entries by summary text (case-insensitive)
-    public query func searchBySummary(searchTerm: Text): async [MemoryEntry] {
+    public func searchBySummary(searchTerm: Text): async [MemoryEntry] {
       let lowerSearchTerm = Text.toLowercase(searchTerm);
       let filtered = Array.filter<MemoryEntry>(
         memoryIndex.entries,
@@ -510,7 +510,7 @@ module {
     };
 
     /// Get memory entries for pattern analysis (grouped by category with recent data)
-    public query func getPatternData(): async [(Text, [MemoryEntry])] {
+    public func getPatternData(): async [(Text, [MemoryEntry])] {
       // Get unique categories
       let categoryBuffer = Buffer.Buffer<Text>(10);
       for (entry in memoryIndex.entries.vals()) {

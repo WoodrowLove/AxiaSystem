@@ -15,6 +15,7 @@ import Nat64 "mo:base/Nat64";
 import Hash "mo:base/Hash";
 import Nat32 "mo:base/Nat32";
 import UserCanisterProxy "utils/user_canister_proxy";
+import Int "mo:base/Int";
 
 // 🧠 NamoraAI Observability Imports
 import Insight "../types/insight";
@@ -108,11 +109,45 @@ func customNatHash(n : Nat) : Hash.Hash {
     public shared func createUser(username: Text, email: Text, password: Text): async Result.Result<UserModule.User, Text> {
         await emitInsight("info", "User creation attempt initiated for username: " # username);
         
+        // Step 1: Create the user record
         let result = await userManager.createUser(username, email, password);
         
         switch (result) {
             case (#ok(user)) {
                 await emitInsight("info", "User successfully created with ID: " # Principal.toText(user.id) # ", username: " # username);
+                
+                // Step 2: Auto-create identity for complete setup
+                let identityCanister = actor("vpyes-67777-77774-qaaeq-cai") : actor {
+                    ensureIdentity: (Principal, ?Text, ?Text) -> async Result.Result<{}, Text>;
+                };
+                
+                let identityResult = await identityCanister.ensureIdentity(user.id, ?username, ?email);
+                switch (identityResult) {
+                    case (#ok(_)) {
+                        await emitInsight("info", "Identity auto-created for user: " # username);
+                    };
+                    case (#err(identityError)) {
+                        await emitInsight("warning", "Identity auto-creation failed for user: " # username # " - " # identityError);
+                    };
+                };
+                
+                // Step 3: Auto-create wallet for complete setup
+                let walletCanister = actor("xjaw7-xp777-77774-qaajq-cai") : actor {
+                    ensureWallet: (Principal) -> async Result.Result<{}, Text>;
+                };
+                
+                let walletResult = await walletCanister.ensureWallet(user.id);
+                switch (walletResult) {
+                    case (#ok(_)) {
+                        await emitInsight("info", "Wallet auto-created for user: " # username);
+                        // TODO: Add wallet linking functionality when UserManager supports it
+                    };
+                    case (#err(walletError)) {
+                        await emitInsight("warning", "Wallet auto-creation failed for user: " # username # " - " # walletError);
+                    };
+                };
+                
+                await emitInsight("info", "Complete user setup finished for: " # username # " (User + Identity + Wallet)");
             };
             case (#err(error)) {
                 await emitInsight("error", "User creation failed for username: " # username # " - " # error);
@@ -120,6 +155,66 @@ func customNatHash(n : Nat) : Hash.Hash {
         };
         
         result
+    };
+
+    // NEW: Complete user registration with identity and wallet creation
+    public shared func registerUserComplete(username: Text, email: Text, password: Text): async Result.Result<{user: UserModule.User; hasIdentity: Bool; hasWallet: Bool}, Text> {
+        await emitInsight("info", "Complete user registration initiated for username: " # username);
+        
+        // Step 1: Create the user
+        let userResult = await userManager.createUser(username, email, password);
+        
+        switch (userResult) {
+            case (#err(error)) {
+                await emitInsight("error", "User creation failed during complete registration: " # error);
+                return #err("Failed to create user: " # error);
+            };
+            case (#ok(user)) {
+                await emitInsight("info", "User created, now provisioning identity and wallet for: " # Principal.toText(user.id));
+                
+                // Step 2: Create identity via direct canister call
+                var hasIdentity = false;
+                let identityCanister = actor("vpyes-67777-77774-qaaeq-cai") : actor {
+                    ensureIdentity: (Principal, ?Text, ?Text) -> async Result.Result<{}, Text>;
+                };
+                
+                let identityResult = await identityCanister.ensureIdentity(user.id, ?username, ?email);
+                switch (identityResult) {
+                    case (#ok(_)) {
+                        hasIdentity := true;
+                        await emitInsight("info", "Identity created for user: " # username);
+                    };
+                    case (#err(identityError)) {
+                        await emitInsight("warning", "Identity creation failed for user: " # username # " - " # identityError);
+                    };
+                };
+                
+                // Step 3: Create wallet via direct canister call
+                var hasWallet = false;
+                let walletCanister = actor("xjaw7-xp777-77774-qaajq-cai") : actor {
+                    ensureWallet: (Principal) -> async Result.Result<{}, Text>;
+                };
+                
+                let walletResult = await walletCanister.ensureWallet(user.id);
+                switch (walletResult) {
+                    case (#ok(_)) {
+                        hasWallet := true;
+                        await emitInsight("info", "Wallet created for user: " # username);
+                    };
+                    case (#err(walletError)) {
+                        await emitInsight("warning", "Wallet creation failed for user: " # username # " - " # walletError);
+                    };
+                };
+                
+                await emitInsight("info", "Complete registration finished for: " # username # " (Identity: " # (if hasIdentity "✓" else "✗") # ", Wallet: " # (if hasWallet "✓" else "✗") # ")");
+                
+                return #ok({
+                    user = user;
+                    hasIdentity = hasIdentity;
+                    hasWallet = hasWallet;
+                });
+            };
+        };
     };
 
     // Public API: Get user by ID
@@ -327,6 +422,173 @@ public shared func attachTokensToUser(userId: Principal, tokenId: Nat, amount: N
  public shared func isUserRegistered(userId: Principal): async Bool {
         Debug.print("🔍 [Main] Checking if user is registered: " # Principal.toText(userId));
         return await userService.isUserRegistered(userId);
+    };
+
+    // NEW: Auto-provision identity and wallet
+    public shared func ensureIdentityAndWallet(
+        userId: Principal, 
+        defaultUsername: ?Text, 
+        defaultEmail: ?Text
+    ): async Result.Result<(UserModule.User, Text), Text> {
+        await emitInsight("info", "Auto-provisioning identity and wallet for user: " # Principal.toText(userId));
+        
+        let result = await userManager.ensureIdentityAndWallet(userId, defaultUsername, defaultEmail);
+        
+        switch (result) {
+            case (#ok((_user, message))) {
+                await emitInsight("info", "Auto-provisioning completed: " # message);
+            };
+            case (#err(error)) {
+                await emitInsight("error", "Auto-provisioning failed: " # error);
+            };
+        };
+        
+        result
+    };
+
+    // NEW: Get user with complete profile including wallet info
+    public shared func getUserProfile(userId: Principal): async Result.Result<{user: UserModule.User; walletId: ?Text; hasWallet: Bool}, Text> {
+        await emitInsight("info", "Getting complete user profile for: " # Principal.toText(userId));
+        
+        // Get user record
+        let userResult = await userManager.getUserById(userId);
+        
+        switch (userResult) {
+            case (#err(error)) {
+                return #err("User not found: " # error);
+            };
+            case (#ok(user)) {
+                // Check if user has a wallet
+                let walletCanister = actor("xjaw7-xp777-77774-qaajq-cai") : actor {
+                    getWalletByOwner: (Principal) -> async Result.Result<{id: Int; owner: Principal; balance: Nat}, Text>;
+                };
+                
+                let walletResult = await walletCanister.getWalletByOwner(userId);
+                switch (walletResult) {
+                    case (#ok(wallet)) {
+                        let walletIdText = Int.toText(wallet.id);
+                        await emitInsight("info", "Complete profile retrieved for user: " # user.username # " with wallet: " # walletIdText);
+                        return #ok({
+                            user = user;
+                            walletId = ?walletIdText;
+                            hasWallet = true;
+                        });
+                    };
+                    case (#err(_)) {
+                        await emitInsight("info", "User profile retrieved (no wallet): " # user.username);
+                        return #ok({
+                            user = user;
+                            walletId = null;
+                            hasWallet = false;
+                        });
+                    };
+                };
+            };
+        };
+    };
+
+    // NEW: Complete identity verification and lookup system
+    public shared func getCompleteUserInfo(userId: Principal): async Result.Result<{
+        user: UserModule.User; 
+        identity: ?{id: Principal; createdAt: Int; updatedAt: Int; deviceKeys: [Principal]}; 
+        wallet: ?{id: Int; balance: Nat}; 
+        connections: {identityLinked: Bool; walletLinked: Bool; allLinked: Bool}
+    }, Text> {
+        await emitInsight("info", "Getting complete system info for user: " # Principal.toText(userId));
+        
+        // Get user record
+        let userResult = await userManager.getUserById(userId);
+        
+        switch (userResult) {
+            case (#err(error)) {
+                return #err("User not found: " # error);
+            };
+            case (#ok(user)) {
+                
+                // Check identity
+                var identityInfo: ?{id: Principal; createdAt: Int; updatedAt: Int; deviceKeys: [Principal]} = null;
+                var identityLinked = false;
+                
+                let identityCanister = actor("vpyes-67777-77774-qaaeq-cai") : actor {
+                    getIdentity: (Principal) -> async ?{id: Principal; metadata: Text; createdAt: Int; updatedAt: Int; deviceKeys: [Principal]};
+                };
+                
+                let identityResult = await identityCanister.getIdentity(userId);
+                switch (identityResult) {
+                    case (?identity) {
+                        identityLinked := true;
+                        identityInfo := ?{
+                            id = identity.id;
+                            createdAt = identity.createdAt;
+                            updatedAt = identity.updatedAt;
+                            deviceKeys = identity.deviceKeys;
+                        };
+                    };
+                    case null {
+                        identityLinked := false;
+                    };
+                };
+                
+                // Check wallet
+                var walletInfo: ?{id: Int; balance: Nat} = null;
+                var walletLinked = false;
+                
+                let walletCanister = actor("xjaw7-xp777-77774-qaajq-cai") : actor {
+                    getWalletByOwner: (Principal) -> async Result.Result<{id: Int; owner: Principal; balance: Nat}, Text>;
+                };
+                
+                let walletResult = await walletCanister.getWalletByOwner(userId);
+                switch (walletResult) {
+                    case (#ok(wallet)) {
+                        walletLinked := true;
+                        walletInfo := ?{
+                            id = wallet.id;
+                            balance = wallet.balance;
+                        };
+                    };
+                    case (#err(_)) {
+                        walletLinked := false;
+                    };
+                };
+                
+                let allLinked = identityLinked and walletLinked;
+                
+                await emitInsight("info", "Complete system info retrieved for: " # user.username # " (Identity: " # (if identityLinked "✓" else "✗") # ", Wallet: " # (if walletLinked "✓" else "✗") # ")");
+                
+                return #ok({
+                    user = user;
+                    identity = identityInfo;
+                    wallet = walletInfo;
+                    connections = {
+                        identityLinked = identityLinked;
+                        walletLinked = walletLinked;
+                        allLinked = allLinked;
+                    };
+                });
+            };
+        };
+    };
+
+    // NEW: Find user by username
+    public shared func getUserByUsername(username: Text): async Result.Result<UserModule.User, Text> {
+        await emitInsight("info", "Looking up user by username: " # username);
+        
+        // Get all users and find by username
+        let usersResult = await userService.listAllUsers(true);
+        switch (usersResult) {
+            case (#err(error)) {
+                return #err("Failed to search users: " # error);
+            };
+            case (#ok(users)) {
+                for (user in users.vals()) {
+                    if (user.username == username) {
+                        await emitInsight("info", "User found by username: " # username);
+                        return #ok(user);
+                    };
+                };
+                return #err("User not found with username: " # username);
+            };
+        };
     };
 
 };

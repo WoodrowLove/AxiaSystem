@@ -28,6 +28,7 @@ module {
         getIdentity: (Principal) -> async ?Identity;
         getAllIdentities: () -> [Identity];
         isUserRegistered: (Principal) -> async Bool;
+        ensureIdentity: (Principal) -> async Result.Result<Identity, Text>; // NEW
     };
 
     public class IdentityManager(eventManager: EventManager.EventManager) : IdentityManagerInterface {
@@ -340,6 +341,24 @@ public func isUserRegistered(userId: Principal) : async Bool {
     switch (Array.find<Identity>(identities, func(identity) {identity.id == userId })) {
         case (?_) true;
         case null false;
+    };
+};
+
+// NEW: Ensure identity exists, create if it doesn't
+public func ensureIdentity(userId: Principal): async Result.Result<Identity, Text> {
+    switch (await getIdentity(userId)) {
+        case (?identity) {
+            // Identity already exists
+            return #ok(identity);
+        };
+        case null {
+            // Create new identity with default metadata
+            let defaultMetadata = Trie.empty<Text, Text>();
+            switch (await createIdentity(userId, defaultMetadata)) {
+                case (#ok(newIdentity)) #ok(newIdentity);
+                case (#err(e)) #err("Failed to create identity: " # e);
+            };
+        };
     };
 };
 

@@ -8,6 +8,7 @@ import WalletCanisterProxy "../wallet/utils/wallet_canister_proxy";
 import EventManager "../heartbeat/event_manager";
 import EscrowModule "./modules/escrow_module";
 import EscrowService "./services/escrow_service";
+import RefundModule "../modules/refund_module";
 
 // 🧠 NamoraAI Observability Imports
 import Insight "../types/insight";
@@ -32,6 +33,9 @@ persistent actor {
     Principal.fromText("xad5d-bh777-77774-qaaia-cai")  // User Canister ID
 );
     private transient let eventManager = EventManager.EventManager();
+
+    // Initialize the Refund Manager for escrow-specific refunds
+    private transient let refundManager = RefundModule.RefundManager("Escrow", eventManager);
 
     // Initialize the Escrow Service
     private transient let escrowService = EscrowService.createEscrowService(walletProxy, eventManager);
@@ -124,5 +128,127 @@ persistent actor {
     public shared func runHeartbeat(): async () {
         Debug.print("Escrow canister heartbeat executed.");
         // Example: Clean up stale or inactive escrows (optional implementation)
+    };
+
+    // ======= REFUND MANAGEMENT API =======
+
+    // API: Create an escrow refund request
+    public shared func createEscrowRefundRequest(
+        escrowId: Nat,
+        requestedBy: Principal,
+        amount: Nat,
+        reason: ?Text
+    ): async Result.Result<Nat, Text> {
+        await emitInsight("info", "Escrow refund request initiated for escrow #" # Nat.toText(escrowId) # " by " # Principal.toText(requestedBy));
+        
+        let refundSource = #UserFunds({ fromUser = requestedBy });
+        let result = await refundManager.createRefundRequest(escrowId, requestedBy, amount, refundSource, reason);
+        
+        switch (result) {
+            case (#ok(refundId)) {
+                await emitInsight("info", "Escrow refund request #" # Nat.toText(refundId) # " created for escrow #" # Nat.toText(escrowId));
+            };
+            case (#err(error)) {
+                await emitInsight("error", "Escrow refund request creation failed: " # error);
+            };
+        };
+        
+        result
+    };
+
+    // API: List escrow refund requests
+    public shared func listEscrowRefundRequests(
+        status: ?Text,
+        requestedBy: ?Principal,
+        fromTime: ?Int,
+        toTime: ?Int,
+        offset: Nat,
+        limit: Nat
+    ): async Result.Result<[RefundModule.RefundRequest], Text> {
+        try {
+            await refundManager.listRefundRequests(status, requestedBy, fromTime, toTime, offset, limit)
+        } catch (e) {
+            #err("Failed to list escrow refund requests: " # Error.message(e))
+        }
+    };
+
+    // API: Get specific escrow refund request
+    public shared func getEscrowRefundRequest(refundId: Nat): async Result.Result<RefundModule.RefundRequest, Text> {
+        try {
+            await refundManager.getRefundRequest(refundId)
+        } catch (e) {
+            #err("Failed to get escrow refund request: " # Error.message(e))
+        }
+    };
+
+    // API: Approve escrow refund request (Admin only)
+    public shared func approveEscrowRefundRequest(
+        refundId: Nat,
+        adminPrincipal: Principal,
+        adminNote: ?Text
+    ): async Result.Result<(), Text> {
+        await emitInsight("info", "Escrow refund approval initiated for request #" # Nat.toText(refundId) # " by admin " # Principal.toText(adminPrincipal));
+        
+        let result = await refundManager.approveRefundRequest(refundId, adminPrincipal, adminNote);
+        
+        switch (result) {
+            case (#ok(())) {
+                await emitInsight("info", "Escrow refund request #" # Nat.toText(refundId) # " approved by admin");
+            };
+            case (#err(error)) {
+                await emitInsight("error", "Escrow refund approval failed: " # error);
+            };
+        };
+        
+        result
+    };
+
+    // API: Deny escrow refund request (Admin only)
+    public shared func denyEscrowRefundRequest(
+        refundId: Nat,
+        adminPrincipal: Principal,
+        adminNote: ?Text
+    ): async Result.Result<(), Text> {
+        await emitInsight("info", "Escrow refund denial initiated for request #" # Nat.toText(refundId) # " by admin " # Principal.toText(adminPrincipal));
+        
+        let result = await refundManager.denyRefundRequest(refundId, adminPrincipal, adminNote);
+        
+        switch (result) {
+            case (#ok(())) {
+                await emitInsight("info", "Escrow refund request #" # Nat.toText(refundId) # " denied by admin");
+            };
+            case (#err(error)) {
+                await emitInsight("error", "Escrow refund denial failed: " # error);
+            };
+        };
+        
+        result
+    };
+
+    // API: Mark escrow refund as processed
+    public shared func markEscrowRefundProcessed(
+        refundId: Nat,
+        success: Bool,
+        errorMsg: ?Text
+    ): async Result.Result<(), Text> {
+        await emitInsight("info", "Marking escrow refund #" # Nat.toText(refundId) # " as processed");
+        
+        let result = await refundManager.markRefundProcessed(refundId, success, errorMsg);
+        
+        switch (result) {
+            case (#ok(())) {
+                await emitInsight("info", "Escrow refund #" # Nat.toText(refundId) # " marked as processed");
+            };
+            case (#err(error)) {
+                await emitInsight("error", "Escrow refund processing marking failed: " # error);
+            };
+        };
+        
+        result
+    };
+
+    // API: Get escrow refund statistics
+    public shared func getEscrowRefundStats(): async RefundModule.RefundStats {
+        await refundManager.getRefundStats()
     };
 };

@@ -126,5 +126,23 @@ persistent actor IdentityCanister {
 
     public func isUserRegistered(userId: Principal) : async Bool {
         await identityManager.isUserRegistered(userId);
-    }
+    };
+
+    // NEW: Ensure identity exists, create if it doesn't
+    public func ensureIdentity(userId: Principal): async Result.Result<IdentityModule.Identity, Text> {
+        await emitInsight("info", "Ensuring identity for user: " # Principal.toText(userId));
+        
+        let result = await identityManager.ensureIdentity(userId);
+        
+        switch (result) {
+            case (#ok(_identity)) {
+                await emitInsight("info", "Identity ensured for user: " # Principal.toText(userId));
+            };
+            case (#err(error)) {
+                await emitInsight("error", "Identity ensure failed for user: " # Principal.toText(userId) # " - " # error);
+            };
+        };
+        
+        result
+    };
 };

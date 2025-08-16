@@ -29,15 +29,18 @@ persistent actor WalletCanister {
         // await NamoraAI.pushInsight(insight);
     };
 
-    private transient let userProxy = UserCanisterProxy.UserCanisterProxy(Principal.fromText("xad5d-bh777-77774-qaaia-cai"));
-    private transient let tokenCanisterProxy = TokenCanisterProxy.TokenCanisterProxy(Principal.fromText("v27v7-7x777-77774-qaaha-cai"));
+    private transient let userProxy = UserCanisterProxy.UserCanisterProxy(Principal.fromText("xobql-2x777-77774-qaaja-cai"));
+    private transient let tokenCanisterProxy = TokenCanisterProxy.TokenCanisterProxy(Principal.fromText("xad5d-bh777-77774-qaaia-cai"));
 
     private transient let tokenProxy = {
         getAllTokens = tokenCanisterProxy.getAllTokens;
         getToken = tokenCanisterProxy.getToken;
         updateToken = tokenCanisterProxy.updateToken;
         mintTokens = tokenCanisterProxy.mintTokens;
+        mintToUser = tokenCanisterProxy.mintToUser;
         attachTokensToUser = tokenCanisterProxy.attachTokensToUser;
+        getBalanceOf = tokenCanisterProxy.getBalanceOf;
+        getBalancesForUser = tokenCanisterProxy.getBalancesForUser;
     };
 
     private transient let walletManager = WalletModule.WalletManager(userProxy, tokenProxy);
@@ -124,8 +127,31 @@ persistent actor WalletCanister {
         await walletService.attachTokenBalance(userId, tokenId, amount);
     };
 
-    // Get wallet balance
-    public func getWalletBalance(userId: Principal): async Result.Result<Nat, Text> {
-        await walletService.getWalletBalance(userId);
+    // Retrieve wallet balance
+    public shared func getWalletBalance(userId: Principal): async Result.Result<Nat, Text> {
+        await walletManager.getWalletBalance(userId);
+    };
+
+    // NEW: Ensure wallet exists, create if it doesn't
+    public shared func ensureWallet(userId: Principal): async Result.Result<WalletModule.Wallet, Text> {
+        await emitInsight("info", "Ensuring wallet for user: " # Principal.toText(userId));
+        
+        let result = await walletManager.ensureWallet(userId);
+        
+        switch (result) {
+            case (#ok(wallet)) {
+                await emitInsight("info", "Wallet ensured for user with balance: " # Nat.toText(wallet.balance));
+            };
+            case (#err(error)) {
+                await emitInsight("error", "Wallet ensure failed: " # error);
+            };
+        };
+        
+        result
+    };
+
+    // NEW: Get comprehensive wallet overview
+    public shared func getWalletOverview(userId: Principal): async Result.Result<{nativeBalance: Nat; tokenBalances: [(Nat, Nat)]}, Text> {
+        await walletManager.getWalletOverview(userId);
     };
 };

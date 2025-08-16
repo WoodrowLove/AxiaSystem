@@ -47,6 +47,7 @@ module {
     resetPassword: (Principal, Text) -> async Result.Result<User, Text>;
     attachTokensToUser: (Principal, Nat, Nat) -> async Result.Result<(), Text>;
     isUserRegistered: (Principal) -> async Bool; 
+    ensureIdentityAndWallet: (Principal, ?Text, ?Text) -> async Result.Result<(User, Text), Text>; // NEW
     
 };
 
@@ -562,6 +563,49 @@ public func resetPassword(userId: Principal, newPassword: Text): async Result.Re
                 case (?_) {
                     Debug.print("✅ User is registered: " # Principal.toText(userId));
                     return true;
+                };
+            };
+        };
+
+        // NEW: Auto-provision identity and wallet
+        public func ensureIdentityAndWallet(
+            userId: Principal, 
+            defaultUsername: ?Text, 
+            defaultEmail: ?Text
+        ): async Result.Result<(User, Text), Text> {
+            let userOpt = Trie.get(users, { key = userId; hash = Principal.hash(userId) }, Principal.equal);
+            
+            switch userOpt {
+                case (?user) {
+                    // User exists, just ensure wallet
+                    let walletMessage = "User " # user.username # " already exists, wallet provisioning handled elsewhere";
+                    return #ok((user, walletMessage));
+                };
+                case null {
+                    // Create new user with defaults
+                    let username = switch defaultUsername {
+                        case (?name) name;
+                        case null "user_" # Principal.toText(userId);
+                    };
+                    
+                    let email = switch defaultEmail {
+                        case (?emailAddr) emailAddr;
+                        case null username # "@auto-provisioned.local";
+                    };
+                    
+                    let defaultPassword = "auto_provisioned_" # Principal.toText(userId);
+                    
+                    switch (await createUser(username, email, defaultPassword)) {
+                        case (#err(e)) {
+                            return #err("Failed to create user: " # e);
+                        };
+                        case (#ok(newUser)) {
+                            // User created successfully
+                            // Note: Wallet creation is handled by wallet canister's ensureWallet method
+                            let message = "Auto-provisioned user " # username # " and prepared for wallet creation";
+                            return #ok((newUser, message));
+                        };
+                    };
                 };
             };
         };

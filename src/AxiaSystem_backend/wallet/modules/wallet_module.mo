@@ -33,7 +33,10 @@ module {
     getToken: (Nat) -> async ?TokenCanisterProxy.Token;
     updateToken: (TokenCanisterProxy.Token) -> async Result.Result<(), Text>;
     mintTokens: (Principal, Nat) -> async Result.Result<(), Text>;
+    mintToUser: (Nat, Principal, Nat) -> async Result.Result<(), Text>;
     attachTokensToUser: (Nat, Principal, Nat) -> async Result.Result<(), Text>;
+    getBalanceOf: (Nat, Principal) -> async Result.Result<Nat, Text>;
+    getBalancesForUser: (Principal) -> async [(Nat, Nat)];
 };
 
   public class WalletManager(userProxy: UserCanisterProxy.UserCanisterProxy, tokenProxy: TokenCanisterProxyType) {
@@ -229,7 +232,7 @@ public func creditWallet(userId: Principal, amount: Nat): async Result.Result<Na
     }
 };
 
-// Attach token-related balances to a wallet (inter-canister call)
+// Attach token-related balances to a wallet (inter-canister call) - FIXED
 public func attachTokenBalance(
     userId: Principal,
     tokenId: Nat,
@@ -238,23 +241,16 @@ public func attachTokenBalance(
     let tokenUpdate = await tokenProxy.attachTokensToUser(tokenId, userId, amount);
     switch tokenUpdate {
         case (#ok(())) {
-            let userIdKey = { key = userId; hash = Principal.hash(userId) };
+            // FIXED: Don't increment wallet.balance for token balances
+            // Wallet balance should only track native credits, not token balances
+            
+            // Emit event for token attachment
+            await eventManager.emitWalletUpdated(
+                userId,
+                "Token balance attached: " # Nat.toText(amount) # " for token ID " # Nat.toText(tokenId)
+            );
 
-            switch (Trie.find(wallets, userIdKey, Principal.equal)) {
-                case (?wallet) {
-                    let updatedWallet = { wallet with balance = wallet.balance + amount };
-                    wallets := Trie.put(wallets, userIdKey, Principal.equal, updatedWallet).0;
-
-                    // Emit WalletUpdated event
-                    await eventManager.emitWalletUpdated(
-                        userId,
-                        "Token balance attached: " # Nat.toText(amount)
-                    );
-
-                    #ok(());
-                };
-                case null #err("Wallet not found.");
-            }
+            #ok(());
         };
         case (#err(e)) #err("Failed to attach token balance: " # e);
     }
@@ -268,6 +264,43 @@ public func getWalletBalance(userId: Principal): async Result.Result<Nat, Text> 
     case (?wallet) #ok(wallet.balance);
     case null #err("Wallet not found.");
   }
+};
+
+// NEW: Ensure wallet exists, create if it doesn't
+public func ensureWallet(userId: Principal): async Result.Result<Wallet, Text> {
+    let userIdKey = { key = userId; hash = Principal.hash(userId) };
+
+    switch (Trie.find(wallets, userIdKey, Principal.equal)) {
+        case (?wallet) {
+            // Wallet already exists
+            return #ok(wallet);
+        };
+        case null {
+            // Create new wallet with 0 initial balance
+            switch (await createWallet(userId, 0)) {
+                case (#ok(newWallet)) #ok(newWallet);
+                case (#err(e)) #err("Failed to create wallet: " # e);
+            };
+        };
+    };
+};
+
+// NEW: Get comprehensive wallet overview
+public func getWalletOverview(userId: Principal): async Result.Result<{nativeBalance: Nat; tokenBalances: [(Nat, Nat)]}, Text> {
+    let userIdKey = { key = userId; hash = Principal.hash(userId) };
+
+    switch (Trie.find(wallets, userIdKey, Principal.equal)) {
+        case (?wallet) {
+            // Get token balances from token canister via getBalancesForUser
+            let tokenBalances = await tokenProxy.getBalancesForUser(userId);
+
+            #ok({
+                nativeBalance = wallet.balance;
+                tokenBalances = tokenBalances;
+            })
+        };
+        case null #err("Wallet not found.");
+    }
 };
 
   };

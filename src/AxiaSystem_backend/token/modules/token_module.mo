@@ -8,7 +8,6 @@ import Principal "mo:base/Principal";
 import Array "mo:base/Array";
 import Trie "mo:base/Trie";
 import TokenEvents "../utils/token_events";
-import UserModule "../../user/modules/user_module";
 import EventManager "../../heartbeat/event_manager";
 import UserCanisterProxy "../../user/utils/user_canister_proxy";
 
@@ -42,6 +41,9 @@ module {
   logErrorText : (Text, Text, ?Text) -> ();
   logInfoText : (Text, Text, ?Text) -> ();
   mintTokens : (Nat, Nat, ?Principal) -> async Result.Result<(), Text>;
+  mintToUser : (Nat, Principal, Nat) -> async Result.Result<(), Text>; // NEW
+  getBalanceOf : (Nat, Principal) -> Result.Result<Nat, Text>; // NEW
+  getBalancesForUser : (Principal) -> [(Nat, Nat)]; // NEW
   onError : Text -> async ();
   unlockTokens : (Nat, Nat, Principal) -> async Result.Result<Nat, Text>;
 };
@@ -51,12 +53,11 @@ module {
     details: ?Text;
   };
 
-  public class TokenManager(_eventManager: EventManager.EventManager, userManager: UserModule.UserManager) : TokenManagerInterface {
+  public class TokenManager(_eventManager: EventManager.EventManager, userProxy: UserCanisterProxy.UserCanisterProxy) : TokenManagerInterface {
   private let tokenState = TokenState.TokenState();
   private var eventLog: [Text] = [];
   private let logStore = LoggingUtils.init();
   private let tokenEvents = TokenEvents.TokenEvents();
-  private let userProxy = UserCanisterProxy.UserCanisterProxy(Principal.fromText("xad5d-bh777-77774-qaaia-cai"));
   
   
 
@@ -479,7 +480,7 @@ public func attachTokensToUser(
                 };
                 case (#ok(())) {
                     // Update the User Canister with the new token balance
-                    let userUpdateResult = await userManager.attachTokensToUser(userId, tokenId, amount);
+                    let userUpdateResult = await userProxy.attachTokensToUser(userId, tokenId, amount);
                     switch (userUpdateResult) {
                         case (#ok(())) {
                             LoggingUtils.logInfo(
@@ -541,6 +542,56 @@ public func reactivateToken(tokenId: Nat, caller: Principal): async Result.Resul
 
 public func releaseLockedTokens(tokenId: Nat): async Result.Result<(), Text> {
     tokenState.releaseLockedTokens(tokenId)
+};
+
+// NEW: Mint tokens directly to a user (atomic supply + balance update)
+public func mintToUser(tokenId: Nat, userId: Principal, amount: Nat): async Result.Result<(), Text> {
+    switch (tokenState.getToken(tokenId)) {
+        case null {
+            return #err("Token not found: ID " # Nat.toText(tokenId));
+        };
+        case (?token) {
+            if (not token.isActive) {
+                return #err("Token is inactive and cannot be minted.");
+            };
+
+            // Use the atomic mintToUser method in token state
+            let stateResult = tokenState.mintToUser(tokenId, userId, amount);
+            switch (stateResult) {
+                case (#err(e)) {
+                    return #err("Failed to mint tokens: " # e);
+                };
+                case (#ok(())) {
+                    // Update the User Canister with the new token balance
+                    let userUpdateResult = await userProxy.attachTokensToUser(userId, tokenId, amount);
+                    switch (userUpdateResult) {
+                        case (#ok(())) {
+                            LoggingUtils.logInfo(
+                                logStore,
+                                "TokenModule",
+                                "Successfully minted " # Nat.toText(amount) # " tokens to user " # Principal.toText(userId),
+                                null
+                            );
+                            return #ok(());
+                        };
+                        case (#err(e)) {
+                            return #err("Failed to update User Canister: " # e);
+                        };
+                    };
+                };
+            };
+        };
+    };
+};
+
+// NEW: Get balance of a specific user for a specific token
+public func getBalanceOf(tokenId: Nat, userId: Principal): Result.Result<Nat, Text> {
+    tokenState.getBalanceOf(tokenId, userId)
+};
+
+// NEW: Get all token balances for a specific user
+public func getBalancesForUser(userId: Principal): [(Nat, Nat)] {
+    tokenState.getBalancesForUser(userId)
 };
 
   }

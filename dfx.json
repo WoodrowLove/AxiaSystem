@@ -111,18 +111,6 @@
         },
         "provider": "local"
       }
-    },
-    "AxiaSystem_frontend": {
-      "dependencies": [
-        "AxiaSystem_backend"
-      ],
-      "frontend": {
-        "entrypoint": "src/AxiaSystem_frontend/dist/index.html"
-      },
-      "source": [
-        "src/AxiaSystem_frontend/dist/"
-      ],
-      "type": "assets"
     }
   },
   "defaults": {

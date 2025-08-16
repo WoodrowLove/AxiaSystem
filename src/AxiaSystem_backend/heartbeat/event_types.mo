@@ -47,6 +47,10 @@ module {
         #PaymentStatusRetrieved;
         #PaymentTimedOut;
         #PaymentUpdated;
+        #RefundRequested;
+        #RefundApproved;
+        #RefundDenied;
+        #RefundProcessed;
         #PaymentsReconciled;
         #PayoutCancelled;
         #PayoutExecuted;
@@ -150,6 +154,10 @@ module {
         #PaymentUpdated : { userId: Text; paymentId: Text; status: Text };
         #PaymentsReconciled : { discrepancyCount : Nat };
         #PendingPaymentsMonitored : { timeoutCount : Nat };
+        #RefundRequested : { refundId: Nat; originType: Text; originId: Nat; requestedBy: Principal; amount: Nat; reason: ?Text; timestamp: Int; };
+        #RefundApproved : { refundId: Nat; adminPrincipal: Principal; adminNote: ?Text; timestamp: Int; };
+        #RefundDenied : { refundId: Nat; adminPrincipal: Principal; adminNote: ?Text; timestamp: Int; };
+        #RefundProcessed : { refundId: Nat; processedAt: Int; success: Bool; errorMsg: ?Text; };
         #PayoutCancelled : { payoutId: Nat; status: Text; cancellationTime: Int };
         #PayoutExecuted : { payoutId: Nat; totalAmount: Nat; recipients: [(Principal, Nat)]; executionTime: Int };
         #PayoutInitiated : { payoutId: Nat; totalAmount: Nat; recipients: [Principal]; description: ?Text; timestamp: Int };
@@ -238,6 +246,10 @@ module {
             case (#PaymentUpdated) { 33 };
             case (#PaymentsReconciled) { 34 };
             case (#PendingPaymentsMonitored) { 35 };
+            case (#RefundRequested) { 86 };
+            case (#RefundApproved) { 87 };
+            case (#RefundDenied) { 88 };
+            case (#RefundProcessed) { 89 };
             case (#PayoutCancelled) { 36 };
             case (#PayoutExecuted) { 37 };
             case (#PayoutInitiated) { 38 };

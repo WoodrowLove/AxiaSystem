@@ -1511,7 +1511,7 @@ module {
     };
 
     /// Get all reasoning results
-    public query func getAllReasoning(): async [ReasoningOutput] {
+    public func getAllReasoning(): async [ReasoningOutput] {
       // Sort by timestamp (most recent first)
       Array.sort<ReasoningOutput>(
         reasoningState.logs,
@@ -1524,7 +1524,7 @@ module {
     };
 
     /// Get reasoning results filtered by tag
-    public query func getByTag(tag: Text): async [ReasoningOutput] {
+    public func getByTag(tag: Text): async [ReasoningOutput] {
       let filtered = Array.filter<ReasoningOutput>(
         reasoningState.logs,
         func(result: ReasoningOutput): Bool {
@@ -1544,7 +1544,7 @@ module {
     };
 
     /// Get reasoning results filtered by severity
-    public query func getBySeverity(severity: Text): async [ReasoningOutput] {
+    public func getBySeverity(severity: Text): async [ReasoningOutput] {
       let filtered = Array.filter<ReasoningOutput>(
         reasoningState.logs,
         func(result: ReasoningOutput): Bool {
@@ -1564,7 +1564,7 @@ module {
     };
 
     /// Get recent reasoning results (last N)
-    public query func getRecent(count: Nat): async [ReasoningOutput] {
+    public func getRecent(count: Nat): async [ReasoningOutput] {
       let sorted = Array.sort<ReasoningOutput>(
         reasoningState.logs,
         func(a: ReasoningOutput, b: ReasoningOutput): {#less; #equal; #greater} {

@@ -20,7 +20,10 @@ module {
         getToken: (Nat) -> async ?Token;
         updateToken: (Token) -> async Result.Result<(), Text>;
         mintTokens: shared (Principal, Nat) -> async Result.Result<(), Text>;
+        mintToUser: (Nat, Principal, Nat) -> async Result.Result<(), Text>;
         attachTokensToUser: (Nat, Principal, Nat) -> async Result.Result<(), Text>;
+        getBalanceOf: (Nat, Principal) -> async Result.Result<Nat, Text>;
+        getBalancesForUser: (Principal) -> async [(Nat, Nat)];
         deactivateToken: (Nat, Principal) -> async Result.Result<(), Text>;
         reactivateToken: (Nat, Principal) -> async Result.Result<(), Text>;
     };
@@ -78,6 +81,29 @@ module {
             } catch (error) {
                 #err("Failed to attach tokens: " # Error.message(error))
             }
+        };
+
+        // NEW: Mint tokens to user
+        public func mintToUser(tokenId: Nat, userId: Principal, amount: Nat): async Result.Result<(), Text> {
+            try {
+                await tokenCanisterProxy.mintToUser(tokenId, userId, amount);
+            } catch (error) {
+                #err("Failed to mint tokens to user: " # Error.message(error))
+            }
+        };
+
+        // NEW: Get balance of user for specific token
+        public func getBalanceOf(tokenId: Nat, userId: Principal): async Result.Result<Nat, Text> {
+            try {
+                await tokenCanisterProxy.getBalanceOf(tokenId, userId);
+            } catch (error) {
+                #err("Failed to get balance: " # Error.message(error))
+            }
+        };
+
+        // NEW: Get all token balances for user
+        public func getBalancesForUser(userId: Principal): async [(Nat, Nat)] {
+            await tokenCanisterProxy.getBalancesForUser(userId)
         };
 
         // Deactivate a token

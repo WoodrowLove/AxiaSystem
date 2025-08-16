@@ -4,6 +4,7 @@ import UserCanisterProxy "../user/utils/user_canister_proxy";
 import TokenCanisterProxy "../token/utils/token_canister_proxy";
 import EventManager "../heartbeat/event_manager";
 import EventTypes "../heartbeat/event_types";
+import RefundModule "../modules/refund_module";
 import Principal "mo:base/Principal";
 import Result "mo:base/Result";
 import Nat "mo:base/Nat";
@@ -44,6 +45,12 @@ persistent actor PaymentCanister {
 
     // Initialize the Payment Manager
     private transient let paymentManager = PaymentModule.PaymentManager(walletProxy, userProxy, tokenProxy);
+
+    // Initialize the Event Manager  
+    private transient let eventManager = EventManager.EventManager();
+
+    // Initialize the Refund Manager
+    private transient let refundManager = RefundModule.RefundManager("Payment", eventManager);
 
     // Initiate a payment
     public func initiatePayment(
@@ -205,8 +212,199 @@ public func reversePayment(paymentId: Nat): async Result.Result<(), Text> {
         }
     };
 
-    // Instantiate the Event Manager
-private transient let eventManager = EventManager.EventManager();
+    // =====================================
+    // REFUND MANAGEMENT FUNCTIONS
+    // =====================================
+
+    // Create a refund request for a payment
+    public func createRefundRequest(
+        paymentId: Nat,
+        requestedBy: Principal, 
+        amount: Nat,
+        refundSource: ?RefundModule.RefundSource, // New parameter for refund source
+        reason: ?Text
+    ): async Result.Result<Nat, Text> {
+        await emitInsight("info", "Refund request creation attempted for payment ID: " # Nat.toText(paymentId) # " by " # Principal.toText(requestedBy));
+        
+        try {
+            // Default to user funds if not specified
+            let source = switch (refundSource) {
+                case (?src) src;
+                case (null) #UserFunds({ fromUser = requestedBy });
+            };
+
+            let result = await refundManager.createRefundRequest(paymentId, requestedBy, amount, source, reason);
+            switch (result) {
+                case (#ok(refundId)) {
+                    await emitInsight("info", "Refund request created successfully with ID: " # Nat.toText(refundId));
+                    #ok(refundId)
+                };
+                case (#err(e)) {
+                    await emitInsight("error", "Refund request creation failed: " # e);
+                    #err(e)
+                };
+            }
+        } catch (error) {
+            await emitInsight("error", "Refund request creation error: " # Error.message(error));
+            #err("Failed to create refund request: " # Error.message(error))
+        }
+    };
+
+    // Create a treasury-funded refund (for admin use)
+    public func createTreasuryRefund(
+        paymentId: Nat,
+        requestedBy: Principal,
+        amount: Nat,
+        requiresApproval: Bool,
+        reason: ?Text
+    ): async Result.Result<Nat, Text> {
+        await emitInsight("info", "Treasury refund creation attempted for payment ID: " # Nat.toText(paymentId));
+        
+        try {
+            let treasurySource = #Treasury({ requiresApproval = requiresApproval });
+            let result = await refundManager.createRefundRequest(paymentId, requestedBy, amount, treasurySource, reason);
+            
+            switch (result) {
+                case (#ok(refundId)) {
+                    await emitInsight("info", "Treasury refund request created successfully with ID: " # Nat.toText(refundId));
+                    #ok(refundId)
+                };
+                case (#err(e)) {
+                    await emitInsight("error", "Treasury refund creation failed: " # e);
+                    #err(e)
+                };
+            }
+        } catch (error) {
+            await emitInsight("error", "Treasury refund creation error: " # Error.message(error));
+            #err("Failed to create treasury refund: " # Error.message(error))
+        }
+    };
+
+    // List refund requests with filtering
+    public func listRefundRequests(
+        status: ?Text,
+        requestedBy: ?Principal,
+        fromDate: ?Int,
+        toDate: ?Int,
+        offset: Nat,
+        limit: Nat
+    ): async Result.Result<[RefundModule.RefundRequest], Text> {
+        try {
+            await refundManager.listRefundRequests(status, requestedBy, fromDate, toDate, offset, limit)
+        } catch (error) {
+            #err("Failed to list refund requests: " # Error.message(error))
+        }
+    };
+
+    // Get specific refund request
+    public func getRefundRequest(requestId: Nat): async Result.Result<RefundModule.RefundRequest, Text> {
+        try {
+            await refundManager.getRefundRequest(requestId)
+        } catch (error) {
+            #err("Failed to get refund request: " # Error.message(error))
+        }
+    };
+
+    // Approve a refund request (admin only)
+    public func approveRefundRequest(
+        requestId: Nat,
+        adminPrincipal: Principal,
+        adminNote: ?Text
+    ): async Result.Result<(), Text> {
+        await emitInsight("info", "Refund request approval attempted for ID: " # Nat.toText(requestId) # " by admin: " # Principal.toText(adminPrincipal));
+        
+        try {
+            let result = await refundManager.approveRefundRequest(requestId, adminPrincipal, adminNote);
+            switch (result) {
+                case (#ok(())) {
+                    await emitInsight("info", "Refund request ID: " # Nat.toText(requestId) # " approved successfully");
+                    #ok(())
+                };
+                case (#err(e)) {
+                    await emitInsight("error", "Refund request approval failed: " # e);
+                    #err(e)
+                };
+            }
+        } catch (error) {
+            await emitInsight("error", "Refund request approval error: " # Error.message(error));
+            #err("Failed to approve refund request: " # Error.message(error))
+        }
+    };
+
+    // Deny a refund request (admin only)
+    public func denyRefundRequest(
+        requestId: Nat,
+        adminPrincipal: Principal,
+        adminNote: ?Text
+    ): async Result.Result<(), Text> {
+        await emitInsight("info", "Refund request denial attempted for ID: " # Nat.toText(requestId) # " by admin: " # Principal.toText(adminPrincipal));
+        
+        try {
+            let result = await refundManager.denyRefundRequest(requestId, adminPrincipal, adminNote);
+            switch (result) {
+                case (#ok(())) {
+                    await emitInsight("info", "Refund request ID: " # Nat.toText(requestId) # " denied successfully");
+                    #ok(())
+                };
+                case (#err(e)) {
+                    await emitInsight("error", "Refund request denial failed: " # e);
+                    #err(e)
+                };
+            }
+        } catch (error) {
+            await emitInsight("error", "Refund request denial error: " # Error.message(error));
+            #err("Failed to deny refund request: " # Error.message(error))
+        }
+    };
+
+    // Process approved refund (execute the actual refund)
+    public func processApprovedRefund(requestId: Nat): async Result.Result<(), Text> {
+        await emitInsight("info", "Processing approved refund for request ID: " # Nat.toText(requestId));
+        
+        try {
+            // Get the refund request
+            let refundResult = await refundManager.getRefundRequest(requestId);
+            switch (refundResult) {
+                case (#ok(request)) {
+                    if (request.status != "Approved") {
+                        return #err("Only approved refunds can be processed");
+                    };
+
+                    // Mark as processing
+                    ignore await refundManager.markRefundProcessed(requestId, false, ?"Processing");
+
+                    // Execute the refund using the existing reversePayment logic
+                    let reverseResult = await paymentManager.reversePayment(request.originId);
+                    switch (reverseResult) {
+                        case (#ok(())) {
+                            // Mark as completed
+                            ignore await refundManager.markRefundProcessed(requestId, true, null);
+                            await emitInsight("info", "Refund processed successfully for request ID: " # Nat.toText(requestId));
+                            #ok(())
+                        };
+                        case (#err(e)) {
+                            // Mark as failed
+                            ignore await refundManager.markRefundProcessed(requestId, false, ?e);
+                            await emitInsight("error", "Refund processing failed for request ID: " # Nat.toText(requestId) # " - " # e);
+                            #err("Failed to process refund: " # e)
+                        };
+                    }
+                };
+                case (#err(e)) {
+                    await emitInsight("error", "Failed to get refund request: " # e);
+                    #err("Failed to get refund request: " # e)
+                };
+            }
+        } catch (error) {
+            await emitInsight("error", "Refund processing error: " # Error.message(error));
+            #err("Failed to process refund: " # Error.message(error))
+        }
+    };
+
+    // Get refund statistics for admin dashboard
+    public func getRefundStats(): async RefundModule.RefundStats {
+        await refundManager.getRefundStats()
+    };
 
  public shared func onPaymentProcessed(event: EventTypes.Event) : async () {
     switch (event.payload) {

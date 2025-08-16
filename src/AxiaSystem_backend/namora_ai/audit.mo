@@ -202,7 +202,7 @@ module {
     };
 
     /// Get recent audit entries (most recent first)
-    public query func getRecent(n: Nat): async [AuditEntry] {
+    public func getRecent(n: Nat): async [AuditEntry] {
       let sortedLogs = Array.sort<AuditEntry>(
         auditState.logs,
         func(a: AuditEntry, b: AuditEntry): {#less; #equal; #greater} {
@@ -220,7 +220,7 @@ module {
     };
 
     /// Get audit entries filtered by category
-    public query func getByCategory(category: Text): async [AuditEntry] {
+    public func getByCategory(category: Text): async [AuditEntry] {
       let filtered = Array.filter<AuditEntry>(
         auditState.logs,
         func(entry: AuditEntry): Bool {
@@ -240,7 +240,7 @@ module {
     };
 
     /// Get audit entries filtered by actor
-    public query func getByActor(actorName: Text): async [AuditEntry] {
+    public func getByActor(actorName: Text): async [AuditEntry] {
       let filtered = Array.filter<AuditEntry>(
         auditState.logs,
         func(entry: AuditEntry): Bool {
@@ -260,7 +260,7 @@ module {
     };
 
     /// Get audit entries filtered by trace ID
-    public query func getByTrace(traceId: Text): async [AuditEntry] {
+    public func getByTrace(traceId: Text): async [AuditEntry] {
       let filtered = Array.filter<AuditEntry>(
         auditState.logs,
         func(entry: AuditEntry): Bool {
@@ -283,7 +283,7 @@ module {
     };
 
     /// Get audit entries within a specific time range
-    public query func getByTimeRange(startTime: Int, endTime: Int): async [AuditEntry] {
+    public func getByTimeRange(startTime: Int, endTime: Int): async [AuditEntry] {
       let filtered = Array.filter<AuditEntry>(
         auditState.logs,
         func(entry: AuditEntry): Bool {
@@ -303,7 +303,7 @@ module {
     };
 
     /// Get audit entries linked to specific reasoning analysis
-    public query func getByReasoningId(reasoningId: Nat): async [AuditEntry] {
+    public func getByReasoningId(reasoningId: Nat): async [AuditEntry] {
       let filtered = Array.filter<AuditEntry>(
         auditState.logs,
         func(entry: AuditEntry): Bool {
@@ -326,7 +326,7 @@ module {
     };
 
     /// Get audit entries linked to specific memory entries
-    public query func getByMemoryIds(memoryIds: [Nat]): async [AuditEntry] {
+    public func getByMemoryIds(memoryIds: [Nat]): async [AuditEntry] {
       let filtered = Array.filter<AuditEntry>(
         auditState.logs,
         func(entry: AuditEntry): Bool {
@@ -352,7 +352,7 @@ module {
     };
 
     /// Get all audit entries (sorted by timestamp, most recent first)
-    public query func getAllAuditLogs(): async [AuditEntry] {
+    public func getAllAuditLogs(): async [AuditEntry] {
       Array.sort<AuditEntry>(
         auditState.logs,
         func(a: AuditEntry, b: AuditEntry): {#less; #equal; #greater} {
@@ -364,7 +364,7 @@ module {
     };
 
     /// Get audit statistics for system overview
-    public query func getAuditStats(): async {
+    public func getAuditStats(): async {
       total: Nat;
       byCategory: [(Text, Nat)];
       byActor: [(Text, Nat)];
@@ -480,7 +480,7 @@ module {
     };
 
     /// Search audit entries by summary text (case-insensitive)
-    public query func searchBySummary(searchTerm: Text): async [AuditEntry] {
+    public func searchBySummary(searchTerm: Text): async [AuditEntry] {
       let lowerSearchTerm = Text.toLowercase(searchTerm);
       let filtered = Array.filter<AuditEntry>(
         auditState.logs,
@@ -547,7 +547,7 @@ module {
     };
 
     /// Export audit trail for external analysis (returns formatted text)
-    public query func exportAuditTrail(startTime: ?Int, endTime: ?Int): async Text {
+    public func exportAuditTrail(startTime: ?Int, endTime: ?Int): async Text {
       let logs = switch (startTime, endTime) {
         case (?start, ?end) {
           Array.filter<AuditEntry>(
