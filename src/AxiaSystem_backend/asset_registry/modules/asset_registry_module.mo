@@ -1,182 +1,181 @@
-import Nat "mo:base/Nat";
 import Principal "mo:base/Principal";
-import Result "mo:base/Result";
+import Nat "mo:base/Nat";
+import Int "mo:base/Int";
+import Time "mo:base/Time";
+import Text "mo:base/Text";
 import Array "mo:base/Array";
 import Trie "mo:base/Trie";
-import Time "mo:base/Time";
-import Nat64 "mo:base/Nat64";
-import Hash "mo:base/Hash";
 import Nat32 "mo:base/Nat32";
-import EventManager "../../heartbeat/event_manager";
-import EventTypes "../../heartbeat/event_types";
 
-module {
+module AssetRegistryModule {
+  // ---- Enhanced Asset type with Triad fields
+  public type Asset = {
+    id : Nat;
+    nftId : Nat;  // NFT linkage
+    ownerIdentity : Principal;
+    userId : ?Principal;    // Triad
+    walletId : ?Principal;  // Triad
+    metadata : Text;
+    registeredAt : Int;
+    updatedAt : Int;
+    isActive : Bool;
+    triadVerified : Bool;   // Triad
+    // Compacted history on-record
+    prevOwnersCount : Nat;
+    recentOwners : [Principal];
+  };
 
-type AssetId = Nat;
+  public class AssetRegistryManager() {
 
-    public type Asset = {
-        id: Nat;
-        nftId: Nat;               // Linked NFT ID
-        owner: Principal;         // Current owner
-        previousOwners: [Principal]; // Historical owners
-        metadata: Text;           // Asset-specific metadata (e.g., description, category)
-        registeredAt: Int;        // Timestamp of asset registration
-        updatedAt: Int;           // Last update timestamp
-        isActive: Bool;           // Asset activity status
+    // Storage
+    private var byId           : Trie.Trie<Nat, Asset> = Trie.empty();
+    private var byOwner        : Trie.Trie<Principal, [Nat]> = Trie.empty();
+    private var byNFT          : Trie.Trie<Nat, [Nat]> = Trie.empty();
+    private var active         : Trie.Trie<Nat, Bool> = Trie.empty();
+    private var ownersHistory  : Trie.Trie<Nat, [Principal]> = Trie.empty(); // Full history
+    private var nextId         : Nat = 1;
+
+    // Key helpers
+    private func nk(n : Nat) : Trie.Key<Nat> = { key = n; hash = Nat32.fromNat(n % (2**31-1)) };
+    private func pk(p : Principal) : Trie.Key<Principal> = { key = p; hash = Principal.hash(p) };
+
+    // Index maintenance
+    private func appendIndex<K>(
+      trie : Trie.Trie<K, [Nat]>,
+      key : Trie.Key<K>,
+      eq : (K, K) -> Bool,
+      assetId : Nat
+    ) : Trie.Trie<K, [Nat]> {
+      let old = switch (Trie.get(trie, key, eq)) { case null [] ; case (?arr) arr };
+      let new = Array.append(old, [assetId]);
+      Trie.put(trie, key, eq, new).0
     };
 
-    public class AssetRegistryManager(eventManager: EventManager.EventManager) {
-        private var assets: Trie.Trie<Nat, Asset> = Trie.empty(); // Asset registry keyed by asset ID
-        private var nextId: Nat = 1; // Auto-incrementing asset ID
-
-        // Custom hash function for Nat
-func natHash(n: Nat) : Hash.Hash {
-    let hashValue = Nat32.fromNat(n);
-    // Combine upper and lower 16 bits
-    hashValue ^ (hashValue >> 16)
-};
-
-        // Emit events for asset-related actions
-private func emitAssetEvent(eventType: EventTypes.EventType, assetId: Nat64, details: Text): async () {
-    let event: EventTypes.Event = {
-        id = assetId;
-        eventType = eventType;
-        payload = #WalletEventGeneric({
-            walletId = Nat64.toText(assetId);
-            details = details;
-        });
-    };
-    await eventManager.emit(event);
-};
-
-        // Register a new asset
-        public func registerAssetInRegistry(owner: Principal, nftId: Nat, metadata: Text): async Result.Result<Asset, Text> {
-    if (metadata.size() == 0) {
-        return #err("Metadata cannot be empty.");
+    private func removeFromIndex<K>(
+      trie : Trie.Trie<K, [Nat]>,
+      key : Trie.Key<K>,
+      eq : (K, K) -> Bool,
+      assetId : Nat
+    ) : Trie.Trie<K, [Nat]> {
+      let old = switch (Trie.get(trie, key, eq)) { case null [] ; case (?arr) arr };
+      let new = Array.filter<Nat>(old, func (id) { id != assetId });
+      Trie.put(trie, key, eq, new).0
     };
 
-    let assetId = nextId;
-    nextId += 1;
+    private func now() : Int = Time.now();
 
-    let newAsset: Asset = {
-        id = assetId;
-        nftId = nftId;
-        owner = owner;
-        previousOwners = [];
-        metadata = metadata;
-        registeredAt = Time.now();
-        updatedAt = Time.now();
-        isActive = true;
+    // Keep only the last K owners on-record to cap memory
+    let K : Nat = 8;
+
+    // ---- Core ops
+    public func create(
+      ownerIdentity : Principal,
+      nftId_        : Nat,
+      metadata_     : Text,
+      userId_       : ?Principal,
+      walletId_     : ?Principal,
+      triadVerified_: Bool
+    ) : Asset {
+      assert (Text.size(metadata_) > 0);
+      let id = nextId; nextId += 1;
+      let t = now();
+      let a : Asset = {
+        id; nftId = nftId_; ownerIdentity; userId = userId_; walletId = walletId_;
+        metadata = metadata_; registeredAt = t; updatedAt = t; isActive = true;
+        triadVerified = triadVerified_;
+        prevOwnersCount = 0;
+        recentOwners = [];
+      };
+
+      byId := Trie.put(byId, nk(id), Nat.equal, a).0;
+      byOwner := appendIndex(byOwner, pk(ownerIdentity), Principal.equal, id);
+      byNFT   := appendIndex(byNFT, nk(nftId_), Nat.equal, id);
+      active  := Trie.put(active, nk(id), Nat.equal, true).0;
+      ownersHistory := Trie.put(ownersHistory, nk(id), Nat.equal, [ownerIdentity]).0;
+
+      a
     };
 
-   let assetKey : Trie.Key<Nat> = { key = assetId; hash = natHash(assetId) };
-assets := Trie.put(assets, assetKey, Nat.equal, newAsset).0;
+    public func transfer(assetId : Nat, newOwnerIdentity : Principal) : ?Asset {
+      switch (Trie.get(byId, nk(assetId), Nat.equal)) {
+        case null null;
+        case (?a) {
+          if (a.isActive == false) return null;
+          // update owner indexes
+          byOwner := removeFromIndex(byOwner, pk(a.ownerIdentity), Principal.equal, assetId);
+          byOwner := appendIndex(byOwner, pk(newOwnerIdentity), Principal.equal, assetId);
 
-    let assetIdNat64 = Nat64.fromNat(assetId);
-    await emitAssetEvent(#TokenCreated, assetIdNat64, "Asset registered by " # Principal.toText(owner));
+          // history (full)
+          let hist = switch (Trie.get(ownersHistory, nk(assetId), Nat.equal)) {
+            case null [] ; case (?xs) xs
+          };
+          ownersHistory := Trie.put(ownersHistory, nk(assetId), Nat.equal, Array.append(hist, [newOwnerIdentity])).0;
 
-    #ok(newAsset)
-};
+          // compact history on-record
+          let recent = Array.append<Principal>(a.recentOwners, [newOwnerIdentity]);
+          let recentBounded =
+            if (Array.size(recent) > K) Array.tabulate<Principal>(K, func (i) { recent[Array.size(recent) - K + i] })
+            else recent;
 
-        // Transfer ownership of an asset
-        public func transferAssetInRegistry(assetId: Nat, newOwner: Principal): async Result.Result<Asset, Text> {
-    let assetKey : Trie.Key<Nat> = { key = assetId; hash = natHash(assetId) };
-    switch (Trie.find(assets, assetKey, Nat.equal)) {
-        case null { #err("Asset not found.") };
-        case (?asset) {
-            if (not asset.isActive) {
-                return #err("Asset is inactive.");
-            };
-
-            let updatedAsset = {
-                asset with
-                owner = newOwner;
-                previousOwners = Array.append(asset.previousOwners, [asset.owner]);
-                updatedAt = Time.now();
-            };
-
-            assets := Trie.put(assets, assetKey, Nat.equal, updatedAsset).0;
-
-            let assetIdNat64 = Nat64.fromNat(assetId);
-            await emitAssetEvent(#TokenMetadataUpdated, assetIdNat64, "Asset ownership transferred to " # Principal.toText(newOwner));
-            #ok(updatedAsset)
-        };
-    }
-};
-
-       public func deactivateAssetInRegistry(assetId: Nat): async Result.Result<Asset, Text> {
-    let assetKey : Trie.Key<Nat> = { key = assetId; hash = natHash(assetId) };
-    switch (Trie.find(assets, assetKey, Nat.equal)) {
-        case null { #err("Asset not found.") };
-        case (?asset) {
-            if (not asset.isActive) {
-                return #err("Asset is already inactive.");
-            };
-
-            let updatedAsset = { asset with isActive = false; updatedAt = Time.now() };
-            assets := Trie.put(assets, assetKey, Nat.equal, updatedAsset).0;
-
-            let assetIdNat64 = Nat64.fromNat(assetId);
-            await emitAssetEvent(#TokenDeactivated, assetIdNat64, "Asset deactivated.");
-            #ok(updatedAsset)
-        };
-    }
-};
-
-        public func reactivateAssetInRegistry(assetId: Nat): async Result.Result<Asset, Text> {
-    let assetKey : Trie.Key<Nat> = { key = assetId; hash = natHash(assetId) };
-    switch (Trie.find(assets, assetKey, Nat.equal)) {
-        case null { #err("Asset not found.") };
-        case (?asset) {
-            if (asset.isActive) {
-                return #err("Asset is already active.");
-            };
-
-            let updatedAsset = { asset with isActive = true; updatedAt = Time.now() };
-            assets := Trie.put(assets, assetKey, Nat.equal, updatedAsset).0;
-
-            let assetIdNat64 = Nat64.fromNat(assetId);
-            await emitAssetEvent(#TokenReactivated, assetIdNat64, "Asset reactivated.");
-            #ok(updatedAsset)
-        };
-    }
-};
-
-        public func getAssetInRegistry(assetId: Nat): async Result.Result<Asset, Text> {
-    let assetKey : Trie.Key<Nat> = { key = assetId; hash = natHash(assetId) };
-    switch (Trie.find(assets, assetKey, Nat.equal)) {
-        case null { #err("Asset not found.") };
-        case (?asset) { #ok(asset) };
-    }
-};
-
-        // Retrieve all assets owned by a specific user
-public func getAssetsByOwnerInRegistry(owner: Principal) : async [Asset] {
-    Trie.toArray<AssetId, Asset, Asset>(assets, func (k: AssetId, v: Asset) : Asset { v })
-    |> Array.filter<Asset>(_, func(asset: Asset) : Bool { asset.owner == owner })
-};
-
-// Retrieve all assets linked to a specific NFT
-public func getAssetsByNFTInRegistry(nftId: Nat) : async [Asset] {
-    Trie.toArray<AssetId, Asset, Asset>(assets, func (k: AssetId, v: Asset) : Asset { v })
-    |> Array.filter<Asset>(_, func(asset: Asset) : Bool { asset.nftId == nftId })
-};
-
-// Retrieve all assets
-public func getAllAssetsInRegistry() : async [Asset] {
-    Trie.toArray<AssetId, Asset, Asset>(assets, func (k: AssetId, v: Asset) : Asset { v })
-};
-
-// Retrieve the ownership history of an asset
-public func getAssetOwnershipHistoryInRegistry(assetId: Nat): async Result.Result<[Principal], Text> {
-    let assetKey : Trie.Key<Nat> = { key = assetId; hash = natHash(assetId) };
-    switch (Trie.find(assets, assetKey, Nat.equal)) {
-        case null { #err("Asset not found.") };
-        case (?asset) {
-            #ok(asset.previousOwners);
-        };
-    }
-};
-
+          let updated : Asset = {
+            a with ownerIdentity = newOwnerIdentity;
+            prevOwnersCount = a.prevOwnersCount + 1;
+            recentOwners = recentBounded;
+            updatedAt = now()
+          };
+          byId := Trie.put(byId, nk(assetId), Nat.equal, updated).0;
+          ?updated
+        }
+      }
     };
+
+    public func setActive(assetId : Nat, flag : Bool) : ?Asset {
+      switch (Trie.get(byId, nk(assetId), Nat.equal)) {
+        case null null;
+        case (?a) {
+          let updated : Asset = { a with isActive = flag; updatedAt = now() };
+          byId := Trie.put(byId, nk(assetId), Nat.equal, updated).0;
+          active := Trie.put(active, nk(assetId), Nat.equal, flag).0;
+          ?updated
+        }
+      }
+    };
+
+    // ---- Reads
+    public func get(assetId : Nat) : ?Asset = Trie.get(byId, nk(assetId), Nat.equal);
+
+    public func getByOwner(ownerIdentity : Principal) : [Asset] {
+      let ids = switch (Trie.get(byOwner, pk(ownerIdentity), Principal.equal)) { case null [] ; case (?xs) xs };
+      Array.map<Nat, Asset>(ids, func (id) { 
+        switch (get(id)) { 
+          case (?a) a; 
+          case null { // sparse guard
+            { id; nftId = 0; ownerIdentity; userId = null; walletId = null; metadata = "(missing)"; 
+              registeredAt = 0; updatedAt = 0; isActive = false; triadVerified = false; 
+              prevOwnersCount = 0; recentOwners = [] }
+          }
+        }
+      })
+    };
+
+    public func getByNFT(nftId_ : Nat) : [Asset] {
+      let ids = switch (Trie.get(byNFT, nk(nftId_), Nat.equal)) { case null [] ; case (?xs) xs };
+      Array.map<Nat, Asset>(ids, func (id) { 
+        switch (get(id)) { 
+          case (?a) a; 
+          case null { // sparse guard
+            { id; nftId = nftId_; ownerIdentity = Principal.fromText("aaaaa-aa"); userId = null; walletId = null; 
+              metadata = "(missing)"; registeredAt = 0; updatedAt = 0; isActive = false; triadVerified = false; 
+              prevOwnersCount = 0; recentOwners = [] }
+          }
+        }
+      })
+    };
+
+    public func getAll() : [Asset] =
+      Trie.toArray<Nat, Asset, Asset>(byId, func (k, a) { a });
+
+    public func getHistory(assetId : Nat) : [Principal] =
+      switch (Trie.get(ownersHistory, nk(assetId), Nat.equal)) { case null [] ; case (?xs) xs };
+  };
 };

@@ -2,10 +2,14 @@
     "compilerOptions": {
         "strict": true,
         "target": "ES2020",
+        "module": "ES2020",
         "experimentalDecorators": true,
         "strictPropertyInitialization": false,
         "moduleResolution": "node",
         "allowJs": true,
-        "outDir": "HACK_BECAUSE_OF_ALLOW_JS"
+        "outDir": "HACK_BECAUSE_OF_ALLOW_JS",
+        "lib": ["ES2020", "DOM"],
+        "types": ["node"],
+        "skipLibCheck": true
     }
 }

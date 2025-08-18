@@ -1,0 +1,17 @@
+{
+  "local": {
+    "description": "Local development network",
+    "host": "http://localhost:8000",
+    "replica_host": "http://127.0.0.1:8000"
+  },
+  "ic": {
+    "description": "Internet Computer mainnet",
+    "host": "https://ic0.app",
+    "replica_host": "https://ic0.app"
+  },
+  "testnet": {
+    "description": "IC testnet environment",
+    "host": "https://testnet.dfinity.network",
+    "replica_host": "https://testnet.dfinity.network"
+  }
+}

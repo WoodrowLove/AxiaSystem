@@ -2,114 +2,153 @@ import Principal "mo:base/Principal";
 import Nat "mo:base/Nat";
 import Text "mo:base/Text";
 import Result "mo:base/Result";
-import Error "mo:base/Error";
-import Debug "mo:base/Debug";
-import EventManager "../heartbeat/event_manager";
+import Array "mo:base/Array";
 import AssetRegistryModule "./modules/asset_registry_module";
 import AssetRegistryService "./services/asset_registry_service";
+import TriadAssetRegistryService "./services/triad_asset_registry_service";
 
 persistent actor AssetRegistryCanister {
-    // Initialize the event manager
-    private transient let eventManager = EventManager.EventManager();
 
-    // Initialize the Asset Registry Service
-    private transient let assetRegistryService = AssetRegistryService.createAssetRegistryService(eventManager);
+    // Initialize the Asset Registry Manager
+    private transient let assetRegistryManager = AssetRegistryService.createAssetRegistryService();
 
-    // Public APIs
+    // Initialize the Triad Asset Registry Service (with placeholder canister references)
+    private transient let triadAssetRegistryService = TriadAssetRegistryService.TriadAssetRegistryService(
+        assetRegistryManager,
+        null, // identityCanister: ?IdentityService - to be connected
+        null, // userCanister: ?UserService - to be connected  
+        null, // walletCanister: ?WalletService - to be connected
+        null  // eventHub: ?EventHub - to be connected
+    );
 
-    // Register a new asset
-    public func registerAsset(
+    // 🔥 TRIAD-COMPLIANT ENDPOINTS (New, Recommended)
+
+    // Register Asset with Full Triad Validation
+    public shared ({ caller = _ }) func registerAssetTriad(
+        identityId: Principal,
+        nftId: Nat,
+        metadata: Text,
+        proof: TriadAssetRegistryService.LinkProof,
+        userId: ?Principal,
+        walletId: ?Principal
+    ): async Result.Result<AssetRegistryModule.Asset, Text> {
+        await triadAssetRegistryService.registerAssetTriad(identityId, nftId, metadata, proof, userId, walletId)
+    };
+
+    // Transfer Asset Ownership with Triad Validation
+    public shared ({ caller = _ }) func transferAssetTriad(
+        identityId: Principal,
+        assetId: Nat,
+        newOwnerIdentity: Principal,
+        proof: TriadAssetRegistryService.LinkProof,
+        userId: ?Principal
+    ): async Result.Result<AssetRegistryModule.Asset, Text> {
+        await triadAssetRegistryService.transferAssetTriad(identityId, assetId, newOwnerIdentity, proof, userId)
+    };
+
+    // Deactivate Asset with Triad Validation
+    public shared ({ caller = _ }) func deactivateAssetTriad(
+        identityId: Principal, 
+        assetId: Nat, 
+        proof: TriadAssetRegistryService.LinkProof
+    ): async Result.Result<AssetRegistryModule.Asset, Text> {
+        await triadAssetRegistryService.deactivateAssetTriad(identityId, assetId, proof)
+    };
+
+    // Reactivate Asset with Triad Validation
+    public shared ({ caller = _ }) func reactivateAssetTriad(
+        identityId: Principal, 
+        assetId: Nat, 
+        proof: TriadAssetRegistryService.LinkProof
+    ): async Result.Result<AssetRegistryModule.Asset, Text> {
+        await triadAssetRegistryService.reactivateAssetTriad(identityId, assetId, proof)
+    };
+
+    // 🔄 LEGACY ENDPOINTS (Backward Compatibility - Deprecated)
+    // Note: These maintain backward compatibility but mark triadVerified=false
+    // New integrations should use the *Triad endpoints above
+
+    // Register a new asset (Legacy)
+    public shared ({ caller = _ }) func registerAsset(
         owner: Principal,
         nftId: Nat,
         metadata: Text
     ): async Result.Result<AssetRegistryModule.Asset, Text> {
-        let result = await assetRegistryService.registerAssetInRegistry(owner, nftId, metadata);
-        switch (result) {
-            case (#ok(asset)) #ok(asset);
-            case (#err(error)) #err(error);
-        }
+        AssetRegistryService.registerAssetLegacy(assetRegistryManager, owner, nftId, metadata)
     };
 
-    // Transfer ownership of an asset
-    public func transferAsset(
+    // Transfer ownership of an asset (Legacy)
+    public shared ({ caller = _ }) func transferAsset(
         assetId: Nat,
         newOwner: Principal
     ): async Result.Result<AssetRegistryModule.Asset, Text> {
-        let result = await assetRegistryService.transferAssetInRegistry(assetId, newOwner);
-        switch (result) {
-            case (#ok(asset)) #ok(asset);
-            case (#err(error)) #err(error);
-        }
+        AssetRegistryService.transferAssetLegacy(assetRegistryManager, assetId, newOwner)
     };
 
-    // Deactivate an asset
-    public func deactivateAsset(assetId: Nat): async Result.Result<AssetRegistryModule.Asset, Text> {
-        let result = await assetRegistryService.deactivateAssetInRegistry(assetId);
-        switch (result) {
-            case (#ok(asset)) #ok(asset);
-            case (#err(error)) #err(error);
-        }
+    // Deactivate an asset (Legacy)
+    public shared ({ caller = _ }) func deactivateAsset(assetId: Nat): async Result.Result<AssetRegistryModule.Asset, Text> {
+        AssetRegistryService.deactivateAssetLegacy(assetRegistryManager, assetId)
     };
 
-    // Reactivate an asset
-    public func reactivateAsset(assetId: Nat): async Result.Result<AssetRegistryModule.Asset, Text> {
-        let result = await assetRegistryService.reactivateAssetInRegistry(assetId);
-        switch (result) {
-            case (#ok(asset)) #ok(asset);
-            case (#err(error)) #err(error);
-        }
+    // Reactivate an asset (Legacy)
+    public shared ({ caller = _ }) func reactivateAsset(assetId: Nat): async Result.Result<AssetRegistryModule.Asset, Text> {
+        AssetRegistryService.reactivateAssetLegacy(assetRegistryManager, assetId)
     };
+
+    // 🔍 QUERY ENDPOINTS (Backward Compatible)
+    // These work for both Triad and Legacy assets
 
     // Retrieve asset details by ID
-    public func getAsset(assetId: Nat): async Result.Result<AssetRegistryModule.Asset, Text> {
-        let result = await assetRegistryService.getAssetInRegistry(assetId);
-        switch (result) {
-            case (#ok(asset)) #ok(asset);
-            case (#err(error)) #err(error);
-        }
+    public query func getAsset(
+        assetId: Nat
+    ): async Result.Result<AssetRegistryModule.Asset, Text> {
+        AssetRegistryService.getAsset(assetRegistryManager, assetId)
     };
 
-    // Retrieve all assets owned by a specific user
-    public func getAssetsByOwner(owner: Principal): async [AssetRegistryModule.Asset] {
-        await assetRegistryService.getAssetsByOwnerInRegistry(owner);
+    // Retrieve all assets owned by a specific user (supports both legacy owner and Identity)
+    public query func getAssetsByOwner(owner: Principal): async [AssetRegistryModule.Asset] {
+        AssetRegistryService.getAssetsByOwner(assetRegistryManager, owner)
     };
 
     // Retrieve all assets linked to a specific NFT
-    public func getAssetsByNFT(nftId: Nat): async [AssetRegistryModule.Asset] {
-        await assetRegistryService.getAssetsByNFTInRegistry(nftId);
+    public query func getAssetsByNFT(nftId: Nat): async [AssetRegistryModule.Asset] {
+        AssetRegistryService.getAssetsByNFT(assetRegistryManager, nftId)
     };
 
     // Retrieve all assets in the registry
-    public func getAllAssets(): async [AssetRegistryModule.Asset] {
-        await assetRegistryService.getAllAssetsInRegistry();
+    public query func getAllAssets(): async [AssetRegistryModule.Asset] {
+        AssetRegistryService.getAllAssets(assetRegistryManager)
     };
 
     // Retrieve ownership history of an asset
-    public func getAssetOwnershipHistory(assetId: Nat): async Result.Result<[Principal], Text> {
-        let result = await assetRegistryService.getAssetOwnershipHistoryInRegistry(assetId);
-        switch (result) {
-            case (#ok(history)) #ok(history);
-            case (#err(error)) #err(error);
+    public query func getAssetOwnershipHistory(assetId: Nat): async [Principal] {
+        AssetRegistryService.getAssetOwnershipHistory(assetRegistryManager, assetId)
+    };
+
+    // 📊 SYSTEM INFORMATION
+
+    // Get system statistics
+    public query func getSystemStats(): async {
+        totalAssets: Nat;
+        activeAssets: Nat;
+        triadVerifiedAssets: Nat;
+        nftLinkedAssets: Nat;
+    } {
+        let allAssets = AssetRegistryService.getAllAssets(assetRegistryManager);
+        let activeAssets = Array.filter(allAssets, func(a: AssetRegistryModule.Asset): Bool { a.isActive });
+        let triadVerified = Array.filter(allAssets, func(a: AssetRegistryModule.Asset): Bool { a.triadVerified });
+        let nftLinked = Array.filter(allAssets, func(a: AssetRegistryModule.Asset): Bool { a.nftId > 0 });
+        
+        {
+            totalAssets = allAssets.size();
+            activeAssets = activeAssets.size();
+            triadVerifiedAssets = triadVerified.size();
+            nftLinkedAssets = nftLinked.size();
         }
     };
 
     // System Health Check
-    public shared func healthCheck(): async Text {
-        try {
-            let allAssets = await assetRegistryService.getAllAssetsInRegistry();
-            if (allAssets.size() > 0) {
-                "Asset Registry is operational. Total assets: " # Nat.toText(allAssets.size())
-            } else {
-                "Asset Registry is operational. No assets found."
-            }
-        } catch (e) {
-            "Asset Registry health check failed: " # Error.message(e);
-        }
-    };
-
-    // Optional: Heartbeat Integration
-    public shared func runHeartbeat(): async () {
-        Debug.print("Asset Registry canister heartbeat executed.");
-        // Add periodic tasks here, such as cleanup or reporting
+    public query func healthCheck(): async Bool {
+        true
     };
 };

@@ -1,0 +1,586 @@
+import Debug "mo:base/Debug";
+import Time "mo:base/Time";
+import Buffer "mo:base/Buffer";
+import HashMap "mo:base/HashMap";
+import Text "mo:base/Text";
+import Principal "mo:base/Principal";
+import Iter "mo:base/Iter";
+import Result "mo:base/Result";
+import Int "mo:base/Int";
+import Nat64 "mo:base/Nat64";
+import Trie "mo:base/Trie";
+
+import EventTypes "event_types";
+
+module ProductionEventManager {
+
+    // Enhanced Event Priority System
+    public type EventPriority = {
+        #critical;  // Immediate processing (security, errors)
+        #high;      // Priority processing (governance, payments)
+        #normal;    // Standard processing (user actions)
+        #low;       // Background processing (analytics, cleanup)
+    };
+        #critical;  // Immediate processing (security, errors)
+        #high;      // Priority processing (governance, payments)
+        #normal;    // Standard processing (user actions)
+        #low;       // Background processing (analytics, cleanup)
+    };
+
+    // Event with Priority
+    public type PrioritizedEvent = {
+        event: EventTypes.Event;
+        priority: EventPriority;
+        timestamp: Int;
+        attempts: Nat;
+    };
+
+    // Event Filter Configuration
+    public type EventFilter = {
+        eventTypes: ?[EventTypes.EventType];
+        sources: ?[Text];
+        principals: ?[Principal];
+        minTimestamp: ?Int;
+        maxTimestamp: ?Int;
+    };
+
+    // Subscription Configuration
+    public type SubscriptionConfig = {
+        filter: ?EventFilter;
+        batchSize: Nat;
+        priority: EventPriority;
+        maxRetries: Nat;
+    };
+
+    // Event Processing Metrics
+    public type EventMetrics = {
+        totalEvents: Nat;
+        eventsByPriority: [(EventPriority, Nat)];
+        processingTimes: [(EventPriority, Int)];
+        errorCounts: [(EventPriority, Nat)];
+        lastUpdated: Int;
+    };
+
+    // Enhanced Triad Event Types
+    public type TriadEventType = {
+        #IdentityDeviceRegistered : {
+            identityId: Principal;
+            deviceId: Principal;
+            deviceType: Text;
+            timestamp: Int;
+        };
+        #IdentityVerificationChanged : {
+            identityId: Principal;
+            oldLevel: Text;
+            newLevel: Text;
+            verifiedBy: Principal;
+            timestamp: Int;
+        };
+        #GovernanceProposalTriad : {
+            proposalId: Nat;
+            proposalType: Text;
+            submitter: Principal;
+            title: Text;
+            requiredVotes: Nat;
+            timestamp: Int;
+        };
+        #GovernanceVoteTriad : {
+            proposalId: Nat;
+            voter: Principal;
+            choice: Text;
+            weight: Nat;
+            timestamp: Int;
+        };
+        #TriadStateSync : {
+            sourceCanister: Principal;
+            targetCanister: Principal;
+            syncType: Text;
+            dataHash: [Nat8];
+            timestamp: Int;
+        };
+    };
+
+    // Production Event Manager Class
+    public class ProductionEventManager() {
+        
+        // Priority Queues
+        private var criticalQueue = Buffer.Buffer<PrioritizedEvent>(0);
+        private var highQueue = Buffer.Buffer<PrioritizedEvent>(0);
+        private var normalQueue = Buffer.Buffer<PrioritizedEvent>(0);
+        private var lowQueue = Buffer.Buffer<PrioritizedEvent>(0);
+        
+        // Subscribers with Enhanced Configuration
+        private var subscribers = HashMap.HashMap<Text, SubscriptionConfig>(10, Text.equal, Text.hash);
+        
+        // Event Handlers Map
+        private var eventHandlers = HashMap.HashMap<Text, (EventTypes.Event) -> async ()>(10, Text.equal, Text.hash);
+        
+        // Metrics Tracking
+        private var metrics: EventMetrics = {
+            totalEvents = 0;
+            eventsByPriority = [];
+            processingTimes = [];
+            errorCounts = [];
+            lastUpdated = Time.now();
+        };
+        
+        // Retry Queue for Failed Events
+        private var retryQueue = Buffer.Buffer<PrioritizedEvent>(0);
+        
+        // Configuration
+        private let maxQueueSize: Nat = 10000;
+        private let maxRetries: Nat = 3;
+        private let batchSize: Nat = 50;
+
+        // Core API: Enhanced Event Emission with Priority
+        public func emitWithPriority(
+            event: EventTypes.Event,
+            priority: EventPriority
+        ) : async Result.Result<(), Text> {
+            
+            let prioritizedEvent: PrioritizedEvent = {
+                event = event;
+                priority = priority;
+                timestamp = Time.now();
+                attempts = 0;
+            };
+            
+            // Route to appropriate queue based on priority
+            switch (priority) {
+                case (#critical) {
+                    if (criticalQueue.size() < maxQueueSize) {
+                        criticalQueue.add(prioritizedEvent);
+                    } else {
+                        return #err("Critical queue full");
+                    };
+                };
+                case (#high) {
+                    if (highQueue.size() < maxQueueSize) {
+                        highQueue.add(prioritizedEvent);
+                    } else {
+                        return #err("High priority queue full");
+                    };
+                };
+                case (#normal) {
+                    if (normalQueue.size() < maxQueueSize) {
+                        normalQueue.add(prioritizedEvent);
+                    } else {
+                        return #err("Normal priority queue full");
+                    };
+                };
+                case (#low) {
+                    if (lowQueue.size() < maxQueueSize) {
+                        lowQueue.add(prioritizedEvent);
+                    } else {
+                        return #err("Low priority queue full");
+                    };
+                };
+            };
+            
+            // Update metrics
+            updateMetrics(priority);
+            
+            #ok()
+        };
+
+        // Enhanced Subscription with Filtering
+        public func subscribeWithFilter(
+            subscriberId: Text,
+            config: SubscriptionConfig,
+            handler: (EventTypes.Event) -> async ()
+        ) : async Result.Result<(), Text> {
+            
+            // Validate configuration
+            if (config.batchSize > 1000) {
+                return #err("Batch size too large");
+            };
+            
+            // Store subscription configuration
+            subscribers.put(subscriberId, config);
+            
+            // Store event handler
+            eventHandlers.put(subscriberId, handler);
+            
+            Debug.print("Subscriber " # subscriberId # " registered with enhanced config");
+            #ok()
+        };
+
+        // Process Events with Priority-Based Scheduling
+        public func processEvents() : async Result.Result<Nat, Text> {
+            var processedCount: Nat = 0;
+            
+            // Process critical events first (all of them)
+            while (criticalQueue.size() > 0) {
+                switch (await processPriorityQueue(criticalQueue, #critical)) {
+                    case (#ok(count)) { processedCount += count; };
+                    case (#err(msg)) { return #err("Critical processing failed: " # msg); };
+                };
+            };
+            
+            // Process high priority events (up to batchSize)
+            if (highQueue.size() > 0) {
+                switch (await processPriorityQueueBatch(highQueue, #high, batchSize)) {
+                    case (#ok(count)) { processedCount += count; };
+                    case (#err(msg)) { return #err("High priority processing failed: " # msg); };
+                };
+            };
+            
+            // Process normal priority events (smaller batch)
+            if (normalQueue.size() > 0) {
+                let normalBatch = if (batchSize > 10) { batchSize / 2 } else { batchSize };
+                switch (await processPriorityQueueBatch(normalQueue, #normal, normalBatch)) {
+                    case (#ok(count)) { processedCount += count; };
+                    case (#err(msg)) { return #err("Normal priority processing failed: " # msg); };
+                };
+            };
+            
+            // Process low priority events (smallest batch)
+            if (lowQueue.size() > 0) {
+                let lowBatch = if (batchSize > 20) { batchSize / 4 } else { 1 };
+                switch (await processPriorityQueueBatch(lowQueue, #low, lowBatch)) {
+                    case (#ok(count)) { processedCount += count; };
+                    case (#err(_)) { /* Continue processing even if low priority fails */ };
+                };
+            };
+            
+            // Process retry queue
+            if (retryQueue.size() > 0) {
+                switch (await processRetryQueue()) {
+                    case (#ok(count)) { processedCount += count; };
+                    case (#err(_)) { /* Continue processing even if retries fail */ };
+                };
+            };
+            
+            #ok(processedCount)
+        };
+
+        // Process Priority Queue (All Events)
+        private func processPriorityQueue(
+            queue: Buffer.Buffer<PrioritizedEvent>,
+            _priority: EventPriority
+        ) : async Result.Result<Nat, Text> {
+            
+            var processedCount: Nat = 0;
+            let queueSize = queue.size();
+            
+            // Process all events in queue
+            for (i in Iter.range(0, queueSize - 1)) {
+                if (queue.size() > 0) {
+                    let prioritizedEvent = queue.remove(0);
+                    switch (await processEvent(prioritizedEvent)) {
+                        case (#ok()) { processedCount += 1; };
+                        case (#err(_msg)) { 
+                            // Add to retry queue if within retry limits
+                            if (prioritizedEvent.attempts < maxRetries) {
+                                let retryEvent = {
+                                    event = prioritizedEvent.event;
+                                    priority = prioritizedEvent.priority;
+                                    timestamp = prioritizedEvent.timestamp;
+                                    attempts = prioritizedEvent.attempts + 1;
+                                };
+                                retryQueue.add(retryEvent);
+                            };
+                        };
+                    };
+                };
+            };
+            
+            #ok(processedCount)
+        };
+
+        // Process Priority Queue (Batch)
+        private func processPriorityQueueBatch(
+            queue: Buffer.Buffer<PrioritizedEvent>,
+            _priority: EventPriority,
+            batchLimit: Nat
+        ) : async Result.Result<Nat, Text> {
+            
+            var processedCount: Nat = 0;
+            let processLimit = if (queue.size() < batchLimit) { queue.size() } else { batchLimit };
+            
+            for (i in Iter.range(0, processLimit - 1)) {
+                if (queue.size() > 0) {
+                    let prioritizedEvent = queue.remove(0);
+                    switch (await processEvent(prioritizedEvent)) {
+                        case (#ok()) { processedCount += 1; };
+                        case (#err(_msg)) { 
+                            if (prioritizedEvent.attempts < maxRetries) {
+                                let retryEvent = {
+                                    event = prioritizedEvent.event;
+                                    priority = prioritizedEvent.priority;
+                                    timestamp = prioritizedEvent.timestamp;
+                                    attempts = prioritizedEvent.attempts + 1;
+                                };
+                                retryQueue.add(retryEvent);
+                            };
+                        };
+                    };
+                };
+            };
+            
+            #ok(processedCount)
+        };
+
+        // Process Individual Event
+        private func processEvent(prioritizedEvent: PrioritizedEvent) : async Result.Result<(), Text> {
+            
+            // Notify matching subscribers
+            for ((subscriberId, config) in subscribers.entries()) {
+                if (matchesFilter(prioritizedEvent.event, config.filter)) {
+                    switch (eventHandlers.get(subscriberId)) {
+                        case (?handler) {
+                            try {
+                                await handler(prioritizedEvent.event);
+                            } catch (_error) {
+                                Debug.print("Handler error for " # subscriberId);
+                            };
+                        };
+                        case null { /* No handler found */ };
+                    };
+                };
+            };
+            
+            #ok()
+        };
+
+        // Process Retry Queue
+        private func processRetryQueue() : async Result.Result<Nat, Text> {
+            var processedCount: Nat = 0;
+            let retryLimit = if (retryQueue.size() < 10) { retryQueue.size() } else { 10 };
+            
+            for (i in Iter.range(0, retryLimit - 1)) {
+                if (retryQueue.size() > 0) {
+                    let prioritizedEvent = retryQueue.remove(0);
+                    switch (await processEvent(prioritizedEvent)) {
+                        case (#ok()) { processedCount += 1; };
+                        case (#err(msg)) { 
+                            // Drop events that have exceeded retry limit
+                            Debug.print("Event dropped after " # debug_show(prioritizedEvent.attempts) # " attempts: " # msg);
+                        };
+                    };
+                };
+            };
+            
+            #ok(processedCount)
+        };
+
+        // Event Filter Matching
+        private func matchesFilter(event: EventTypes.Event, filter: ?EventFilter) : Bool {
+            switch (filter) {
+                case null { true }; // No filter means match all
+                case (?f) {
+                    // Check event type filter
+                    switch (f.eventTypes) {
+                        case (?types) {
+                            let eventType = getEventType(event);
+                            var matches = false;
+                            for (filterType in types.vals()) {
+                                if (eventType == filterType) {
+                                    matches := true;
+                                };
+                            };
+                            if (not matches) { return false; };
+                        };
+                        case null { /* No event type filter */ };
+                    };
+                    
+                    // Check timestamp filter
+                    let eventTime = getEventTimestamp(event);
+                    switch (f.minTimestamp) {
+                        case (?minTime) {
+                            if (eventTime < minTime) { return false; };
+                        };
+                        case null { /* No min timestamp filter */ };
+                    };
+                    
+                    switch (f.maxTimestamp) {
+                        case (?maxTime) {
+                            if (eventTime > maxTime) { return false; };
+                        };
+                        case null { /* No max timestamp filter */ };
+                    };
+                    
+                    true
+                };
+            }
+        };
+
+        // Utility: Get Event Type
+        private func getEventType(event: EventTypes.Event) : EventTypes.EventType {
+            event.eventType
+        };
+
+        // Utility: Get Event Timestamp
+        private func getEventTimestamp(event: EventTypes.Event) : Int {
+            switch (event.payload) {
+                case (#AssetRegistered(data)) { data.registeredAt };
+                case (#AssetTransferred(data)) { data.transferTime };
+                case (#WalletCreated(data)) { Time.now() };
+                case (#WalletUpdated(data)) { Time.now() };
+                case (#IdentityCreated(data)) { data.createdAt };
+                case (#IdentityUpdated(data)) { data.updatedAt };
+                case (#ProposalCreated(data)) { Time.now() };
+                case (#ProposalVoted(data)) { Time.now() };
+                case (#EscrowCreated(data)) { Time.now() };
+                case (#LoginAttempt(data)) { Time.now() };
+                case (#UserCreated(data)) { Time.now() }; // Default to current time
+                case (_) { Time.now() }; // Default for all other events
+            }
+        };
+
+        // Update Metrics
+        private func updateMetrics(priority: EventPriority) : () {
+            metrics := {
+                totalEvents = metrics.totalEvents + 1;
+                eventsByPriority = updatePriorityCount(metrics.eventsByPriority, priority);
+                processingTimes = metrics.processingTimes;
+                errorCounts = metrics.errorCounts;
+                lastUpdated = Time.now();
+            };
+        };
+
+        // Helper: Update Priority Count
+        private func updatePriorityCount(
+            current: [(EventPriority, Nat)],
+            priority: EventPriority
+        ) : [(EventPriority, Nat)] {
+            let buffer = Buffer.Buffer<(EventPriority, Nat)>(4);
+            var found = false;
+            
+            for ((p, count) in current.vals()) {
+                if (priorityEquals(p, priority)) {
+                    buffer.add((p, count + 1));
+                    found := true;
+                } else {
+                    buffer.add((p, count));
+                };
+            };
+            
+            if (not found) {
+                buffer.add((priority, 1));
+            };
+            
+            Buffer.toArray(buffer)
+        };
+
+        // Helper: Priority Equality
+        private func priorityEquals(p1: EventPriority, p2: EventPriority) : Bool {
+            switch (p1, p2) {
+                case (#critical, #critical) { true };
+                case (#high, #high) { true };
+                case (#normal, #normal) { true };
+                case (#low, #low) { true };
+                case (_, _) { false };
+            }
+        };
+
+        // API: Get Current Metrics
+        public func getMetrics() : async EventMetrics {
+            metrics
+        };
+
+        // API: Get Queue Status
+        public func getQueueStatus() : async {
+            critical: Nat;
+            high: Nat;
+            normal: Nat;
+            low: Nat;
+            retry: Nat;
+        } {
+            {
+                critical = criticalQueue.size();
+                high = highQueue.size();
+                normal = normalQueue.size();
+                low = lowQueue.size();
+                retry = retryQueue.size();
+            }
+        };
+
+        // API: Get Subscriber Count
+        public func getSubscriberCount() : async Nat {
+            subscribers.size()
+        };
+
+        // API: Emergency Clear Queues
+        public func emergencyClearQueues() : async () {
+            criticalQueue.clear();
+            highQueue.clear();
+            normalQueue.clear();
+            lowQueue.clear();
+            retryQueue.clear();
+            Debug.print("Emergency queue clear executed");
+        };
+
+        // API: Emit Triad-Specific Event
+        public func emitTriadEvent(triadEvent: TriadEventType) : async Result.Result<(), Text> {
+            // Convert triad event to standard event format
+            let standardEvent = convertTriadEvent(triadEvent);
+            await emitWithPriority(standardEvent, #high)
+        };
+
+        // Convert Triad Event to Standard Event
+        private func convertTriadEvent(triadEvent: TriadEventType) : EventTypes.Event {
+            switch (triadEvent) {
+                case (#IdentityDeviceRegistered(data)) {
+                    {
+                        id = 0; // Will be assigned by event manager
+                        eventType = #DeviceRegistered;
+                        payload = #DeviceRegistered({
+                            userId = Principal.toText(data.identityId);
+                            deviceKey = Principal.toText(data.deviceId);
+                            timestamp = Nat64.fromNat(Int.abs(data.timestamp));
+                        });
+                    }
+                };
+                case (#IdentityVerificationChanged(data)) {
+                    {
+                        id = 0;
+                        eventType = #IdentityUpdated;
+                        payload = #IdentityUpdated({
+                            id = data.identityId;
+                            metadata = Trie.empty();
+                            updatedAt = data.timestamp;
+                        });
+                    }
+                };
+                case (#GovernanceProposalTriad(data)) {
+                    {
+                        id = 0;
+                        eventType = #ProposalCreated;
+                        payload = #ProposalCreated({
+                            proposalId = data.proposalId;
+                            proposer = Principal.toText(data.submitter);
+                            description = data.title;
+                            createdAt = Nat64.fromNat(Int.abs(data.timestamp));
+                        });
+                    }
+                };
+                case (#GovernanceVoteTriad(data)) {
+                    {
+                        id = 0;
+                        eventType = #ProposalVoted;
+                        payload = #ProposalVoted({
+                            proposalId = data.proposalId;
+                            voter = Principal.toText(data.voter);
+                            vote = data.choice;
+                            weight = data.weight;
+                            votedAt = Nat64.fromNat(Int.abs(data.timestamp));
+                        });
+                    }
+                };
+                case (#TriadStateSync(data)) {
+                    {
+                        id = 0;
+                        eventType = #SystemMaintenanceCompleted;
+                        payload = #SystemMaintenanceCompleted({
+                            escrowsProcessed = 0;
+                            splitPaymentsRetried = 0;
+                            payoutsRetried = 0;
+                            timestamp = Nat64.fromNat(Int.abs(data.timestamp));
+                        });
+                    }
+                };
+            }
+        };
+    }
+}

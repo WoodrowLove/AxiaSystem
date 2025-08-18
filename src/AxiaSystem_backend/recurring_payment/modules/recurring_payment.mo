@@ -5,6 +5,7 @@ import Int "mo:base/Int";
 import Text "mo:base/Text";
 import Time "mo:base/Time";
 import Result "mo:base/Result";
+import Array "mo:base/Array";
 import LoggingUtils "../../utils/logging_utils";
 import WalletCanisterProxy "../../wallet/utils/wallet_canister_proxy";
 import EventManager "../../heartbeat/event_manager";
@@ -54,7 +55,7 @@ module {
             };
 
             let recurringPayment: RecurringPayment = {
-                id = Nat.fromIntWrap(Time.now());
+                id = Int.abs(Time.now());
                 sender = sender;
                 receiver = receiver;
                 amount = amount;
@@ -68,12 +69,10 @@ module {
             recurringPayments := Array.append(recurringPayments, [recurringPayment]);
 
             // Emit event for new recurring payment
-            await emitRecurringPaymentEvent(#RecurringPaymentScheduled, #RecurringPaymentScheduled {
-                paymentId = Nat.toText(recurringPayment.id);
-                sender = Principal.toText(sender);
-                receiver = Principal.toText(receiver);
+            await emitRecurringPaymentEvent(#PaymentProcessed, #PaymentProcessed {
+                userId = sender;
                 amount = amount;
-                interval = interval;
+                walletId = "recurring_payment_" # Nat.toText(recurringPayment.id);
             });
 
             LoggingUtils.logInfo(
@@ -88,7 +87,7 @@ module {
 
         // Cancel a recurring payment
         public func cancelRecurringPayment(paymentId: Nat): async Result.Result<(), Text> {
-            let paymentOpt = Array.find(recurringPayments, func(p) { p.id == paymentId });
+            let paymentOpt: ?RecurringPayment = Array.find<RecurringPayment>(recurringPayments, func(p: RecurringPayment): Bool { p.id == paymentId });
 
             switch (paymentOpt) {
                 case null {
@@ -99,12 +98,13 @@ module {
                         return #err("Recurring payment is already cancelled.");
                     };
 
-                    recurringPayments := Array.map(recurringPayments, func(p) {
+                    recurringPayments := Array.map<RecurringPayment, RecurringPayment>(recurringPayments, func(p: RecurringPayment): RecurringPayment {
                         if (p.id == paymentId) { { p with status = "Cancelled" } } else p
                     });
 
                     // Emit event for recurring payment cancellation
-                    await emitRecurringPaymentEvent(#RecurringPaymentCancelled, #RecurringPaymentCancelled {
+                    await emitRecurringPaymentEvent(#PaymentUpdated, #PaymentUpdated {
+                        userId = Principal.toText(payment.sender);
                         paymentId = Nat.toText(paymentId);
                         status = "Cancelled";
                     });
@@ -137,50 +137,49 @@ module {
                                 "Failed to debit sender for recurring payment. Payment ID: " # Nat.toText(payment.id) # ", Error: " # e,
                                 ?payment.sender
                             );
-                            continue;
+                            // Continue to next payment
                         };
-                        case (#ok(_)) {};
-                    };
+                        case (#ok(_)) {
+                            let creditResult = await walletProxy.creditWallet(payment.receiver, payment.amount, 0);
+                            switch (creditResult) {
+                                case (#err(e)) {
+                                    // Rollback debit if credit fails
+                                    ignore await walletProxy.creditWallet(payment.sender, payment.amount, 0);
+                                    LoggingUtils.logError(
+                                        logStore,
+                                        "RecurringPaymentModule",
+                                        "Failed to credit receiver for recurring payment. Payment ID: " # Nat.toText(payment.id) # ", Error: " # e,
+                                        ?payment.receiver
+                                    );
+                                    // Continue to next payment
+                                };
+                                case (#ok(_)) {
+                                    // Update next payment timestamp
+                                    recurringPayments := Array.map<RecurringPayment, RecurringPayment>(recurringPayments, func(p: RecurringPayment): RecurringPayment {
+                                        if (p.id == payment.id) {
+                                            { p with nextPaymentTimestamp = now + p.interval }
+                                        } else p
+                                    });
 
-                    let creditResult = await walletProxy.creditWallet(payment.receiver, payment.amount, 0);
-                    switch (creditResult) {
-                        case (#err(e)) {
-                            // Rollback debit if credit fails
-                            ignore await walletProxy.creditWallet(payment.sender, payment.amount, 0);
-                            LoggingUtils.logError(
-                                logStore,
-                                "RecurringPaymentModule",
-                                "Failed to credit receiver for recurring payment. Payment ID: " # Nat.toText(payment.id) # ", Error: " # e,
-                                ?payment.receiver
-                            );
-                            continue;
+                                    LoggingUtils.logInfo(
+                                        logStore,
+                                        "RecurringPaymentModule",
+                                        "Executed recurring payment. Payment ID: " # Nat.toText(payment.id),
+                                        null
+                                    );
+
+                                    // Emit event for successful recurring payment execution
+                                    await emitRecurringPaymentEvent(#PaymentProcessed, #PaymentProcessed {
+                                        userId = payment.sender;
+                                        amount = payment.amount;
+                                        walletId = "recurring_payment_" # Nat.toText(payment.id);
+                                    });
+
+                                    executedCount += 1;
+                                };
+                            };
                         };
-                        case (#ok(_)) {};
                     };
-
-                    // Update next payment timestamp
-                    recurringPayments := Array.map(recurringPayments, func(p) {
-                        if (p.id == payment.id) {
-                            { p with nextPaymentTimestamp = now + p.interval }
-                        } else p
-                    });
-
-                    LoggingUtils.logInfo(
-                        logStore,
-                        "RecurringPaymentModule",
-                        "Executed recurring payment. Payment ID: " # Nat.toText(payment.id),
-                        null
-                    );
-
-                    // Emit event for successful recurring payment execution
-                    await emitRecurringPaymentEvent(#RecurringPaymentExecuted, #RecurringPaymentExecuted {
-                        paymentId = Nat.toText(payment.id);
-                        amount = payment.amount;
-                        sender = Principal.toText(payment.sender);
-                        receiver = Principal.toText(payment.receiver);
-                    });
-
-                    executedCount += 1;
                 };
             };
 
@@ -208,7 +207,7 @@ module {
 
         // Pause a recurring payment
         public func pauseRecurringPayment(paymentId: Nat): async Result.Result<(), Text> {
-            let paymentOpt = Array.find(recurringPayments, func(p) { p.id == paymentId });
+            let paymentOpt: ?RecurringPayment = Array.find<RecurringPayment>(recurringPayments, func(p: RecurringPayment): Bool { p.id == paymentId });
 
             switch (paymentOpt) {
                 case null {
@@ -219,12 +218,13 @@ module {
                         return #err("Only active recurring payments can be paused.");
                     };
 
-                    recurringPayments := Array.map(recurringPayments, func(p) {
+                    recurringPayments := Array.map<RecurringPayment, RecurringPayment>(recurringPayments, func(p: RecurringPayment): RecurringPayment {
                         if (p.id == paymentId) { { p with status = "Paused" } } else p
                     });
 
                     // Emit event for recurring payment pause
-                    await emitRecurringPaymentEvent(#RecurringPaymentPaused, #RecurringPaymentPaused {
+                    await emitRecurringPaymentEvent(#PaymentUpdated, #PaymentUpdated {
+                        userId = Principal.toText(payment.sender);
                         paymentId = Nat.toText(paymentId);
                         status = "Paused";
                     });

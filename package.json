@@ -1,0 +1,17 @@
+{
+  "name": "axiasystem",
+  "version": "1.0.0",
+  "description": "Welcome to your new `AxiaSystem` project and to the Internet Computer development community. By default, creating a new project adds this README and some template files to your project directory. You can edit these template files to customize your project and to include your own code to speed up the development cycle.",
+  "main": "inject_env.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/node": "^24.3.0",
+    "@types/react": "^19.1.10",
+    "typescript": "^5.9.2"
+  }
+}

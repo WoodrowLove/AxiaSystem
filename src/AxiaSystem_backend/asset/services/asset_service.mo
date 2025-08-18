@@ -12,7 +12,10 @@ module {
         AssetModule.AssetManager(eventManager)
     };
 
-    // Register a new asset
+    // 🔄 LEGACY COMPATIBILITY LAYER
+    // These functions maintain backward compatibility while new integrations use Triad
+
+    // Register a new asset (Legacy - marks triadVerified=false)
     public func registerAsset(
         assetManager: AssetModule.AssetManager,
         owner: Principal,
@@ -21,7 +24,7 @@ module {
         await assetManager.registerAsset(owner, metadata);
     };
 
-    // Transfer ownership of an asset
+    // Transfer ownership of an asset (Legacy)
     public func transferAsset(
         assetManager: AssetModule.AssetManager,
         assetId: Nat,
@@ -30,7 +33,7 @@ module {
         await assetManager.transferAsset(assetId, newOwner);
     };
 
-    // Deactivate an asset
+    // Deactivate an asset (Legacy)
     public func deactivateAsset(
         assetManager: AssetModule.AssetManager,
         assetId: Nat
@@ -38,7 +41,7 @@ module {
         await assetManager.deactivateAsset(assetId);
     };
 
-    // Reactivate an asset
+    // Reactivate an asset (Legacy)
     public func reactivateAsset(
         assetManager: AssetModule.AssetManager,
         assetId: Nat
@@ -73,7 +76,7 @@ module {
     public func getActiveAssets(
         assetManager: AssetModule.AssetManager
     ): async [AssetModule.Asset] {
-        await assetManager.getActiveAssets();
+        assetManager.getActiveAssets();
     };
 
     // Search assets by metadata keyword
@@ -81,7 +84,7 @@ module {
         assetManager: AssetModule.AssetManager,
         keyword: Text
     ): async [AssetModule.Asset] {
-        await assetManager.searchAssetsByMetadata(keyword);
+        assetManager.searchByMetadata(keyword);
     };
 
     // Batch transfer ownership of assets

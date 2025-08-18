@@ -9,6 +9,7 @@ import Principal "mo:base/Principal";
 import Result "mo:base/Result";
 import _List "mo:base/List";
 import Int "mo:base/Int";
+import Array "mo:base/Array";
 import EventManager "./heartbeat/event_manager";
 import EventTypes "./heartbeat/event_types";
 import _Time "mo:base/Time";
@@ -65,7 +66,7 @@ private transient let _governanceProxy = GovernanceProxy.GovernanceProxy(Princip
     transient let userModule = UserModule.UserManager(eventManager);
     transient let userService = UserService.UserService(userModule, eventManager, userProxy);
     private transient let identityManager : IdentityModule.IdentityManager = IdentityModule.IdentityManager(eventManager);
-    private transient let assetRegistryService = AssetRegistryService.createAssetRegistryService(eventManager);
+    private transient let assetRegistryService = AssetRegistryService.createAssetRegistryService();
     private transient let _payoutManager = PayoutModule.PayoutManager(walletProxy, eventManager);
     private transient let payoutService = PayoutService.createPayoutService(walletProxy, eventManager);
 
@@ -480,7 +481,8 @@ public func registerAssetInRegistry(
     nftId: Nat,
     metadata: Text
 ): async Result.Result<AssetRegistryModule.Asset, Text> {
-    await assetRegistryService.registerAssetInRegistry(owner, nftId, metadata)
+    let asset = assetRegistryService.create(owner, nftId, metadata, null, null, false);
+    #ok(asset)
 };
 
 // Transfer ownership of an asset
@@ -488,42 +490,55 @@ public func transferAssetInRegistry(
     assetId: Nat,
     newOwner: Principal
 ): async Result.Result<AssetRegistryModule.Asset, Text> {
-    await assetRegistryService.transferAssetInRegistry(assetId, newOwner);
+    switch (assetRegistryService.transfer(assetId, newOwner)) {
+        case null #err("Asset not found or transfer failed");
+        case (?asset) #ok(asset);
+    }
 };
 
 // Deactivate an asset
 public func deactivateAssetInRegistry(assetId: Nat): async Result.Result<AssetRegistryModule.Asset, Text> {
-    await assetRegistryService.deactivateAssetInRegistry(assetId);
+    switch (assetRegistryService.setActive(assetId, false)) {
+        case null #err("Asset not found");
+        case (?asset) #ok(asset);
+    }
 };
 
 // Reactivate an asset
 public func reactivateAssetInRegistry(assetId: Nat): async Result.Result<AssetRegistryModule.Asset, Text> {
-    await assetRegistryService.reactivateAssetInRegistry(assetId);
+    switch (assetRegistryService.setActive(assetId, true)) {
+        case null #err("Asset not found");
+        case (?asset) #ok(asset);
+    }
 };
 
 // Retrieve asset details by ID
 public func getAssetInRegistry(assetId: Nat): async Result.Result<AssetRegistryModule.Asset, Text> {
-    await assetRegistryService.getAssetInRegistry(assetId);
+    switch (assetRegistryService.get(assetId)) {
+        case null #err("Asset not found");
+        case (?asset) #ok(asset);
+    }
 };
 
 // Retrieve all assets owned by a specific user
 public func getAssetsByOwnerInRegistry(owner: Principal): async [AssetRegistryModule.Asset] {
-    await assetRegistryService.getAssetsByOwnerInRegistry(owner);
+    assetRegistryService.getByOwner(owner)
 };
 
 // Retrieve all assets linked to a specific NFT
 public func getAssetsByNFTInRegistry(nftId: Nat): async [AssetRegistryModule.Asset] {
-    await assetRegistryService.getAssetsByNFTInRegistry(nftId);
+    assetRegistryService.getByNFT(nftId)
 };
 
 // Retrieve all assets in the registry
 public func getAllAssetsInRegistry(): async [AssetRegistryModule.Asset] {
-    await assetRegistryService.getAllAssetsInRegistry();
+    assetRegistryService.getAll()
 };
 
 // Retrieve ownership history of an asset
 public func getAssetOwnershipHistoryInRegistry(assetId: Nat): async Result.Result<[Principal], Text> {
-    await assetRegistryService.getAssetOwnershipHistoryInRegistry(assetId);
+    let history = assetRegistryService.getHistory(assetId);
+    #ok(history)
 };
 
 // Asset Canister APIs
@@ -572,7 +587,16 @@ public shared func reactivateAsset(assetId: Nat): async Result.Result<(), Text> 
 public shared func getAsset(assetId: Nat): async Result.Result<{ id: Nat; owner: Principal; metadata: Text }, Text> {
     try {
         let result = await assetProxy.getAsset(assetId);
-        result
+        switch (result) {
+            case (#ok(asset)) {
+                #ok({
+                    id = asset.id;
+                    owner = asset.ownerIdentity;
+                    metadata = asset.metadata;
+                })
+            };
+            case (#err(e)) #err(e);
+        }
     } catch (e) {
         #err("Failed to get asset details: " # Error.message(e))
     }
@@ -581,7 +605,8 @@ public shared func getAsset(assetId: Nat): async Result.Result<{ id: Nat; owner:
 // Retrieve all assets
 public shared func getAllAssets(): async [Nat] {
     try {
-        await assetProxy.getAllAssets();
+        let assets = await assetProxy.getAllAssets();
+        Array.map<{ id: Nat; ownerIdentity: Principal; userId: ?Principal; walletId: ?Principal; metadata: Text; registeredAt: Int; updatedAt: Int; isActive: Bool; triadVerified: Bool }, Nat>(assets, func(asset) = asset.id)
     } catch (_) {
         []; // Return an empty list in case of error
     }
@@ -590,7 +615,8 @@ public shared func getAllAssets(): async [Nat] {
 // Retrieve assets owned by a specific user
 public shared func getAssetsByOwner(owner: Principal): async [Nat] {
     try {
-        await assetProxy.getAssetsByOwner(owner);
+        let assets = await assetProxy.getAssetsByOwner(owner);
+        Array.map<{ id: Nat; ownerIdentity: Principal; userId: ?Principal; walletId: ?Principal; metadata: Text; registeredAt: Int; updatedAt: Int; isActive: Bool; triadVerified: Bool }, Nat>(assets, func(asset) = asset.id)
     } catch (_) {
         []; // Return an empty list in case of error
     }
@@ -599,7 +625,8 @@ public shared func getAssetsByOwner(owner: Principal): async [Nat] {
 // Retrieve all active assets
 public shared func getActiveAssets(): async [Nat] {
     try {
-        await assetProxy.getActiveAssets();
+        let assets = await assetProxy.getActiveAssets();
+        Array.map<{ id: Nat; ownerIdentity: Principal; userId: ?Principal; walletId: ?Principal; metadata: Text; registeredAt: Int; updatedAt: Int; isActive: Bool; triadVerified: Bool }, Nat>(assets, func(asset) = asset.id)
     } catch (_) {
         []; // Return an empty list in case of error
     }
@@ -608,7 +635,8 @@ public shared func getActiveAssets(): async [Nat] {
 // Search assets by metadata keyword
 public shared func searchAssetsByMetadata(keyword: Text): async [Nat] {
     try {
-        await assetProxy.searchAssetsByMetadata(keyword);
+        let assets = await assetProxy.searchAssetsByMetadata(keyword);
+        Array.map<{ id: Nat; ownerIdentity: Principal; userId: ?Principal; walletId: ?Principal; metadata: Text; registeredAt: Int; updatedAt: Int; isActive: Bool; triadVerified: Bool }, Nat>(assets, func(asset) = asset.id)
     } catch (_) {
         []; // Return an empty list in case of error
     }
@@ -618,7 +646,13 @@ public shared func searchAssetsByMetadata(keyword: Text): async [Nat] {
 public shared func batchTransferAssets(assetIds: [Nat], newOwner: Principal): async Result.Result<[Nat], Text> {
     try {
         let result = await assetProxy.batchTransferAssets(assetIds, newOwner);
-        result
+        switch (result) {
+            case (#ok(assets)) {
+                let ids = Array.map<{ id: Nat; ownerIdentity: Principal; userId: ?Principal; walletId: ?Principal; metadata: Text; registeredAt: Int; updatedAt: Int; isActive: Bool; triadVerified: Bool }, Nat>(assets, func(asset) = asset.id);
+                #ok(ids)
+            };
+            case (#err(e)) #err(e);
+        }
     } catch (e) {
         #err("Failed to batch transfer assets: " # Error.message(e))
     }

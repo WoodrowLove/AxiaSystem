@@ -3,86 +3,127 @@ import Nat "mo:base/Nat";
 import Text "mo:base/Text";
 import Result "mo:base/Result";
 import AssetRegistryModule "../modules/asset_registry_module";
-import EventManager "../../heartbeat/event_manager";
 
 module {
-    public func createAssetRegistryService(
-        eventManager: EventManager.EventManager
-    ): AssetRegistryModule.AssetRegistryManager {
-        AssetRegistryModule.AssetRegistryManager(eventManager)
+    public func createAssetRegistryService(): AssetRegistryModule.AssetRegistryManager {
+        AssetRegistryModule.AssetRegistryManager()
     };
 
-    // Register a new asset
-    public func registerAssetInRegistry(
+    // Legacy functions that wrap the new module for backward compatibility
+    public func registerAssetLegacy(
         assetRegistryManager: AssetRegistryModule.AssetRegistryManager,
         owner: Principal,
         nftId: Nat,
         metadata: Text
-    ): async Result.Result<AssetRegistryModule.Asset, Text> {
-        await assetRegistryManager.registerAssetInRegistry(owner, nftId, metadata);
+    ): Result.Result<AssetRegistryModule.Asset, Text> {
+        if (Text.size(metadata) == 0) {
+            return #err("Metadata cannot be empty.");
+        };
+        
+        let asset = assetRegistryManager.create(
+            owner,     // ownerIdentity
+            nftId,     // nftId
+            metadata,  // metadata
+            null,      // userId (legacy has none)
+            null,      // walletId (legacy has none)
+            false      // triadVerified = false for legacy
+        );
+        #ok(asset)
     };
 
-    // Transfer ownership of an asset
-    public func transferAssetInRegistry(
+    public func transferAssetLegacy(
         assetRegistryManager: AssetRegistryModule.AssetRegistryManager,
         assetId: Nat,
         newOwner: Principal
-    ): async Result.Result<AssetRegistryModule.Asset, Text> {
-        await assetRegistryManager.transferAssetInRegistry(assetId, newOwner);
+    ): Result.Result<AssetRegistryModule.Asset, Text> {
+        switch (assetRegistryManager.get(assetId)) {
+            case null #err("Asset not found.");
+            case (?asset) {
+                if (not asset.isActive) {
+                    return #err("Asset is inactive.");
+                };
+                
+                switch (assetRegistryManager.transfer(assetId, newOwner)) {
+                    case null #err("Transfer failed.");
+                    case (?updated) #ok(updated);
+                }
+            };
+        }
     };
 
-    // Deactivate an asset
-    public func deactivateAssetInRegistry(
+    public func deactivateAssetLegacy(
         assetRegistryManager: AssetRegistryModule.AssetRegistryManager,
         assetId: Nat
-    ): async Result.Result<AssetRegistryModule.Asset, Text> {
-        await assetRegistryManager.deactivateAssetInRegistry(assetId);
+    ): Result.Result<AssetRegistryModule.Asset, Text> {
+        switch (assetRegistryManager.get(assetId)) {
+            case null #err("Asset not found.");
+            case (?asset) {
+                if (not asset.isActive) {
+                    return #err("Asset is already inactive.");
+                };
+                
+                switch (assetRegistryManager.setActive(assetId, false)) {
+                    case null #err("Deactivation failed.");
+                    case (?updated) #ok(updated);
+                }
+            };
+        }
     };
 
-    // Reactivate an asset
-    public func reactivateAssetInRegistry(
+    public func reactivateAssetLegacy(
         assetRegistryManager: AssetRegistryModule.AssetRegistryManager,
         assetId: Nat
-    ): async Result.Result<AssetRegistryModule.Asset, Text> {
-        await assetRegistryManager.reactivateAssetInRegistry(assetId);
+    ): Result.Result<AssetRegistryModule.Asset, Text> {
+        switch (assetRegistryManager.get(assetId)) {
+            case null #err("Asset not found.");
+            case (?asset) {
+                if (asset.isActive) {
+                    return #err("Asset is already active.");
+                };
+                
+                switch (assetRegistryManager.setActive(assetId, true)) {
+                    case null #err("Reactivation failed.");
+                    case (?updated) #ok(updated);
+                }
+            };
+        }
     };
 
-    // Retrieve asset details by ID
-    public func getAssetInRegistry(
+    // Direct query wrappers
+    public func getAsset(
         assetRegistryManager: AssetRegistryModule.AssetRegistryManager,
         assetId: Nat
-    ): async Result.Result<AssetRegistryModule.Asset, Text> {
-        await assetRegistryManager.getAssetInRegistry(assetId);
+    ): Result.Result<AssetRegistryModule.Asset, Text> {
+        switch (assetRegistryManager.get(assetId)) {
+            case null #err("Asset not found.");
+            case (?asset) #ok(asset);
+        }
     };
 
-    // Retrieve all assets owned by a specific user
-    public func getAssetsByOwnerInRegistry(
+    public func getAssetsByOwner(
         assetRegistryManager: AssetRegistryModule.AssetRegistryManager,
         owner: Principal
-    ): async [AssetRegistryModule.Asset] {
-        await assetRegistryManager.getAssetsByOwnerInRegistry(owner);
+    ): [AssetRegistryModule.Asset] {
+        assetRegistryManager.getByOwner(owner)
     };
 
-    // Retrieve all assets linked to a specific NFT
-    public func getAssetsByNFTInRegistry(
+    public func getAssetsByNFT(
         assetRegistryManager: AssetRegistryModule.AssetRegistryManager,
         nftId: Nat
-    ): async [AssetRegistryModule.Asset] {
-        await assetRegistryManager.getAssetsByNFTInRegistry(nftId);
+    ): [AssetRegistryModule.Asset] {
+        assetRegistryManager.getByNFT(nftId)
     };
 
-    // Retrieve all assets in the registry
-    public func getAllAssetsInRegistry(
+    public func getAllAssets(
         assetRegistryManager: AssetRegistryModule.AssetRegistryManager
-    ): async [AssetRegistryModule.Asset] {
-        await assetRegistryManager.getAllAssetsInRegistry();
+    ): [AssetRegistryModule.Asset] {
+        assetRegistryManager.getAll()
     };
 
-    // Retrieve ownership history of an asset
-    public func getAssetOwnershipHistoryInRegistry(
+    public func getAssetOwnershipHistory(
         assetRegistryManager: AssetRegistryModule.AssetRegistryManager,
         assetId: Nat
-    ): async Result.Result<[Principal], Text> {
-        await assetRegistryManager.getAssetOwnershipHistoryInRegistry(assetId);
+    ): [Principal] {
+        assetRegistryManager.getHistory(assetId)
     };
 };

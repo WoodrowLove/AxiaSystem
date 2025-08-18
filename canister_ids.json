@@ -1,56 +1,37 @@
 {
-  "AxiaSystem_backend": {
-    "local": "bkyz2-fmaaa-aaaaa-qaaaq-cai"
-  },
-  "AxiaSystem_frontend": {
-    "local": "bd3sg-teaaa-aaaaa-qaaba-cai"
-  },
-  "admin2": {
-    "local": "dfdal-2uaaa-aaaaa-qaama-cai"
-  },
-  "asset": {
-    "local": "br5f7-7uaaa-aaaaa-qaaca-cai"
-  },
-  "asset_registry": {
-    "local": "bw4dl-smaaa-aaaaa-qaacq-cai"
-  },
-  "escrow": {
-    "local": "b77ix-eeaaa-aaaaa-qaada-cai"
-  },
-  "governance": {
-    "local": "by6od-j4aaa-aaaaa-qaadq-cai"
-  },
-  "identity": {
-    "local": "avqkn-guaaa-aaaaa-qaaea-cai"
-  },
-  "nft": {
-    "local": "asrmz-lmaaa-aaaaa-qaaeq-cai"
-  },
-  "payment": {
-    "local": "a3shf-5eaaa-aaaaa-qaafa-cai"
-  },
-  "payment_monitoring": {
-    "local": "a4tbr-q4aaa-aaaaa-qaafq-cai"
-  },
-  "payout": {
-    "local": "ajuq4-ruaaa-aaaaa-qaaga-cai"
-  },
-  "split_payment": {
-    "local": "aovwi-4maaa-aaaaa-qaagq-cai"
-  },
-  "subscriptions": {
-    "local": "ahw5u-keaaa-aaaaa-qaaha-cai"
-  },
-  "token": {
-    "local": "aax3a-h4aaa-aaaaa-qaahq-cai"
-  },
-  "treasury": {
-    "local": "c5kvi-uuaaa-aaaaa-qaaia-cai"
-  },
-  "user": {
-    "local": "c2lt4-zmaaa-aaaaa-qaaiq-cai"
-  },
-  "wallet": {
-    "local": "xad5d-bh777-77774-qaaia-cai"
-  }
+  "AxiaSystem_backend": "uzt4z-lp777-77774-qaabq-cai"
+,
+  "admin2": "umunu-kh777-77774-qaaca-cai"
+,
+  "asset": "ulvla-h7777-77774-qaacq-cai"
+,
+  "asset_registry": "ucwa4-rx777-77774-qaada-cai"
+,
+  "escrow": "ufxgi-4p777-77774-qaadq-cai"
+,
+  "governance": "vizcg-th777-77774-qaaea-cai"
+,
+  "identity": "vpyes-67777-77774-qaaeq-cai"
+,
+  "nft": "vg3po-ix777-77774-qaafa-cai"
+,
+  "payment": "vb2j2-fp777-77774-qaafq-cai"
+,
+  "payment_monitoring": "vu5yx-eh777-77774-qaaga-cai"
+,
+  "payout": "vt46d-j7777-77774-qaagq-cai"
+,
+  "split_payment": "v27v7-7x777-77774-qaaha-cai"
+,
+  "namora_ai": "xsfk2-nx777-77774-qaala-cai"
+,
+  "subscriptions": "v56tl-sp777-77774-qaahq-cai"
+,
+  "token": "xad5d-bh777-77774-qaaia-cai"
+,
+  "treasury": "xhc3x-m7777-77774-qaaiq-cai"
+,
+  "user": "xobql-2x777-77774-qaaja-cai"
+,
+  "wallet": "xjaw7-xp777-77774-qaajq-cai"
 }

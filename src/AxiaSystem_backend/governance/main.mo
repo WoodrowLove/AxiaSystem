@@ -1,6 +1,7 @@
 import GovernanceModule "./modules/governance_module";
 import EventManager "../heartbeat/event_manager";
 import EventTypes "../heartbeat/event_types";
+import EnhancedEventIntegration "./utils/enhanced_event_integration";
 import Principal "mo:base/Principal";
 import Result "mo:base/Result";
 import Nat "mo:base/Nat";
@@ -10,6 +11,8 @@ import Nat64 "mo:base/Nat64";
 import LoggingUtils "../utils/logging_utils";
 import UpgradeProposals "modules/upgrade_proposals";
 import GeneralProposals "modules/general_proposals";
+import TriadGovernance "modules/triad_governance";
+import GovernanceAnalytics "modules/governance_analytics";
 import UpgradeEngineModule "modules/upgrade_engine";
 import SharedTypes "../shared_types";
 import MonitorModule "modules/monitor";
@@ -35,6 +38,9 @@ persistent actor GovernanceCanister {
 
     // Dependencies
     private transient let eventManager = EventManager.EventManager();
+    
+    // Enhanced event coordination (optional for advanced integrations)
+    private transient let enhancedEventCoordinator = EnhancedEventIntegration.createEventCoordinator();
     private transient let logStore = LoggingUtils.init();
 
     // Governance Manager
@@ -42,6 +48,17 @@ persistent actor GovernanceCanister {
 
     transient let upgradeProposals = UpgradeProposals.UpgradeProposalModule(eventManager);
     transient let generalProposalModule = GeneralProposals.GeneralProposalModule(eventManager);
+    
+    // 🔺 Triad-Native Governance Module (Production-Ready)
+    transient let triadGovernance = TriadGovernance.createTriadGovernance(
+        eventManager,
+        Principal.fromText("rrkah-fqaaa-aaaah-qcwon-cai"), // Identity canister placeholder
+        null, // Wallet canister (optional)
+        null  // Token canister (optional)
+    );
+    
+    // 📊 Governance Analytics Engine (Real-time Insights)
+    transient let analyticsEngine = GovernanceAnalytics.GovernanceAnalytics(eventManager);
 
     transient let upgradeEngine = UpgradeEngineModule.UpgradeEngine();
 
@@ -429,4 +446,217 @@ public shared func listUpgradeHistory(canisterId: Principal): async [Text] {
   public func reportVotingAnomaly() : async () {
     monitor.logVotingAnomaly();
   };
+
+// ================================
+// 🔺 TRIAD-NATIVE GOVERNANCE API
+// ================================
+
+// ================================
+// � ENHANCED EVENT COORDINATION API
+// ================================
+
+// ================================
+// 🔺 TRIAD-NATIVE GOVERNANCE API
+// ================================
+
+// 📝 Submit General Proposal (Triad-Native)
+public shared({ caller = _ }) func submitGeneralProposalTriad(
+  identityId: Principal,
+  title: Text,
+  description: Text,
+  proof: TriadGovernance.LinkProof,
+  opts: TriadGovernance.SubmitOptions
+): async Result.Result<Nat, Text> {
+  await emitInsight("info", "Triad-native proposal submission: " # title # " by " # Principal.toText(identityId));
+  await triadGovernance.submitGeneralProposalTriad(identityId, title, description, proof, opts);
+};
+
+// 🗳️ Cast Vote (Triad-Native)
+public shared({ caller = _ }) func castGeneralVoteTriad(
+  identityId: Principal,
+  proposalId: Nat,
+  choice: TriadGovernance.VoteChoice,
+  proof: TriadGovernance.LinkProof
+): async Result.Result<(), Text> {
+  await emitInsight("info", "Triad-native vote cast: Proposal #" # Nat.toText(proposalId) # " by " # Principal.toText(identityId));
+  await triadGovernance.castGeneralVoteTriad(identityId, proposalId, choice, proof);
+};
+
+// ✅ Finalize Proposal (Triad-Native)
+public shared({ caller = _ }) func finalizeGeneralProposalTriad(
+  identityId: Principal,
+  proposalId: Nat,
+  proof: TriadGovernance.LinkProof
+): async Result.Result<TriadGovernance.Proposal, Text> {
+  await emitInsight("info", "Triad-native proposal finalization: #" # Nat.toText(proposalId) # " by " # Principal.toText(identityId));
+  await triadGovernance.finalizeGeneralProposalTriad(identityId, proposalId, proof);
+};
+
+// 📊 Query Methods (Triad-Native)
+public query func getTriadProposal(proposalId: Nat): async ?TriadGovernance.Proposal {
+  triadGovernance.getProposal(proposalId);
+};
+
+public query func listTriadProposalsByStatus(status: TriadGovernance.ProposalStatus): async [TriadGovernance.Proposal] {
+  triadGovernance.listProposalsByStatus(status);
+};
+
+public query func listTriadProposalsByProposer(proposer: Principal): async [TriadGovernance.Proposal] {
+  triadGovernance.listProposalsByProposer(proposer);
+};
+
+public query func getTriadVoteReceipts(proposalId: Nat): async [TriadGovernance.VoteReceipt] {
+  triadGovernance.getVoteReceipts(proposalId);
+};
+
+public query func getTriadVoteReceipt(proposalId: Nat, voter: Principal): async ?TriadGovernance.VoteReceipt {
+  triadGovernance.getVoteReceipt(proposalId, voter);
+};
+
+public query func getTriadProposalsEndingSoon(withinHours: Nat): async [TriadGovernance.Proposal] {
+  triadGovernance.getProposalsEndingSoon(withinHours);
+};
+
+// 🔄 Legacy Compatibility (Migration Support)
+public shared({ caller }) func submitGeneralProposalLegacy(title: Text, description: Text): async Result.Result<Nat, Text> {
+  await emitInsight("warning", "Legacy proposal submission detected - consider migrating to Triad-native API");
+  await triadGovernance.submitGeneralProposal(caller, title, description);
+};
+
+public shared({ caller }) func castGeneralVoteLegacy(proposalId: Nat, choice: Bool): async Result.Result<(), Text> {
+  await emitInsight("warning", "Legacy vote cast detected - consider migrating to Triad-native API");
+  await triadGovernance.castGeneralVote(caller, proposalId, choice);
+};
+
+public shared({ caller }) func finalizeGeneralProposalLegacy(proposalId: Nat): async Result.Result<TriadGovernance.Proposal, Text> {
+  await emitInsight("warning", "Legacy proposal finalization detected - consider migrating to Triad-native API");
+  await triadGovernance.finalizeGeneralProposal(caller, proposalId);
+};
+
+// 📊 Governance Analytics APIs
+public func getGovernanceMetrics(): async GovernanceAnalytics.ParticipationMetrics {
+  await analyticsEngine.getParticipationMetrics()
+};
+
+public func getVotingPatterns(voter: Principal): async ?GovernanceAnalytics.VotingPattern {
+  await analyticsEngine.getVoterProfile(voter)
+};
+
+public func getGovernanceHealth(): async GovernanceAnalytics.GovernanceHealth {
+  await analyticsEngine.assessGovernanceHealth()
+};
+
+public func getTrendAnalysis(): async GovernanceAnalytics.TrendAnalysis {
+  await analyticsEngine.generateTrendAnalysis()
+};
+
+public func getEfficiencyReport(): async {averageFinalizationTime: Nat64; averageTimeToQuorum: ?Nat64; consensusStrength: Float; participationTrends: Text} {
+  await analyticsEngine.getGovernanceEfficiencyReport()
+};
+
+public func getProposalAnalytics(proposalId: Nat): async ?GovernanceAnalytics.ProposalAnalytics {
+  await analyticsEngine.getProposalAnalytics(proposalId)
+};
+
+// ================================
+// 🔥 ENHANCED EVENT MANAGEMENT INTEGRATION
+// ================================
+
+// Get comprehensive health status across all enhanced event systems
+public func getEnhancedEventSystemHealth(): async {
+  enhanced: {
+    totalEvents: Nat;
+    avgProcessingTime: Nat64;
+  };
+  production: {
+    totalQueued: Nat;
+    status: Text;
+  };
+  triad: {
+    utilizationPercent: Float;
+    status: Text;
+  };
+  basic: {
+    queueLength: Nat;
+  };
+} {
+  let enhancedHealth = await EnhancedEventIntegration.getEnhancedSystemHealth(enhancedEventCoordinator);
+  let basicQueueLength = await eventManager.getEventQueueLength();
+  
+  {
+    enhanced = enhancedHealth.enhanced;
+    production = enhancedHealth.production;
+    triad = enhancedHealth.triad;
+    basic = {
+      queueLength = basicQueueLength;
+    };
+  }
+};
+
+// Emit governance event across all systems (basic + enhanced)
+public func emitGovernanceEventAcrossAllSystems(event: EventTypes.Event): async Result.Result<(), Text> {
+  try {
+    // Emit to basic event manager (always works)
+    await eventManager.emit(event);
+    
+    // Emit to enhanced systems (best effort)
+    let _enhancedResult = await EnhancedEventIntegration.emitGovernanceEventEnhanced(enhancedEventCoordinator, event);
+    
+    // Coordinate triad governance events
+    await EnhancedEventIntegration.coordinateTriadGovernanceEvent(enhancedEventCoordinator, event);
+    
+    await emitInsight("info", "Governance event emitted across all available systems: " # debug_show(event.eventType));
+    #ok(())
+  } catch (error) {
+    let errorMessage = Error.message(error);
+    await emitInsight("error", "Failed to emit governance event: " # errorMessage);
+    #err("event emission failed: " # errorMessage)
+  };
+};
+
+// Process all pending events across enhanced systems
+public func processAllEnhancedPendingEvents(): async Result.Result<{
+  enhanced: Nat;
+  production: Nat;
+  triad: Nat;
+  basic: Nat;
+  total: Nat;
+}, Text> {
+  try {
+    // Process enhanced events
+    let enhancedResult = await EnhancedEventIntegration.processAllEnhancedEvents(enhancedEventCoordinator);
+    
+    // Get basic queue length
+    let basicQueue = await eventManager.getEventQueueLength();
+    
+    switch (enhancedResult) {
+      case (#ok(results)) {
+        let total = results.total + basicQueue;
+        await emitInsight("info", "Enhanced event processing completed: " # Nat.toText(total) # " total events processed");
+        
+        #ok({
+          enhanced = results.enhanced;
+          production = results.production;
+          triad = results.triad;
+          basic = basicQueue;
+          total = total;
+        })
+      };
+      case (#err(error)) {
+        await emitInsight("warning", "Enhanced event processing failed, basic system still operational: " # error);
+        #ok({
+          enhanced = 0;
+          production = 0;
+          triad = 0;
+          basic = basicQueue;
+          total = basicQueue;
+        })
+      };
+    }
+  } catch (error) {
+    let errorMessage = Error.message(error);
+    await emitInsight("error", "Event processing failed: " # errorMessage);
+    #err("event processing failed: " # errorMessage)
+  };
+};
 };
