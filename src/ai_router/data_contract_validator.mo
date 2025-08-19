@@ -1,8 +1,8 @@
-import Debug "mo:base/Debug";
+import _Debug "mo:base/Debug";
 import Text "mo:base/Text";
 import Array "mo:base/Array";
 import Result "mo:base/Result";
-import Iter "mo:base/Iter";
+import _Iter "mo:base/Iter";
 import Char "mo:base/Char";
 
 import AIEnvelope "../types/ai_envelope";

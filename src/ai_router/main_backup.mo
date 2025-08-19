@@ -13,7 +13,7 @@ import AI "../types/ai_envelope";
 import DCV "./data_contract_validator";
 import LM "./data_lifecycle_manager";
 import CB "./circuit_breaker";
-import PE "../policy/policy_engine";
+import _PE "../policy/policy_engine";
 
 persistent actor AIRouter {
     
@@ -35,8 +35,8 @@ persistent actor AIRouter {
     
     // Configuration
     private transient let MAX_SESSION_DURATION_MS: Nat = 4 * 60 * 60 * 1000; // 4 hours
-    private transient let MAX_REQUEST_TIMEOUT_MS: Nat = 150; // 150ms budget
-    private transient let MAX_RETRY_COUNT: Nat = 3;
+    private transient let _MAX_REQUEST_TIMEOUT_MS: Nat = 150; // 150ms budget
+    private transient let _MAX_RETRY_COUNT: Nat = 3;
     
     // Circuit breaker configuration
     private var circuitBreaker = CB.createCircuitBreaker({
@@ -107,7 +107,7 @@ persistent actor AIRouter {
         };
         
         // 2. Validate session
-        switch (validateSession(request.sessionId, #AISubmitter)) {
+        switch (validateSessionWithRole(request.sessionId, #AISubmitter)) {
             case (#err(error)) { return #err("Session validation failed: " # error) };
             case (#ok(_)) {};
         };
@@ -224,7 +224,7 @@ persistent actor AIRouter {
                 
                 // Schedule cleanup
                 let retentionRecord = LM.createRetentionRecord(correlationId, storedRequest.request);
-                let cleanupJob = LM.createCleanupJob(correlationId, retentionRecord.category, retentionRecord.expiresAt);
+                let _cleanupJob = LM.createCleanupJob(correlationId, retentionRecord.category, retentionRecord.expiresAt);
                 
                 #ok()
             };
@@ -423,7 +423,7 @@ persistent actor AIRouter {
         };
     };
 
-    private func validateSession(sessionId: Text, requiredRole: SessionRole) : Result.Result<(), Text> {
+    private func validateSessionWithRole(sessionId: Text, requiredRole: SessionRole) : Result.Result<(), Text> {
         if (killSwitchEnabled) {
             return #err("Service unavailable: Kill switch enabled");
         };

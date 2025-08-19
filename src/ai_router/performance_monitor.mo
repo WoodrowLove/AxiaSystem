@@ -4,7 +4,7 @@ import Array "mo:base/Array";
 import Float "mo:base/Float";
 import Int "mo:base/Int";
 import Nat "mo:base/Nat";
-import Debug "mo:base/Debug";
+import _Debug "mo:base/Debug";
 import Iter "mo:base/Iter";
 
 module PerformanceMonitor {
@@ -59,17 +59,17 @@ module PerformanceMonitor {
         private var windowStartTime: Int = Time.now();
         
         // Start timing an operation
-        public func startTimer(operation: Text) : Int {
+        public func startTimer(_operation: Text) : Int {
             Time.now()
         };
         
         // Record completed operation
-        public func recordLatency(startTime: Int, operation: Text, success: Bool) {
+        public func recordLatency(startTime: Int, _operation: Text, success: Bool) {
             let endTime = Time.now();
             let measurement: LatencyMeasurement = {
                 startTime = startTime;
                 endTime = endTime;
-                operation = operation;
+                operation = _operation;
                 success = success;
             };
             
@@ -80,7 +80,7 @@ module PerformanceMonitor {
                 totalErrors += 1;
                 
                 // Categorize errors
-                switch (operation) {
+                switch (_operation) {
                     case ("circuit_breaker_trip") { circuitBreakerTrips += 1; };
                     case ("rate_limit_violation") { rateLimitViolations += 1; };
                     case ("timeout") { timeouts += 1; };
@@ -96,9 +96,9 @@ module PerformanceMonitor {
                 let measurementCount = measurements.size();
                 
                 if (measurementCount > 5000) {
-                    let keepFrom = measurementCount - 5000; // Keep last 5000
+                    let keepFromNat = Int.abs(measurementCount - 5000); // Keep last 5000
                     
-                    for (i in Iter.range(keepFrom, measurementCount - 1)) {
+                    for (i in Iter.range(keepFromNat, measurementCount - 1)) {
                         newBuffer.add(measurements[i]);
                     };
                     
