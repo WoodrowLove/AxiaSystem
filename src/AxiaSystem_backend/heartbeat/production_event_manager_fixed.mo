@@ -126,7 +126,7 @@ module ProductionEventManager {
         public func emitWithPriority(
             event: EventTypes.Event,
             priority: EventPriority,
-            source: ?Text
+            _source: ?Text
         ) : async Result.Result<(), Text> {
             
             let prioritizedEvent: PrioritizedEvent = {

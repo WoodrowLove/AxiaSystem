@@ -1,0 +1,47 @@
+# Product Team Policy Configuration
+# Owner: Product Management
+# Domain: Business Logic, UX, Regulatory Compliance
+
+[fraud_protection]
+enabled = true
+block_suspicious_patterns = true
+fraud_score_threshold = 0.8
+require_mfa_for_high_risk = true
+
+[amount_policies]
+high_value_tier_start = 4  # Tier 4-5 considered high value
+require_mfa_tier = 4
+hold_for_review_tier = 5
+max_daily_tier_5_transactions = 3
+
+[compliance_rules]
+aml_checks_enabled = true
+kyc_verification_required = true
+sanctions_screening = true
+pep_screening = true
+enhanced_due_diligence_threshold = 5  # Tier 5 requires EDD
+
+[user_experience]
+mfa_timeout_seconds = 300  # 5 minutes
+notification_preferences = "real_time"
+escalation_ui_enabled = true
+
+[regulatory_compliance]
+gdpr_compliance = true
+ccpa_compliance = true
+pci_dss_compliance = true
+sox_compliance = true
+data_retention_enforcement = true
+
+# Time-based policies
+[business_hours]
+start_hour = 6   # 6 AM
+end_hour = 22    # 10 PM
+timezone = "UTC"
+off_hours_require_approval = true
+
+[escalation_thresholds]
+supervisor_threshold = 10000   # $10K USD equivalent (Tier 4)
+management_threshold = 50000   # $50K USD equivalent (Tier 5)
+executive_threshold = 100000   # $100K USD equivalent
+legal_threshold = 250000       # $250K USD equivalent

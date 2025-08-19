@@ -1,3 +1,4 @@
+import TriadShared "types/triad_shared";
 import TokenCanisterProxy "./token/utils/token_canister_proxy";
 import UserCanisterProxy "./user/utils/user_canister_proxy";
 import WalletCanisterProxy "./wallet/utils/wallet_canister_proxy";
@@ -906,12 +907,20 @@ public shared func deleteUser(userId: Principal): async Result.Result<(), Text> 
 
 // Register a new project
 public shared(msg) func registerProject(projectId: Text, name: Text, description: Text): async Result.Result<Text, Text> {
-    await projectRegistry.registerProject(msg.caller, projectId, name, description);
+    let result = await projectRegistry.registerProject(msg.caller, projectId, name, description);
+    switch (result) {
+        case (#ok(message)) #ok(message);
+        case (#err(triadError)) #err(TriadShared.errorToText(triadError));
+    }
 };
 
 // Link a module to a project
 public shared(msg) func linkModuleToProject(projectId: Text, moduleName: Text): async Result.Result<Text, Text> {
-    await projectRegistry.linkModuleToProject(msg.caller, projectId, moduleName);
+    let result = await projectRegistry.linkModuleToProject(msg.caller, projectId, moduleName);
+    switch (result) {
+        case (#ok(message)) #ok(message);
+        case (#err(triadError)) #err(TriadShared.errorToText(triadError));
+    }
 };
 
 // Get all projects created by caller

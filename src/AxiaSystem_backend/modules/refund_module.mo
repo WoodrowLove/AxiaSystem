@@ -7,19 +7,42 @@ import Array "mo:base/Array";
 import Text "mo:base/Text";
 import _ "mo:base/Option";
 import Buffer "mo:base/Buffer";
-import Nat64 "mo:base/Nat64";
 import LoggingUtils "../utils/logging_utils";
 import EventManager "../heartbeat/event_manager";
-import EventTypes "../heartbeat/event_types";
+import TriadShared "../types/triad_shared";
+import CorrelationUtils "../utils/correlation";
+import EnhancedTriadEventManager "../heartbeat/enhanced_triad_event_manager";
 
 module {
     // Core types for refund management
     public type RefundRequestId = Nat;
 
+    // Enhanced refund source with triad identity context
+    public type TriadRefundContext = {
+        identity: TriadShared.TriadIdentity;
+        userPrincipal: ?Principal;
+        walletPrincipal: ?Principal;
+        deviceContext: ?Text;
+    };
+
     public type RefundSource = {
-        #UserFunds: { fromUser: Principal };      // Refund from user's wallet/transaction
-        #Treasury: { requiresApproval: Bool };    // Refund from treasury funds
-        #Hybrid: { userPortion: Nat; treasuryPortion: Nat }; // Split between user and treasury
+        #UserFunds: { fromUser: Principal; context: ?TriadRefundContext };
+        #Treasury: { requiresApproval: Bool; context: ?TriadRefundContext };
+        #Hybrid: { 
+            userPortion: Nat; 
+            treasuryPortion: Nat; 
+            context: ?TriadRefundContext 
+        };
+    };
+
+    // Enhanced refund processing states
+    public type RefundProcessingState = {
+        #pending;
+        #withdrawing;        // Treasury withdrawal in progress
+        #credited;          // Funds credited to user
+        #finalized;         // Process complete
+        #failedCompensated; // Failed but compensated
+        #retrying;          // Retry in progress
     };
 
     public type RefundRequest = {
@@ -29,14 +52,18 @@ module {
         requestedBy: Principal;           // User/system that requested refund
         requestedAt: Int;                 // Timestamp
         amount: Nat;                      // Amount to refund
-        refundSource: RefundSource;       // Where funds come from
+        refundSource: RefundSource;       // Where funds come from with triad context
         reason: ?Text;                    // User-provided reason
         status: Text;                     // "Requested" | "PendingReview" | "Approved" | "Denied" | "Processing" | "Completed" | "Failed"
+        processingState: ?RefundProcessingState; // Detailed processing state
         adminPrincipal: ?Principal;       // Admin who approved/denied
         adminNote: ?Text;                 // Admin reasoning
         processedAt: ?Int;                // When processed
         treasuryTransactionId: ?Nat;      // If funded by treasury, reference to treasury transaction
         lastUpdatedAt: Int;               // For sorting/filtering
+        correlation: ?TriadShared.CorrelationContext; // Operation correlation
+        retryCount: Nat;                  // Number of retry attempts
+        priority: TriadShared.Priority;   // Processing priority
     };
 
     public type RefundStats = {
@@ -52,25 +79,60 @@ module {
         private var refundRequests : Buffer.Buffer<RefundRequest> = Buffer.Buffer<RefundRequest>(0);
         private var nextRefundId: Nat = 1;
         private var logStore = LoggingUtils.init();
+        private let enhancedEventManager = EnhancedTriadEventManager.createEnhancedTriadEventManager(eventManager);
+        private let correlationManager = CorrelationUtils.getCorrelationManager();
 
-        // Helper function to emit events
-        private func emitEvent(eventType: EventTypes.EventType, payload: EventTypes.EventPayload) : async () {
-            let event : EventTypes.Event = {
-                id = Int.abs(Time.now()) |> Nat64.fromNat(_);
-                eventType = eventType;
-                payload = payload;
-            };
-            await eventManager.emit(event);
+        // Enhanced event emission for refund requested
+        private func emitRefundRequestedTriad(
+            refundId: RefundRequestId,
+            originType: Text,
+            originId: Nat,
+            requestedBy: Principal,
+            amount: Nat,
+            reason: ?Text,
+            correlation: TriadShared.CorrelationContext
+        ): async () {
+            let childCorrelation = correlationManager.deriveChild(
+                correlation,
+                "refund-system",
+                "emit-event"
+            );
+
+            let _ = await enhancedEventManager.emitTriadEvent(
+                #RefundRequested,
+                #RefundRequested({
+                    refundId = refundId;
+                    originType = originType;
+                    originId = originId;
+                    requestedBy = requestedBy;
+                    amount = amount;
+                    reason = reason;
+                    timestamp = Time.now();
+                }),
+                childCorrelation,
+                ?#high, // Refund requests are high priority
+                ["refund-system"],
+                ["refund", "financial"],
+                [("refundId", Nat.toText(refundId)), ("amount", Nat.toText(amount))]
+            );
         };
 
-        // Create a new refund request
+        // Create a new refund request with triad support
         public func createRefundRequest(
             originId: Nat,
             requestedBy: Principal, 
             amount: Nat,
             refundSource: RefundSource,
             reason: ?Text
-        ): async Result.Result<RefundRequestId, Text> {
+        ): async Result.Result<RefundRequestId, TriadShared.TriadError> {
+            // Create correlation context
+            let correlation = correlationManager.createCorrelation(
+                "refund-request",
+                requestedBy,
+                "refund-system",
+                "create-request"
+            );
+
             LoggingUtils.logInfo(
                 logStore,
                 "RefundManager",
@@ -81,7 +143,12 @@ module {
 
             // Validate request
             if (amount <= 0) {
-                return #err("Refund amount must be greater than zero");
+                correlationManager.completeFlowStep(correlation.correlationId, false, ?"Invalid amount");
+                return #err(#Invalid({ 
+                    field = "amount"; 
+                    value = Nat.toText(amount); 
+                    reason = "Amount must be greater than zero" 
+                }));
             };
 
             let currentTime = Time.now();
@@ -95,27 +162,33 @@ module {
                 refundSource = refundSource;
                 reason = reason;
                 status = "Requested";
+                processingState = ?#pending;
                 adminPrincipal = null;
                 adminNote = null;
                 processedAt = null;
                 treasuryTransactionId = null;
                 lastUpdatedAt = currentTime;
+                correlation = ?correlation;
+                retryCount = 0;
+                priority = #normal; // Default priority
             };
 
             refundRequests.add(refundRequest);
             let requestId = nextRefundId;
             nextRefundId += 1;
 
-            // Emit refund requested event
-            await emitEvent(#RefundRequested, #RefundRequested {
-                refundId = requestId;
-                originType = originType;
-                originId = originId;
-                requestedBy = requestedBy;
-                amount = amount;
-                reason = reason;
-                timestamp = currentTime;
-            });
+            // Emit enhanced refund requested event
+            let _ = await emitRefundRequestedTriad(
+                requestId,
+                originType,
+                originId,
+                requestedBy,
+                amount,
+                reason,
+                correlation
+            );
+
+            correlationManager.completeFlowStep(correlation.correlationId, true, null);
 
             LoggingUtils.logInfo(
                 logStore,
@@ -192,12 +265,20 @@ module {
             }
         };
 
-        // Approve a refund request
+        // Approve a refund request with enhanced tracking
         public func approveRefundRequest(
             requestId: RefundRequestId,
             adminPrincipal: Principal,
             adminNote: ?Text
-        ): async Result.Result<(), Text> {
+        ): async Result.Result<(), TriadShared.TriadError> {
+            // Create correlation context for approval
+            let correlation = correlationManager.createCorrelation(
+                "refund-approval",
+                adminPrincipal,
+                "refund-system",
+                "approve-request"
+            );
+
             LoggingUtils.logInfo(
                 logStore,
                 "RefundManager",
@@ -219,27 +300,40 @@ module {
                 case (?index) {
                     let request = refundRequests.get(index);
                     if (request.status != "Requested" and request.status != "PendingReview") {
-                        return #err("Only requested or pending review refunds can be approved");
+                        correlationManager.completeFlowStep(
+                            correlation.correlationId,
+                            false,
+                            ?"Invalid status for approval"
+                        );
+                        return #err(#Conflict({ 
+                            reason = "Only requested or pending review refunds can be approved"; 
+                            currentState = request.status 
+                        }));
                     };
 
                     let currentTime = Time.now();
                     let updatedRequest: RefundRequest = {
                         request with 
                         status = "Approved";
+                        processingState = ?#pending;
                         adminPrincipal = ?adminPrincipal;
                         adminNote = adminNote;
                         lastUpdatedAt = currentTime;
+                        correlation = ?correlation;
+                        priority = #critical; // Approved refunds get critical priority
                     };
 
                     refundRequests.put(index, updatedRequest);
 
-                    // Emit refund approved event
-                    await emitEvent(#RefundApproved, #RefundApproved {
-                        refundId = requestId;
-                        adminPrincipal = adminPrincipal;
-                        adminNote = adminNote;
-                        timestamp = currentTime;
-                    });
+                    // Emit enhanced refund approved event
+                    let _ = await emitRefundApprovedTriad(
+                        requestId,
+                        adminPrincipal,
+                        adminNote,
+                        correlation
+                    );
+
+                    correlationManager.completeFlowStep(correlation.correlationId, true, null);
 
                     LoggingUtils.logInfo(
                         logStore,
@@ -250,16 +344,63 @@ module {
 
                     #ok(())
                 };
-                case (null) #err("Refund request not found");
+                case (null) {
+                    correlationManager.completeFlowStep(
+                        correlation.correlationId,
+                        false,
+                        ?"Refund request not found"
+                    );
+                    #err(#NotFound({ 
+                        resource = "refund-request"; 
+                        id = Nat.toText(requestId) 
+                    }));
+                };
             }
         };
 
-        // Deny a refund request
+        // Enhanced event emission for refund approved
+        private func emitRefundApprovedTriad(
+            refundId: RefundRequestId,
+            adminPrincipal: Principal,
+            adminNote: ?Text,
+            correlation: TriadShared.CorrelationContext
+        ): async () {
+            let childCorrelation = correlationManager.deriveChild(
+                correlation,
+                "refund-system",
+                "emit-approval-event"
+            );
+
+            let _ = await enhancedEventManager.emitTriadEvent(
+                #RefundApproved,
+                #RefundApproved({
+                    refundId = refundId;
+                    adminPrincipal = adminPrincipal;
+                    adminNote = adminNote;
+                    timestamp = Time.now();
+                }),
+                childCorrelation,
+                ?#critical, // Approvals are critical events
+                ["refund-system", "admin"],
+                ["refund", "approval", "financial"],
+                [("refundId", Nat.toText(refundId)), ("admin", Principal.toText(adminPrincipal))]
+            );
+        };
+
+        // Deny a refund request with enhanced tracking
         public func denyRefundRequest(
             requestId: RefundRequestId,
             adminPrincipal: Principal,
             adminNote: ?Text
-        ): async Result.Result<(), Text> {
+        ): async Result.Result<(), TriadShared.TriadError> {
+            // Create correlation context for denial
+            let correlation = correlationManager.createCorrelation(
+                "refund-denial",
+                adminPrincipal,
+                "refund-system", 
+                "deny-request"
+            );
+
             LoggingUtils.logInfo(
                 logStore,
                 "RefundManager",
@@ -281,7 +422,15 @@ module {
                 case (?index) {
                     let request = refundRequests.get(index);
                     if (request.status != "Requested" and request.status != "PendingReview") {
-                        return #err("Only requested or pending review refunds can be denied");
+                        correlationManager.completeFlowStep(
+                            correlation.correlationId,
+                            false,
+                            ?"Invalid status for denial"
+                        );
+                        return #err(#Conflict({ 
+                            reason = "Only requested or pending review refunds can be denied"; 
+                            currentState = request.status 
+                        }));
                     };
 
                     let currentTime = Time.now();
@@ -291,17 +440,28 @@ module {
                         adminPrincipal = ?adminPrincipal;
                         adminNote = adminNote;
                         lastUpdatedAt = currentTime;
+                        correlation = ?correlation;
                     };
 
                     refundRequests.put(index, updatedRequest);
 
-                    // Emit refund denied event
-                    await emitEvent(#RefundDenied, #RefundDenied {
-                        refundId = requestId;
-                        adminPrincipal = adminPrincipal;
-                        adminNote = adminNote;
-                        timestamp = currentTime;
-                    });
+                    // Use enhanced event emission (placeholder - would need to be implemented like approval)
+                    let _ = await enhancedEventManager.emitTriadEvent(
+                        #RefundDenied,
+                        #RefundDenied({
+                            refundId = requestId;
+                            adminPrincipal = adminPrincipal;
+                            adminNote = adminNote;
+                            timestamp = currentTime;
+                        }),
+                        correlation,
+                        ?#critical,
+                        ["refund-system", "admin"],
+                        ["refund", "denial"],
+                        [("refundId", Nat.toText(requestId))]
+                    );
+
+                    correlationManager.completeFlowStep(correlation.correlationId, true, null);
 
                     LoggingUtils.logInfo(
                         logStore,
@@ -312,16 +472,26 @@ module {
 
                     #ok(())
                 };
-                case (null) #err("Refund request not found");
+                case (null) {
+                    correlationManager.completeFlowStep(
+                        correlation.correlationId,
+                        false,
+                        ?"Refund request not found"
+                    );
+                    #err(#NotFound({ 
+                        resource = "refund-request"; 
+                        id = Nat.toText(requestId) 
+                    }));
+                };
             }
         };
 
-        // Mark refund as processed
+        // Mark refund as processed with enhanced tracking
         public func markRefundProcessed(
             requestId: RefundRequestId,
             success: Bool,
             errorMsg: ?Text
-        ): async Result.Result<(), Text> {
+        ): async Result.Result<(), TriadShared.TriadError> {
             var foundIndex: ?Nat = null;
             let allRequests = Buffer.toArray(refundRequests);
             
@@ -336,27 +506,68 @@ module {
                 case (?index) {
                     let request = refundRequests.get(index);
                     if (request.status != "Approved" and request.status != "Processing") {
-                        return #err("Only approved or processing refunds can be marked as processed");
+                        return #err(#Conflict({ 
+                            reason = "Only approved or processing refunds can be marked as processed"; 
+                            currentState = request.status 
+                        }));
                     };
 
                     let currentTime = Time.now();
                     let newStatus = if (success) "Completed" else "Failed";
+                    let newProcessingState = if (success) ?#finalized else ?#failedCompensated;
+                    
                     let updatedRequest: RefundRequest = {
                         request with 
                         status = newStatus;
+                        processingState = newProcessingState;
                         processedAt = ?currentTime;
                         lastUpdatedAt = currentTime;
                     };
 
                     refundRequests.put(index, updatedRequest);
 
-                    // Emit refund processed event
-                    await emitEvent(#RefundProcessed, #RefundProcessed {
-                        refundId = requestId;
-                        processedAt = currentTime;
-                        success = success;
-                        errorMsg = errorMsg;
-                    });
+                    // Emit enhanced refund processed event
+                    switch (request.correlation) {
+                        case (?correlation) {
+                            let _ = await enhancedEventManager.emitTriadEvent(
+                                #RefundProcessed,
+                                #RefundProcessed({
+                                    refundId = requestId;
+                                    processedAt = currentTime;
+                                    success = success;
+                                    errorMsg = errorMsg;
+                                }),
+                                correlation,
+                                ?#high,
+                                ["refund-system"],
+                                ["refund", "processing"],
+                                [("refundId", Nat.toText(requestId)), ("success", if (success) "true" else "false")]
+                            );
+                        };
+                        case (null) {
+                            // Fallback correlation if none exists
+                            let fallbackCorrelation = correlationManager.createCorrelation(
+                                "refund-processing",
+                                request.requestedBy,
+                                "refund-system",
+                                "mark-processed"
+                            );
+                            let _ = await enhancedEventManager.emitTriadEvent(
+                                #RefundProcessed,
+                                #RefundProcessed({
+                                    refundId = requestId;
+                                    processedAt = currentTime;
+                                    success = success;
+                                    errorMsg = errorMsg;
+                                }),
+                                fallbackCorrelation,
+                                ?#high,
+                                ["refund-system"],
+                                ["refund", "processing"],
+                                [("refundId", Nat.toText(requestId))]
+                            );
+                        };
+                    };
 
                     LoggingUtils.logInfo(
                         logStore,
@@ -367,7 +578,10 @@ module {
 
                     #ok(())
                 };
-                case (null) #err("Refund request not found");
+                case (null) #err(#NotFound({ 
+                    resource = "refund-request"; 
+                    id = Nat.toText(requestId) 
+                }));
             }
         };
 
@@ -408,11 +622,11 @@ module {
             })
         };
 
-        // Process a treasury-funded refund
+        // Process a treasury-funded refund with enhanced state management
         public func processTreasuryRefund(
             requestId: RefundRequestId,
             treasuryTransactionId: Nat
-        ): async Result.Result<(), Text> {
+        ): async Result.Result<(), TriadShared.TriadError> {
             LoggingUtils.logInfo(
                 logStore,
                 "RefundManager",
@@ -434,7 +648,10 @@ module {
                 case (?index) {
                     let request = refundRequests.get(index);
                     if (request.status != "Approved") {
-                        return #err("Only approved refunds can be processed");
+                        return #err(#Conflict({ 
+                            reason = "Only approved refunds can be processed"; 
+                            currentState = request.status 
+                        }));
                     };
 
                     // Check if this is a treasury-funded refund
@@ -444,6 +661,7 @@ module {
                             let updatedRequest: RefundRequest = {
                                 request with 
                                 status = "Completed";
+                                processingState = ?#finalized;
                                 processedAt = ?currentTime;
                                 treasuryTransactionId = ?treasuryTransactionId;
                                 lastUpdatedAt = currentTime;
@@ -451,13 +669,48 @@ module {
 
                             refundRequests.put(index, updatedRequest);
 
-                            // Emit refund processed event
-                            await emitEvent(#RefundProcessed, #RefundProcessed {
-                                refundId = requestId;
-                                processedAt = currentTime;
-                                success = true;
-                                errorMsg = null;
-                            });
+                            // Emit enhanced refund processed event
+                            switch (request.correlation) {
+                                case (?correlation) {
+                                    let _ = await enhancedEventManager.emitTriadEvent(
+                                        #RefundProcessed,
+                                        #RefundProcessed({
+                                            refundId = requestId;
+                                            processedAt = currentTime;
+                                            success = true;
+                                            errorMsg = null;
+                                        }),
+                                        correlation,
+                                        ?#high,
+                                        ["refund-system", "treasury"],
+                                        ["refund", "processing", "treasury"],
+                                        [("refundId", Nat.toText(requestId)), ("treasuryTxId", Nat.toText(treasuryTransactionId))]
+                                    );
+                                };
+                                case (null) {
+                                    // Create fallback correlation
+                                    let fallbackCorrelation = correlationManager.createCorrelation(
+                                        "treasury-refund-processing",
+                                        request.requestedBy,
+                                        "refund-system",
+                                        "process-treasury-refund"
+                                    );
+                                    let _ = await enhancedEventManager.emitTriadEvent(
+                                        #RefundProcessed,
+                                        #RefundProcessed({
+                                            refundId = requestId;
+                                            processedAt = currentTime;
+                                            success = true;
+                                            errorMsg = null;
+                                        }),
+                                        fallbackCorrelation,
+                                        ?#high,
+                                        ["refund-system", "treasury"],
+                                        ["refund", "processing"],
+                                        [("refundId", Nat.toText(requestId))]
+                                    );
+                                };
+                            };
 
                             LoggingUtils.logInfo(
                                 logStore,
@@ -469,14 +722,25 @@ module {
                             #ok(())
                         };
                         case (#UserFunds(_)) {
-                            #err("Cannot process user-funded refund through treasury processing")
+                            #err(#Invalid({ 
+                                field = "refundSource"; 
+                                value = "UserFunds"; 
+                                reason = "Cannot process user-funded refund through treasury processing" 
+                            }));
                         };
                         case (#Hybrid(_)) {
-                            #err("Hybrid refunds require special processing - not yet implemented")
+                            #err(#Invalid({ 
+                                field = "refundSource"; 
+                                value = "Hybrid"; 
+                                reason = "Hybrid refunds require special processing - not yet implemented" 
+                            }));
                         };
                     }
                 };
-                case (null) #err("Refund request not found");
+                case (null) #err(#NotFound({ 
+                    resource = "refund-request"; 
+                    id = Nat.toText(requestId) 
+                }));
             }
         };
 
@@ -498,13 +762,17 @@ module {
 
             // Determine refund source based on refund type
             let refundSource: RefundSource = switch (refundType) {
-                case ("ServiceCredit") #Treasury({ requiresApproval = false }); // Auto-approve service credits
-                case ("Cancellation") #Treasury({ requiresApproval = true });   // Manual approval for cancellations
-                case ("Prorated") #Treasury({ requiresApproval = false });     // Auto-approve prorated refunds
-                case (_) #Treasury({ requiresApproval = true });               // Default to manual approval
+                case ("ServiceCredit") #Treasury({ requiresApproval = false; context = null }); // Auto-approve service credits
+                case ("Cancellation") #Treasury({ requiresApproval = true; context = null });   // Manual approval for cancellations
+                case ("Prorated") #Treasury({ requiresApproval = false; context = null });     // Auto-approve prorated refunds
+                case (_) #Treasury({ requiresApproval = true; context = null });               // Default to manual approval
             };
 
-            await createRefundRequest(subscriptionId, userId, refundAmount, refundSource, reason)
+            let result = await createRefundRequest(subscriptionId, userId, refundAmount, refundSource, reason);
+            switch (result) {
+                case (#ok(requestId)) #ok(requestId);
+                case (#err(triadError)) #err(TriadShared.errorToText(triadError));
+            }
         };
 
         // Get treasury-funded refunds that need processing
@@ -523,7 +791,7 @@ module {
             });
         };
 
-        // Auto-approve eligible refunds
+        // Auto-approve eligible refunds with enhanced triad event emission
         public func autoApproveEligibleRefunds(): async [RefundRequestId] {
             let allRequests = Buffer.toArray(refundRequests);
             var approvedIds: [RefundRequestId] = [];
@@ -551,13 +819,48 @@ module {
                         refundRequests.put(i, updatedRequest);
                         approvedIds := Array.append(approvedIds, [request.id]);
 
-                        // Emit auto-approval event
-                        ignore emitEvent(#RefundApproved, #RefundApproved {
-                            refundId = request.id;
-                            adminPrincipal = systemPrincipal;
-                            adminNote = ?"Auto-approved: Eligible for automatic processing";
-                            timestamp = currentTime;
-                        });
+                        // Emit enhanced auto-approval event
+                        switch (request.correlation) {
+                            case (?correlation) {
+                                ignore enhancedEventManager.emitTriadEvent(
+                                    #RefundApproved,
+                                    #RefundApproved({
+                                        refundId = request.id;
+                                        adminPrincipal = systemPrincipal;
+                                        adminNote = ?"Auto-approved: Eligible for automatic processing";
+                                        timestamp = currentTime;
+                                    }),
+                                    correlation,
+                                    ?#normal,
+                                    ["refund-system", "auto-approval"],
+                                    ["refund", "approval", "automated"],
+                                    [("refundId", Nat.toText(request.id)), ("auto", "true")]
+                                );
+                            };
+                            case (null) {
+                                // Create fallback correlation for legacy requests
+                                let fallbackCorrelation = correlationManager.createCorrelation(
+                                    "auto-approval",
+                                    systemPrincipal,
+                                    "refund-system",
+                                    "auto-approve-eligible"
+                                );
+                                ignore enhancedEventManager.emitTriadEvent(
+                                    #RefundApproved,
+                                    #RefundApproved({
+                                        refundId = request.id;
+                                        adminPrincipal = systemPrincipal;
+                                        adminNote = ?"Auto-approved: Eligible for automatic processing";
+                                        timestamp = currentTime;
+                                    }),
+                                    fallbackCorrelation,
+                                    ?#normal,
+                                    ["refund-system", "auto-approval"],
+                                    ["refund", "approval"],
+                                    [("refundId", Nat.toText(request.id))]
+                                );
+                            };
+                        };
 
                         LoggingUtils.logInfo(
                             logStore,

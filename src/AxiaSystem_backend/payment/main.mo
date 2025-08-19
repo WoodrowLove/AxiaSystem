@@ -5,9 +5,11 @@ import TokenCanisterProxy "../token/utils/token_canister_proxy";
 import EventManager "../heartbeat/event_manager";
 import EventTypes "../heartbeat/event_types";
 import RefundModule "../modules/refund_module";
+import TriadShared "../types/triad_shared";
 import Principal "mo:base/Principal";
 import Result "mo:base/Result";
 import Nat "mo:base/Nat";
+import Nat64 "mo:base/Nat64";
 import Text "mo:base/Text";
 import Error "mo:base/Error";
 import Array "mo:base/Array";
@@ -31,6 +33,21 @@ persistent actor PaymentCanister {
         };
         Debug.print("🧠 PAYMENT INSIGHT [" # severity # "]: " # message);
         // await NamoraAI.pushInsight(insight);
+    };
+
+    // Helper function to convert TriadError to Text for legacy API compatibility
+    private func triadErrorToText(error: TriadShared.TriadError): Text {
+        switch (error) {
+            case (#NotFound(details)) "Not found: " # details.resource # " with ID " # details.id;
+            case (#Unauthorized(details)) "Unauthorized: " # details.operationType # " for principal " # Principal.toText(details.principal);
+            case (#Conflict(details)) "Conflict: " # details.reason # " (current state: " # details.currentState # ")";
+            case (#Invalid(details)) "Invalid " # details.field # ": " # details.reason # " (value: " # details.value # ")";
+            case (#Upstream(details)) "Upstream error from " # details.systemName # ": " # details.error;
+            case (#Transient(details)) "Transient error in " # details.operationType # " operation" # (switch (details.retryAfter) { case (?after) " (retry after " # Nat64.toText(after) # "ms)"; case (null) "" });
+            case (#Internal(details)) "Internal error [" # details.code # "]: " # details.message;
+            case (#Capacity(details)) "Capacity exceeded: " # details.resource # " (" # Nat.toText(details.current) # "/" # Nat.toText(details.limit) # ")";
+            case (#Timeout(details)) "Timeout in " # details.operationType # " operation (" # Nat64.toText(details.duration) # "ms)";
+        }
     };
 
     // Instantiate proxies for inter-canister communication
@@ -230,7 +247,10 @@ public func reversePayment(paymentId: Nat): async Result.Result<(), Text> {
             // Default to user funds if not specified
             let source = switch (refundSource) {
                 case (?src) src;
-                case (null) #UserFunds({ fromUser = requestedBy });
+                case (null) #UserFunds({ 
+                    fromUser = requestedBy; 
+                    context = null 
+                });
             };
 
             let result = await refundManager.createRefundRequest(paymentId, requestedBy, amount, source, reason);
@@ -240,8 +260,9 @@ public func reversePayment(paymentId: Nat): async Result.Result<(), Text> {
                     #ok(refundId)
                 };
                 case (#err(e)) {
-                    await emitInsight("error", "Refund request creation failed: " # e);
-                    #err(e)
+                    let errorText = triadErrorToText(e);
+                    await emitInsight("error", "Refund request creation failed: " # errorText);
+                    #err(errorText)
                 };
             }
         } catch (error) {
@@ -261,7 +282,10 @@ public func reversePayment(paymentId: Nat): async Result.Result<(), Text> {
         await emitInsight("info", "Treasury refund creation attempted for payment ID: " # Nat.toText(paymentId));
         
         try {
-            let treasurySource = #Treasury({ requiresApproval = requiresApproval });
+            let treasurySource = #Treasury({ 
+                requiresApproval = requiresApproval; 
+                context = null 
+            });
             let result = await refundManager.createRefundRequest(paymentId, requestedBy, amount, treasurySource, reason);
             
             switch (result) {
@@ -270,8 +294,9 @@ public func reversePayment(paymentId: Nat): async Result.Result<(), Text> {
                     #ok(refundId)
                 };
                 case (#err(e)) {
-                    await emitInsight("error", "Treasury refund creation failed: " # e);
-                    #err(e)
+                    let errorText = triadErrorToText(e);
+                    await emitInsight("error", "Treasury refund creation failed: " # errorText);
+                    #err(errorText)
                 };
             }
         } catch (error) {
@@ -321,8 +346,9 @@ public func reversePayment(paymentId: Nat): async Result.Result<(), Text> {
                     #ok(())
                 };
                 case (#err(e)) {
-                    await emitInsight("error", "Refund request approval failed: " # e);
-                    #err(e)
+                    let errorText = triadErrorToText(e);
+                    await emitInsight("error", "Refund request approval failed: " # errorText);
+                    #err(errorText)
                 };
             }
         } catch (error) {
@@ -347,8 +373,9 @@ public func reversePayment(paymentId: Nat): async Result.Result<(), Text> {
                     #ok(())
                 };
                 case (#err(e)) {
-                    await emitInsight("error", "Refund request denial failed: " # e);
-                    #err(e)
+                    let errorText = triadErrorToText(e);
+                    await emitInsight("error", "Refund request denial failed: " # errorText);
+                    #err(errorText)
                 };
             }
         } catch (error) {

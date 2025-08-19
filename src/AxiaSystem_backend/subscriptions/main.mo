@@ -3,12 +3,15 @@ import SubscriptionService "services/subscription_service";
 import UserCanisterProxy "../user/utils/user_canister_proxy";
 import RefundModule "../modules/refund_module";
 import TreasuryRefundProcessor "../modules/treasury_refund_processor";
+import TriadShared "../types/triad_shared";
 import Principal "mo:base/Principal";
 import EventManager "../heartbeat/event_manager";
 import LoggingUtils "../utils/logging_utils";
 import Result "mo:base/Result";
 import Text "mo:base/Text";
 import Nat "mo:base/Nat";
+import Nat64 "mo:base/Nat64";
+import Array "mo:base/Array";
 import Int "mo:base/Int";
 import Time "mo:base/Time";
 import Error "mo:base/Error";
@@ -43,6 +46,21 @@ persistent actor {
 
     // Logging utility
     private transient let _logStore = LoggingUtils.init();
+
+    // Helper function to convert TriadError to Text for legacy API compatibility
+    private func triadErrorToText(error: TriadShared.TriadError): Text {
+        switch (error) {
+            case (#NotFound(details)) "Not found: " # details.resource # " with ID " # details.id;
+            case (#Unauthorized(details)) "Unauthorized: " # details.operationType # " for principal " # Principal.toText(details.principal);
+            case (#Conflict(details)) "Conflict: " # details.reason # " (current state: " # details.currentState # ")";
+            case (#Invalid(details)) "Invalid " # details.field # ": " # details.reason # " (value: " # details.value # ")";
+            case (#Upstream(details)) "Upstream error from " # details.systemName # ": " # details.error;
+            case (#Transient(details)) "Transient error in " # details.operationType # " operation" # (switch (details.retryAfter) { case (?after) " (retry after " # Nat64.toText(after) # "ms)"; case (null) "" });
+            case (#Internal(details)) "Internal error [" # details.code # "]: " # details.message;
+            case (#Capacity(details)) "Capacity exceeded: " # details.resource # " (" # Nat.toText(details.current) # "/" # Nat.toText(details.limit) # ")";
+            case (#Timeout(details)) "Timeout in " # details.operationType # " operation (" # Nat64.toText(details.duration) # "ms)";
+        }
+    };
 
     // Public API: Create a subscription
     public func createSubscription(userId: Principal, duration: Int): async Result.Result<SubscriptionModule.Subscription, Text> {
@@ -253,7 +271,11 @@ persistent actor {
         try {
             let result = await refundProcessor.processApprovedTreasuryRefunds(refundManager);
             switch (result) {
-                case (#ok(processedIds)) {
+                case (#ok(processedResults)) {
+                    let processedIds = Array.map<TreasuryRefundProcessor.TreasuryProcessingResult, Nat>(
+                        processedResults, 
+                        func(result) { result.requestId }
+                    );
                     LoggingUtils.logInfo(
                         _logStore,
                         "SubscriptionsCanister",
@@ -263,13 +285,14 @@ persistent actor {
                     #ok(processedIds)
                 };
                 case (#err(e)) {
+                    let errorText = triadErrorToText(e);
                     LoggingUtils.logError(
                         _logStore,
                         "SubscriptionsCanister",
-                        "Failed to process subscription refunds: " # e,
+                        "Failed to process subscription refunds: " # errorText,
                         null
                     );
-                    #err(e)
+                    #err(errorText)
                 };
             }
         } catch (error) {
@@ -280,7 +303,20 @@ persistent actor {
     // Auto-process eligible subscription refunds
     public func autoProcessSubscriptionRefunds(): async Result.Result<[Nat], Text> {
         try {
-            await refundProcessor.autoProcessEligibleRefunds(refundManager)
+            let result = await refundProcessor.autoProcessEligibleRefunds(refundManager);
+            switch (result) {
+                case (#ok(processedResults)) {
+                    let processedIds = Array.map<TreasuryRefundProcessor.TreasuryProcessingResult, Nat>(
+                        processedResults, 
+                        func(result) { result.requestId }
+                    );
+                    #ok(processedIds)
+                };
+                case (#err(e)) {
+                    let errorText = triadErrorToText(e);
+                    #err(errorText)
+                };
+            }
         } catch (error) {
             #err("Error auto-processing subscription refunds: " # Error.message(error))
         }
@@ -304,7 +340,14 @@ persistent actor {
         adminPrincipal: Principal,
         adminNote: ?Text
     ): async Result.Result<(), Text> {
-        await refundManager.approveRefundRequest(refundId, adminPrincipal, adminNote)
+        let result = await refundManager.approveRefundRequest(refundId, adminPrincipal, adminNote);
+        switch (result) {
+            case (#ok(())) #ok(());
+            case (#err(e)) {
+                let errorText = triadErrorToText(e);
+                #err(errorText)
+            };
+        }
     };
 
     // Deny a subscription refund
@@ -313,7 +356,14 @@ persistent actor {
         adminPrincipal: Principal,
         adminNote: ?Text
     ): async Result.Result<(), Text> {
-        await refundManager.denyRefundRequest(refundId, adminPrincipal, adminNote)
+        let result = await refundManager.denyRefundRequest(refundId, adminPrincipal, adminNote);
+        switch (result) {
+            case (#ok(())) #ok(());
+            case (#err(e)) {
+                let errorText = triadErrorToText(e);
+                #err(errorText)
+            };
+        }
     };
 
     // Get subscription refund statistics

@@ -188,3 +188,28 @@ case "${1:-}" in
         echo ""
         ;;
 esac
+
+# Additional utility functions for scripts
+validate_network() {
+    local network=$1
+    case "$network" in
+        "local"|"ic"|"testnet")
+            return 0
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
+get_canister_id() {
+    local canister_name=$1
+    local network=$2
+    
+    local canister_file="$PROJECT_ROOT/.dfx/$network/canister_ids.json"
+    if [[ -f "$canister_file" ]]; then
+        jq -r ".$canister_name.$network // empty" "$canister_file" 2>/dev/null
+    else
+        echo ""
+    fi
+}

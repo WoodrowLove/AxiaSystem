@@ -1,5 +1,6 @@
 import Principal "mo:base/Principal";
 import Nat "mo:base/Nat";
+import Nat64 "mo:base/Nat64";
 import Text "mo:base/Text";
 import Result "mo:base/Result";
 import Array "mo:base/Array";
@@ -8,6 +9,7 @@ import WalletCanisterProxy "../wallet/utils/wallet_canister_proxy";
 import EventManager "../heartbeat/event_manager";
 import SplitPaymentModule "modules/split_payment_module";
 import RefundModule "../modules/refund_module";
+import TriadShared "../types/triad_shared";
 
 persistent actor {
 
@@ -23,6 +25,21 @@ persistent actor {
 
     // Initialize the Split Payment Service
     private transient let splitPaymentService = SplitPaymentService.createSplitPaymentService(walletProxy, eventManager);
+
+    // Helper function to convert TriadError to Text for legacy API compatibility
+    private func triadErrorToText(error: TriadShared.TriadError): Text {
+        switch (error) {
+            case (#NotFound(details)) "Not found: " # details.resource # " with ID " # details.id;
+            case (#Unauthorized(details)) "Unauthorized: " # details.operationType # " for principal " # Principal.toText(details.principal);
+            case (#Conflict(details)) "Conflict: " # details.reason # " (current state: " # details.currentState # ")";
+            case (#Invalid(details)) "Invalid " # details.field # ": " # details.reason # " (value: " # details.value # ")";
+            case (#Upstream(details)) "Upstream error from " # details.systemName # ": " # details.error;
+            case (#Transient(details)) "Transient error in " # details.operationType # " operation" # (switch (details.retryAfter) { case (?after) " (retry after " # Nat64.toText(after) # "ms)"; case (null) "" });
+            case (#Internal(details)) "Internal error [" # details.code # "]: " # details.message;
+            case (#Capacity(details)) "Capacity exceeded: " # details.resource # " (" # Nat.toText(details.current) # "/" # Nat.toText(details.limit) # ")";
+            case (#Timeout(details)) "Timeout in " # details.operationType # " operation (" # Nat64.toText(details.duration) # "ms)";
+        }
+    };
 
     // Public methods for Split Payment functionality
 
@@ -110,8 +127,18 @@ public shared func listSplitPaymentsByStatus(status: Text): async [Nat] {
         amount: Nat,
         reason: ?Text
     ): async Result.Result<Nat, Text> {
-        let refundSource = #UserFunds({ fromUser = requestedBy });
-        await refundManager.createRefundRequest(paymentId, requestedBy, amount, refundSource, reason)
+        let refundSource = #UserFunds({ 
+            fromUser = requestedBy; 
+            context = null 
+        });
+        let result = await refundManager.createRefundRequest(paymentId, requestedBy, amount, refundSource, reason);
+        switch (result) {
+            case (#ok(refundId)) #ok(refundId);
+            case (#err(e)) {
+                let errorText = triadErrorToText(e);
+                #err(errorText)
+            };
+        }
     };
 
     // API: List split payment refund requests
@@ -137,7 +164,14 @@ public shared func listSplitPaymentsByStatus(status: Text): async [Nat] {
         adminPrincipal: Principal,
         adminNote: ?Text
     ): async Result.Result<(), Text> {
-        await refundManager.approveRefundRequest(refundId, adminPrincipal, adminNote)
+        let result = await refundManager.approveRefundRequest(refundId, adminPrincipal, adminNote);
+        switch (result) {
+            case (#ok(())) #ok(());
+            case (#err(e)) {
+                let errorText = triadErrorToText(e);
+                #err(errorText)
+            };
+        }
     };
 
     // API: Deny split payment refund request (Admin only)
@@ -146,7 +180,14 @@ public shared func listSplitPaymentsByStatus(status: Text): async [Nat] {
         adminPrincipal: Principal,
         adminNote: ?Text
     ): async Result.Result<(), Text> {
-        await refundManager.denyRefundRequest(refundId, adminPrincipal, adminNote)
+        let result = await refundManager.denyRefundRequest(refundId, adminPrincipal, adminNote);
+        switch (result) {
+            case (#ok(())) #ok(());
+            case (#err(e)) {
+                let errorText = triadErrorToText(e);
+                #err(errorText)
+            };
+        }
     };
 
     // API: Mark split payment refund as processed
@@ -155,7 +196,14 @@ public shared func listSplitPaymentsByStatus(status: Text): async [Nat] {
         success: Bool,
         errorMsg: ?Text
     ): async Result.Result<(), Text> {
-        await refundManager.markRefundProcessed(refundId, success, errorMsg)
+        let result = await refundManager.markRefundProcessed(refundId, success, errorMsg);
+        switch (result) {
+            case (#ok(())) #ok(());
+            case (#err(e)) {
+                let errorText = triadErrorToText(e);
+                #err(errorText)
+            };
+        }
     };
 
     // API: Get split payment refund statistics

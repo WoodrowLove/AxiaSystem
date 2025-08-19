@@ -5,6 +5,7 @@ import EventManager "../heartbeat/event_manager";
 import EventTypes "../heartbeat/event_types";
 import RefundModule "../modules/refund_module";
 import TreasuryRefundProcessor "../modules/treasury_refund_processor";
+import TriadShared "../types/triad_shared";
 import Principal "mo:base/Principal";
 import Result "mo:base/Result";
 import Nat "mo:base/Nat";
@@ -44,6 +45,21 @@ persistent actor TreasuryCanister {
         walletCanister,
         eventManager
     );
+
+    // Helper function to convert TriadError to Text for legacy API compatibility
+    private func triadErrorToText(error: TriadShared.TriadError): Text {
+        switch (error) {
+            case (#NotFound(details)) "Not found: " # details.resource # " with ID " # details.id;
+            case (#Unauthorized(details)) "Unauthorized: " # details.operationType # " for principal " # Principal.toText(details.principal);
+            case (#Conflict(details)) "Conflict: " # details.reason # " (current state: " # details.currentState # ")";
+            case (#Invalid(details)) "Invalid " # details.field # ": " # details.reason # " (value: " # details.value # ")";
+            case (#Upstream(details)) "Upstream error from " # details.systemName # ": " # details.error;
+            case (#Transient(details)) "Transient error in " # details.operationType # " operation" # (switch (details.retryAfter) { case (?after) " (retry after " # Nat64.toText(after) # "ms)"; case (null) "" });
+            case (#Internal(details)) "Internal error [" # details.code # "]: " # details.message;
+            case (#Capacity(details)) "Capacity exceeded: " # details.resource # " (" # Nat.toText(details.current) # "/" # Nat.toText(details.limit) # ")";
+            case (#Timeout(details)) "Timeout in " # details.operationType # " operation (" # Nat64.toText(details.duration) # "ms)";
+        }
+    };
 
     // Add funds to the treasury
     public func addFunds(
@@ -211,7 +227,10 @@ public shared func onTreasuryEvent(event: EventTypes.Event): async () {
     reason: ?Text
   ): async Result.Result<Nat, Text> {
     try {
-      let refundSource = #Treasury({ requiresApproval = requiresApproval });
+      let refundSource = #Treasury({ 
+        requiresApproval = requiresApproval; 
+        context = null 
+      });
       let result = await refundManager.createRefundRequest(originId, userId, amount, refundSource, reason);
       
       switch (result) {
@@ -226,8 +245,9 @@ public shared func onTreasuryEvent(event: EventTypes.Event): async () {
           #ok(refundId)
         };
         case (#err(e)) {
-          LoggingUtils.logError(logStore, "TreasuryCanister", "Failed to create treasury refund: " # e, ?userId);
-          #err(e)
+          let errorText = triadErrorToText(e);
+          LoggingUtils.logError(logStore, "TreasuryCanister", "Failed to create treasury refund: " # errorText, ?userId);
+          #err(errorText)
         };
       }
     } catch (error) {
@@ -242,7 +262,11 @@ public shared func onTreasuryEvent(event: EventTypes.Event): async () {
     try {
       let result = await refundProcessor.processApprovedTreasuryRefunds(refundManager);
       switch (result) {
-        case (#ok(processedIds)) {
+        case (#ok(processedResults)) {
+          let processedIds = _Array.map<TreasuryRefundProcessor.TreasuryProcessingResult, Nat>(
+            processedResults, 
+            func(result) { result.requestId }
+          );
           LoggingUtils.logInfo(
             logStore,
             "TreasuryCanister",
@@ -252,8 +276,9 @@ public shared func onTreasuryEvent(event: EventTypes.Event): async () {
           #ok(processedIds)
         };
         case (#err(e)) {
-          LoggingUtils.logError(logStore, "TreasuryCanister", "Failed to process refunds: " # e, null);
-          #err(e)
+          let errorText = triadErrorToText(e);
+          LoggingUtils.logError(logStore, "TreasuryCanister", "Failed to process refunds: " # errorText, null);
+          #err(errorText)
         };
       }
     } catch (error) {
@@ -266,7 +291,20 @@ public shared func onTreasuryEvent(event: EventTypes.Event): async () {
   // Auto-process eligible refunds
   public func autoProcessRefunds(): async Result.Result<[Nat], Text> {
     try {
-      await refundProcessor.autoProcessEligibleRefunds(refundManager)
+      let result = await refundProcessor.autoProcessEligibleRefunds(refundManager);
+      switch (result) {
+        case (#ok(processedResults)) {
+          let processedIds = _Array.map<TreasuryRefundProcessor.TreasuryProcessingResult, Nat>(
+            processedResults, 
+            func(result) { result.requestId }
+          );
+          #ok(processedIds)
+        };
+        case (#err(e)) {
+          let errorText = triadErrorToText(e);
+          #err(errorText)
+        };
+      }
     } catch (error) {
       let errorMessage = Error.message(error);
       LoggingUtils.logError(logStore, "TreasuryCanister", "Auto-refund processing error: " # errorMessage, null);
@@ -281,7 +319,14 @@ public shared func onTreasuryEvent(event: EventTypes.Event): async () {
     tokenId: ?Nat
   ): async Result.Result<(), Text> {
     try {
-      await refundProcessor.validateRefundRequest(amount, refundSource, tokenId)
+      let result = await refundProcessor.validateRefundRequest(amount, refundSource, tokenId);
+      switch (result) {
+        case (#ok(())) #ok(());
+        case (#err(e)) {
+          let errorText = triadErrorToText(e);
+          #err(errorText)
+        };
+      }
     } catch (error) {
       #err("Refund validation error: " # Error.message(error))
     }
@@ -305,7 +350,14 @@ public shared func onTreasuryEvent(event: EventTypes.Event): async () {
     adminPrincipal: Principal,
     adminNote: ?Text
   ): async Result.Result<(), Text> {
-    await refundManager.approveRefundRequest(refundId, adminPrincipal, adminNote)
+    let result = await refundManager.approveRefundRequest(refundId, adminPrincipal, adminNote);
+    switch (result) {
+      case (#ok(())) #ok(());
+      case (#err(e)) {
+        let errorText = triadErrorToText(e);
+        #err(errorText)
+      };
+    }
   };
 
   // Deny a treasury refund
@@ -314,7 +366,14 @@ public shared func onTreasuryEvent(event: EventTypes.Event): async () {
     adminPrincipal: Principal,
     adminNote: ?Text
   ): async Result.Result<(), Text> {
-    await refundManager.denyRefundRequest(refundId, adminPrincipal, adminNote)
+    let result = await refundManager.denyRefundRequest(refundId, adminPrincipal, adminNote);
+    switch (result) {
+      case (#ok(())) #ok(());
+      case (#err(e)) {
+        let errorText = triadErrorToText(e);
+        #err(errorText)
+      };
+    }
   };
 
   // Get treasury refund statistics
@@ -328,6 +387,23 @@ public shared func onTreasuryEvent(event: EventTypes.Event): async () {
     isLocked: Bool; 
     canProcessRefunds: Bool 
   } {
-    await refundProcessor.getTreasuryRefundStats()
+    let result = await refundProcessor.getTreasuryRefundStats();
+    switch (result) {
+      case (#ok(stats)) {
+        {
+          availableBalance = stats.availableBalance;
+          isLocked = stats.isLocked;
+          canProcessRefunds = stats.canProcessRefunds;
+        }
+      };
+      case (#err(_)) {
+        // Return default values on error
+        {
+          availableBalance = 0;
+          isLocked = true;
+          canProcessRefunds = false;
+        }
+      };
+    }
   };
 };

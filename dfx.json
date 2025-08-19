@@ -101,6 +101,10 @@
       "type": "motoko",
       "canister_id": "cuj6u-c4aaa-aaaaa-qaajq-cai"
     },
+    "ai_router": {
+      "type": "motoko", 
+      "main": "src/ai_router/main.mo"
+    },
     "election": {
       "type": "custom",
       "candid": "src/declarations/election/election.did",

@@ -1,0 +1,63 @@
+# SRE Team Policy Configuration  
+# Owner: Site Reliability Engineering
+# Domain: Performance, Security Controls, Operational Policies
+
+[performance_limits]
+max_request_timeout_ms = 150      # 150ms budget for critical path
+max_background_timeout_ms = 5000  # 5s for background operations
+circuit_breaker_threshold = 10    # Errors before breaking
+circuit_breaker_reset_time = 60   # Seconds before retry
+
+[rate_limiting]
+max_requests_per_minute = 100     # Per user
+max_requests_per_hour = 1000      # Per user
+burst_allowance = 10              # Burst over rate limit
+rate_limit_window_minutes = 1
+
+[security_controls]
+session_timeout_hours = 4         # AI service session duration
+session_rotation_required = true
+max_failed_auth_attempts = 3
+lockout_duration_minutes = 15
+require_encrypted_transport = true
+
+[operational_policies]
+health_check_interval_seconds = 30
+metrics_collection_interval_seconds = 10
+log_retention_days = 90
+alert_escalation_minutes = 5
+on_call_response_time_minutes = 15
+
+[circuit_breakers]
+ai_service_timeout_ms = 200
+ai_service_error_threshold = 5
+ai_service_reset_time_seconds = 30
+fallback_mode_enabled = true
+
+[monitoring_thresholds]
+cpu_usage_warning = 70    # Percentage
+cpu_usage_critical = 85   # Percentage
+memory_usage_warning = 80 # Percentage
+memory_usage_critical = 90 # Percentage
+disk_usage_warning = 75   # Percentage
+disk_usage_critical = 85  # Percentage
+
+[backup_and_recovery]
+backup_interval_hours = 6
+backup_retention_days = 30
+disaster_recovery_rto_minutes = 15  # Recovery Time Objective
+disaster_recovery_rpo_minutes = 5   # Recovery Point Objective
+
+[scaling_policies]
+auto_scale_enabled = true
+scale_up_threshold = 75    # CPU percentage
+scale_down_threshold = 25  # CPU percentage
+min_instances = 2
+max_instances = 10
+scale_cooldown_minutes = 5
+
+[kill_switch]
+enabled = false            # Emergency mode disabled by default
+auto_enable_on_critical = true
+manual_override_required = true
+notification_channels = ["ops-emergency", "security-alerts"]

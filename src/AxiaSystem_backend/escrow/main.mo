@@ -9,6 +9,7 @@ import EventManager "../heartbeat/event_manager";
 import EscrowModule "./modules/escrow_module";
 import EscrowService "./services/escrow_service";
 import RefundModule "../modules/refund_module";
+import TriadShared "../types/triad_shared";
 
 // 🧠 NamoraAI Observability Imports
 import Insight "../types/insight";
@@ -124,10 +125,23 @@ persistent actor {
         }
     };
 
-    // Heartbeat Integration (Optional)
-    public shared func runHeartbeat(): async () {
-        Debug.print("Escrow canister heartbeat executed.");
-        // Example: Clean up stale or inactive escrows (optional implementation)
+    // ================================
+    // ENHANCED HELPER FUNCTIONS
+    // ================================
+
+    // Convert TriadError to human-readable Text
+    private func triadErrorToText(error: TriadShared.TriadError): Text {
+        switch (error) {
+            case (#NotFound({id; resource})) "Not found: " # resource # " with id " # id;
+            case (#Unauthorized({operationType; principal})) "Unauthorized: " # operationType # " for " # Principal.toText(principal);
+            case (#Invalid({field; reason; value})) "Invalid " # field # ": " # reason # " (value: " # value # ")";
+            case (#Conflict({currentState; reason})) "Conflict: " # reason # " (current state: " # currentState # ")";
+            case (#Internal({code; message})) "Internal error " # code # ": " # message;
+            case (#Upstream({systemName; error})) "Upstream error from " # systemName # ": " # error;
+            case (#Transient({operationType; retryAfter = _})) "Transient error for " # operationType;
+            case (#Timeout({operationType; duration = _})) "Timeout for " # operationType;
+            case (#Capacity({resource; current = _; limit = _})) "Capacity exceeded for " # resource;
+        }
     };
 
     // ======= REFUND MANAGEMENT API =======
@@ -141,19 +155,20 @@ persistent actor {
     ): async Result.Result<Nat, Text> {
         await emitInsight("info", "Escrow refund request initiated for escrow #" # Nat.toText(escrowId) # " by " # Principal.toText(requestedBy));
         
-        let refundSource = #UserFunds({ fromUser = requestedBy });
+        let refundSource = #UserFunds({ context = null; fromUser = requestedBy });
         let result = await refundManager.createRefundRequest(escrowId, requestedBy, amount, refundSource, reason);
         
         switch (result) {
             case (#ok(refundId)) {
                 await emitInsight("info", "Escrow refund request #" # Nat.toText(refundId) # " created for escrow #" # Nat.toText(escrowId));
+                #ok(refundId)
             };
             case (#err(error)) {
-                await emitInsight("error", "Escrow refund request creation failed: " # error);
+                let errorMsg = triadErrorToText(error);
+                await emitInsight("error", "Escrow refund request creation failed: " # errorMsg);
+                #err(errorMsg)
             };
         };
-        
-        result
     };
 
     // API: List escrow refund requests
@@ -194,13 +209,14 @@ persistent actor {
         switch (result) {
             case (#ok(())) {
                 await emitInsight("info", "Escrow refund request #" # Nat.toText(refundId) # " approved by admin");
+                #ok(())
             };
             case (#err(error)) {
-                await emitInsight("error", "Escrow refund approval failed: " # error);
+                let errorMsg = triadErrorToText(error);
+                await emitInsight("error", "Escrow refund approval failed: " # errorMsg);
+                #err(errorMsg)
             };
         };
-        
-        result
     };
 
     // API: Deny escrow refund request (Admin only)
@@ -216,13 +232,14 @@ persistent actor {
         switch (result) {
             case (#ok(())) {
                 await emitInsight("info", "Escrow refund request #" # Nat.toText(refundId) # " denied by admin");
+                #ok(())
             };
             case (#err(error)) {
-                await emitInsight("error", "Escrow refund denial failed: " # error);
+                let errorMsg = triadErrorToText(error);
+                await emitInsight("error", "Escrow refund denial failed: " # errorMsg);
+                #err(errorMsg)
             };
         };
-        
-        result
     };
 
     // API: Mark escrow refund as processed
@@ -238,13 +255,14 @@ persistent actor {
         switch (result) {
             case (#ok(())) {
                 await emitInsight("info", "Escrow refund #" # Nat.toText(refundId) # " marked as processed");
+                #ok(())
             };
             case (#err(error)) {
-                await emitInsight("error", "Escrow refund processing marking failed: " # error);
+                let errorMsg = triadErrorToText(error);
+                await emitInsight("error", "Escrow refund processing marking failed: " # errorMsg);
+                #err(errorMsg)
             };
         };
-        
-        result
     };
 
     // API: Get escrow refund statistics
