@@ -159,6 +159,14 @@ persistent actor AIRouter {
                 auditAction("SUBMIT_HELD", caller, request.correlationId, "Policy engine held request: " # Text.join(", ", policyEvaluation.reasoning.vals()));
                 return #err("Request held for review: " # Text.join(", ", policyEvaluation.reasoning.vals()));
             };
+            case (#SuggestHold) {
+                auditAction("SUBMIT_SUGGEST_HOLD", caller, request.correlationId, "Policy engine suggests hold: " # Text.join(", ", policyEvaluation.reasoning.vals()));
+                return #err("Request flagged for hold review: " # Text.join(", ", policyEvaluation.reasoning.vals()));
+            };
+            case (#Flag) {
+                auditAction("SUBMIT_FLAGGED", caller, request.correlationId, "Policy engine flagged request: " # Text.join(", ", policyEvaluation.reasoning.vals()));
+                return #err("Request flagged for review: " # Text.join(", ", policyEvaluation.reasoning.vals()));
+            };
             case (#Escalate(level)) {
                 auditAction("SUBMIT_ESCALATED", caller, request.correlationId, "Policy engine escalated request: " # debug_show(level));
                 return #err("Request requires escalation: " # debug_show(level));

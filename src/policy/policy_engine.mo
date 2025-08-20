@@ -31,6 +31,8 @@ module PolicyEngine {
         #Proceed;
         #Block;
         #Escalate: EscalationLevel;
+        #SuggestHold;  // Week 9: For escrow suggestions
+        #Flag;         // Week 9: For governance flagging
     };
     
     public type PolicyRule = {
@@ -85,6 +87,42 @@ module PolicyEngine {
         #UserId;
         #SessionId;
         #IPPattern; // Would use hashed IP as per Q1 policy
+    };
+    
+    // Week 9: Auto-action configuration for Phase 3
+    public type AutoActionConfig = {
+        enabled : Bool;
+        minConfidence : Float;
+        maxAmount : Nat;
+        allowedRiskScore : Nat8;
+    };
+    
+    public type ModuleAutoActions = {
+        payments : AutoActionConfig;
+        escrow : AutoActionConfig;
+        governance : AutoActionConfig;
+    };
+    
+    // Week 9: Default auto-action config (feature-flagged off)
+    public let defaultAutoActionConfig : ModuleAutoActions = {
+        payments = {
+            enabled = false; // Feature flag - off by default
+            minConfidence = 0.85; // 85% confidence minimum
+            maxAmount = 50000; // $50k threshold for auto-actions
+            allowedRiskScore = 75; // High risk threshold
+        };
+        escrow = {
+            enabled = false; // Feature flag - off by default
+            minConfidence = 0.90; // 90% confidence for escrow
+            maxAmount = 10000; // Lower threshold for escrow
+            allowedRiskScore = 70;
+        };
+        governance = {
+            enabled = false; // Feature flag - off by default
+            minConfidence = 0.95; // Very high confidence for governance
+            maxAmount = 0; // No amount threshold - flags only
+            allowedRiskScore = 50; // Lower threshold for flagging
+        };
     };
     
     public type PolicyEvaluation = {
@@ -297,6 +335,14 @@ module PolicyEngine {
                 // Require approval for holds on very high value
                 amountTier >= 5 // Tier 5 ($50K+ equivalent)
             };
+            case (#SuggestHold) {
+                // Week 9: Escrow suggestions always require human review
+                true
+            };
+            case (#Flag) {
+                // Week 9: Governance flags always require human review
+                true
+            };
             case (#RequireMFA or #Proceed) {
                 false // Automated actions
             };
@@ -501,6 +547,8 @@ module PolicyEngine {
         var holdCount = 0;
         var blockCount = 0;
         var escalateCount = 0;
+        var suggestHoldCount = 0; // Week 9
+        var flagCount = 0; // Week 9
         var totalConfidence = 0.0;
         var escalations = 0;
         var fallbacks = 0;
@@ -512,6 +560,8 @@ module PolicyEngine {
                 case (#Hold) { holdCount += 1 };
                 case (#Block) { blockCount += 1 };
                 case (#Escalate(_)) { escalateCount += 1 };
+                case (#SuggestHold) { suggestHoldCount += 1 }; // Week 9
+                case (#Flag) { flagCount += 1 }; // Week 9
             };
             
             totalConfidence += eval.confidence;
@@ -535,11 +585,179 @@ module PolicyEngine {
                 (#RequireMFA, mfaCount),
                 (#Hold, holdCount),
                 (#Block, blockCount),
-                (#Escalate(#None), escalateCount)
+                (#Escalate(#None), escalateCount),
+                (#SuggestHold, suggestHoldCount), // Week 9
+                (#Flag, flagCount) // Week 9
             ];
             averageConfidence = if (total > 0) totalConfidence / totalFloat else 0.0;
             escalationRate = if (total > 0) Float.fromInt(escalations) / totalFloat else 0.0;
             fallbackRate = if (total > 0) Float.fromInt(fallbacks) / totalFloat else 0.0;
         }
+    };
+    
+    // Week 9: Auto-action decision functions for Phase 3
+    
+    // Validate that an action is within Week 9 allowed scope
+    public func validateWeek9ActionScope(moduleName : Text, action : PolicyDecision) : Bool {
+        switch (moduleName, action) {
+            case ("payments", #RequireMFA) true;
+            case ("payments", #Hold) true;
+            case ("payments", #Proceed) true;
+            case ("escrow", #SuggestHold) true;
+            case ("escrow", #Proceed) true;
+            case ("governance", #Flag) true;
+            case ("governance", #Proceed) true;
+            case (_, _) false; // All other combinations are forbidden in Week 9
+        };
+    };
+    
+    // Week 9: Determine auto-action for payments
+    public func decidePaymentAutoAction(
+        _request: AIRequest,
+        config: AutoActionConfig,
+        aiConfidence: ?Float,
+        aiRiskScore: ?Nat8
+    ) : PolicyDecision {
+        // Feature flag check
+        if (not config.enabled) {
+            return #Proceed;
+        };
+        
+        // Confidence check
+        switch (aiConfidence) {
+            case (?confidence) {
+                if (confidence < config.minConfidence) {
+                    return #Proceed; // Fall back to normal flow
+                };
+            };
+            case null { return #Proceed };
+        };
+        
+        // Amount check using tier
+        if (_request.payload.amountTier > 4) { // Tier 5 = highest amounts
+            return #Proceed; // Require human oversight for high amounts
+        };
+        
+        // Risk-based auto-actions (Week 9 limited scope)
+        switch (aiRiskScore) {
+            case (?score) {
+                if (score >= config.allowedRiskScore) {
+                    if (score >= 90) {
+                        return #Hold; // Very high risk
+                    } else {
+                        return #RequireMFA; // High risk but manageable
+                    };
+                };
+            };
+            case null {};
+        };
+        
+        #Proceed
+    };
+    
+    // Week 9: Determine auto-action for escrow
+    public func decideEscrowAutoAction(
+        _request: AIRequest,
+        config: AutoActionConfig,
+        aiConfidence: ?Float,
+        aiRiskScore: ?Nat8
+    ) : PolicyDecision {
+        // Feature flag check
+        if (not config.enabled) {
+            return #Proceed;
+        };
+        
+        // Confidence check
+        switch (aiConfidence) {
+            case (?confidence) {
+                if (confidence < config.minConfidence) {
+                    return #Proceed;
+                };
+            };
+            case null { return #Proceed };
+        };
+        
+        // Amount check using tier
+        if (_request.payload.amountTier > 3) { // Lower threshold for escrow
+            return #Proceed; // Require human oversight
+        };
+        
+        // For escrow, we only suggest holds - never block or auto-release (Week 9 constraint)
+        switch (aiRiskScore) {
+            case (?score) {
+                if (score >= config.allowedRiskScore) {
+                    return #SuggestHold; // Suggest hold for review
+                };
+            };
+            case null {};
+        };
+        
+        #Proceed
+    };
+    
+    // Week 9: Determine auto-action for governance
+    public func decideGovernanceAutoAction(
+        _request: AIRequest,
+        config: AutoActionConfig,
+        aiConfidence: ?Float,
+        aiRiskScore: ?Nat8
+    ) : PolicyDecision {
+        // Feature flag check
+        if (not config.enabled) {
+            return #Proceed;
+        };
+        
+        // Confidence check
+        switch (aiConfidence) {
+            case (?confidence) {
+                if (confidence < config.minConfidence) {
+                    return #Proceed;
+                };
+            };
+            case null { return #Proceed };
+        };
+        
+        // For governance, we only flag - never auto-approve or block (Week 9 constraint)
+        switch (aiRiskScore) {
+            case (?score) {
+                if (score >= config.allowedRiskScore) {
+                    return #Flag; // Flag for additional review
+                };
+            };
+            case null {};
+        };
+        
+        #Proceed
+    };
+    
+    // Week 9: Override tracking type
+    public type AutoActionOverride = {
+        corrId : Text;
+        moduleName : Text;
+        originalAction : PolicyDecision;
+        humanAction : PolicyDecision;
+        reason : Text;
+        timestamp : Time.Time;
+    };
+    
+    // Week 9: Calculate override rate for SLO monitoring (target < 3%)
+    public func calculateOverrideRate(
+        overrides: [AutoActionOverride],
+        totalActions: Nat,
+        windowMs: Int
+    ) : Float {
+        let now = Time.now();
+        let windowStart = now - windowMs * 1_000_000; // Convert to nanoseconds
+        
+        // Filter overrides within time window
+        let recentOverrides = Array.filter(overrides, func(override: AutoActionOverride) : Bool {
+            override.timestamp >= windowStart
+        });
+        
+        if (totalActions == 0) {
+            return 0.0;
+        };
+        
+        Float.fromInt(recentOverrides.size()) / Float.fromInt(totalActions)
     };
 }

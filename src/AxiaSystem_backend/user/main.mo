@@ -16,6 +16,7 @@ import Hash "mo:base/Hash";
 import Nat32 "mo:base/Nat32";
 import UserCanisterProxy "utils/user_canister_proxy";
 import Int "mo:base/Int";
+import IdentityModule "../identity/modules/identity_module";
 
 // 🧠 NamoraAI Observability Imports
 import Insight "../types/insight";
@@ -117,7 +118,7 @@ func customNatHash(n : Nat) : Hash.Hash {
                 await emitInsight("info", "User successfully created with ID: " # Principal.toText(user.id) # ", username: " # username);
                 
                 // Step 2: Auto-create identity for complete setup
-                let identityCanister = actor("vpyes-67777-77774-qaaeq-cai") : actor {
+                let identityCanister = actor("uxrrr-q7777-77774-qaaaq-cai") : actor {
                     ensureIdentity: (Principal, ?Text, ?Text) -> async Result.Result<{}, Text>;
                 };
                 
@@ -132,7 +133,7 @@ func customNatHash(n : Nat) : Hash.Hash {
                 };
                 
                 // Step 3: Auto-create wallet for complete setup
-                let walletCanister = actor("xjaw7-xp777-77774-qaajq-cai") : actor {
+                let walletCanister = actor("umunu-kh777-77774-qaaca-cai") : actor {
                     ensureWallet: (Principal) -> async Result.Result<{}, Text>;
                 };
                 
@@ -174,7 +175,7 @@ func customNatHash(n : Nat) : Hash.Hash {
                 
                 // Step 2: Create identity via direct canister call
                 var hasIdentity = false;
-                let identityCanister = actor("vpyes-67777-77774-qaaeq-cai") : actor {
+                let identityCanister = actor("uxrrr-q7777-77774-qaaaq-cai") : actor {
                     ensureIdentity: (Principal, ?Text, ?Text) -> async Result.Result<{}, Text>;
                 };
                 
@@ -191,7 +192,7 @@ func customNatHash(n : Nat) : Hash.Hash {
                 
                 // Step 3: Create wallet via direct canister call
                 var hasWallet = false;
-                let walletCanister = actor("xjaw7-xp777-77774-qaajq-cai") : actor {
+                let walletCanister = actor("umunu-kh777-77774-qaaca-cai") : actor {
                     ensureWallet: (Principal) -> async Result.Result<{}, Text>;
                 };
                 
@@ -459,7 +460,7 @@ public shared func attachTokensToUser(userId: Principal, tokenId: Nat, amount: N
             };
             case (#ok(user)) {
                 // Check if user has a wallet
-                let walletCanister = actor("xjaw7-xp777-77774-qaajq-cai") : actor {
+                let walletCanister = actor("umunu-kh777-77774-qaaca-cai") : actor {
                     getWalletByOwner: (Principal) -> async Result.Result<{id: Int; owner: Principal; balance: Nat}, Text>;
                 };
                 
@@ -509,8 +510,8 @@ public shared func attachTokensToUser(userId: Principal, tokenId: Nat, amount: N
                 var identityInfo: ?{id: Principal; createdAt: Int; updatedAt: Int; deviceKeys: [Principal]} = null;
                 var identityLinked = false;
                 
-                let identityCanister = actor("vpyes-67777-77774-qaaeq-cai") : actor {
-                    getIdentity: (Principal) -> async ?{id: Principal; metadata: Text; createdAt: Int; updatedAt: Int; deviceKeys: [Principal]};
+                let identityCanister = actor("uxrrr-q7777-77774-qaaaq-cai") : actor {
+                    getIdentity: (Principal) -> async ?IdentityModule.Identity;
                 };
                 
                 let identityResult = await identityCanister.getIdentity(userId);
@@ -533,7 +534,7 @@ public shared func attachTokensToUser(userId: Principal, tokenId: Nat, amount: N
                 var walletInfo: ?{id: Int; balance: Nat} = null;
                 var walletLinked = false;
                 
-                let walletCanister = actor("xjaw7-xp777-77774-qaajq-cai") : actor {
+                let walletCanister = actor("umunu-kh777-77774-qaaca-cai") : actor {
                     getWalletByOwner: (Principal) -> async Result.Result<{id: Int; owner: Principal; balance: Nat}, Text>;
                 };
                 

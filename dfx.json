@@ -7,7 +7,7 @@
     },
     "admin2": {
       "type": "motoko",
-      "main": "src/AxiaSystem_backend/admin/main.mo",
+      "main": "src/AxiaSystem_backend/admin2/main.mo",
       "dependencies": ["identity", "user"],
       "canister_id": "br5f7-7uaaa-aaaaa-qaaca-cai"
     },
@@ -104,6 +104,27 @@
     "ai_router": {
       "type": "motoko", 
       "main": "src/ai_router/main.mo"
+    },
+    "notification": {
+      "type": "motoko",
+      "main": "src/AxiaSystem_backend/notification/main.mo",
+      "dependencies": ["identity", "ai_router"]
+    },
+    "ai_router_actor": {
+      "type": "motoko",
+      "main": "src/ai_router/ai_router_actor.mo"
+    },
+    "ai_router_reporting_system": {
+      "type": "motoko",
+      "main": "src/ai_router/reporting_system_actor.mo"
+    },
+    "ai_router_audit_compliance": {
+      "type": "motoko",
+      "main": "src/ai_router/audit_compliance_system_actor.mo"
+    },
+    "ai_router_chaos_engineering": {
+      "type": "motoko",
+      "main": "src/ai_router/chaos_engineering_system_actor.mo"
     },
     "election": {
       "type": "custom",

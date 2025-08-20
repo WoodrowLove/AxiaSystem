@@ -1,4 +1,5 @@
 import IdentityModule "../identity/modules/identity_module";
+import SessionManager "./session_manager";
 import EventManager "../heartbeat/event_manager";
 import EventTypes "../heartbeat/event_types";
 import Principal "mo:base/Principal";
@@ -6,6 +7,8 @@ import Trie "mo:base/Trie";
 import Result "mo:base/Result";
 import Text "mo:base/Text";
 import _Array "mo:base/Array";
+import Nat64 "mo:base/Nat64";
+import Nat32 "mo:base/Nat32";
 
 // 🧠 NamoraAI Observability Imports
 import Insight "../types/insight";
@@ -28,6 +31,7 @@ persistent actor IdentityCanister {
 
     private transient let eventManager = EventManager.EventManager();
     private transient let identityManager = IdentityModule.IdentityManager(eventManager);
+    private transient let sessionManager = SessionManager.SessionManager();
 
     // Helper function to create a Trie from an array of key-value pairs
     func createTrie(entries: [(Text, Text)]) : Trie.Trie<Text, Text> {
@@ -144,5 +148,157 @@ persistent actor IdentityCanister {
         };
         
         result
+    };
+
+    // === SESSION MANAGEMENT ===
+
+    // Register a device for session management
+    public shared func registerDevice(
+        identityId: Principal,
+        deviceId: Principal,
+        deviceType: Text,
+        attestation: ?Blob
+    ): async Result.Result<SessionManager.DeviceInfo, SessionManager.SessionError> {
+        await emitInsight("info", "Device registration for identity: " # Principal.toText(identityId) # ", device: " # Principal.toText(deviceId));
+        
+        // Verify identity exists
+        switch (await identityManager.getIdentity(identityId)) {
+            case null {
+                await emitInsight("error", "Device registration failed: Identity not found: " # Principal.toText(identityId));
+                #err(#identity_not_found)
+            };
+            case (?_identity) {
+                let result = await sessionManager.registerDevice(identityId, deviceId, deviceType, attestation);
+                switch (result) {
+                    case (#ok(deviceInfo)) {
+                        await emitInsight("info", "Device registered successfully: " # Principal.toText(deviceId));
+                        #ok(deviceInfo)
+                    };
+                    case (#err(error)) {
+                        await emitInsight("error", "Device registration failed: " # debug_show(error));
+                        #err(error)
+                    };
+                }
+            };
+        }
+    };
+
+    // Start a new session
+    public shared func startSession(
+        identityId: Principal,
+        deviceId: Principal,
+        scopes: [SessionManager.SessionScope],
+        durationSecs: Nat32,
+        correlationId: Text,
+        deviceProof: ?Blob,
+        context: ?{ ipAddress: Text; userAgent: Text }
+    ): async Result.Result<SessionManager.Session, SessionManager.SessionError> {
+        await emitInsight("info", "Session start request for identity: " # Principal.toText(identityId) # ", correlation: " # correlationId);
+        
+        // Verify identity exists
+        switch (await identityManager.getIdentity(identityId)) {
+            case null {
+                await emitInsight("error", "Session start failed: Identity not found: " # Principal.toText(identityId));
+                #err(#identity_not_found)
+            };
+            case (?_identity) {
+                let request: SessionManager.SessionRequest = {
+                    identityId = identityId;
+                    deviceId = deviceId;
+                    scopes = scopes;
+                    durationSecs = durationSecs;
+                    correlationId = correlationId;
+                    deviceProof = deviceProof;
+                    context = context;
+                };
+                
+                let result = await sessionManager.createSession(request);
+                switch (result) {
+                    case (#ok(session)) {
+                        await emitInsight("info", "Session created successfully: " # session.sessionId # " for identity: " # Principal.toText(identityId));
+                        #ok(session)
+                    };
+                    case (#err(error)) {
+                        await emitInsight("error", "Session creation failed: " # debug_show(error));
+                        #err(error)
+                    };
+                }
+            };
+        }
+    };
+
+    // Validate an existing session
+    public shared func validateSession(
+        sessionId: Text,
+        requiredScopes: [SessionManager.SessionScope]
+    ): async SessionManager.SessionValidation {
+        let validation = await sessionManager.validateSession(sessionId, requiredScopes);
+        
+        let logLevel = if (validation.valid) { "info" } else { "warning" };
+        let message = if (validation.valid) {
+            "Session validated successfully: " # sessionId
+        } else {
+            "Session validation failed: " # sessionId # " - " # (switch (validation.reason) { case (?r) r; case null "unknown" })
+        };
+        
+        await emitInsight(logLevel, message);
+        validation
+    };
+
+    // Revoke a specific session
+    public shared func revokeSession(sessionId: Text): async Result.Result<(), SessionManager.SessionError> {
+        await emitInsight("warning", "Session revocation requested: " # sessionId);
+        
+        let result = await sessionManager.revokeSession(sessionId);
+        switch (result) {
+            case (#ok(_)) {
+                await emitInsight("info", "Session revoked successfully: " # sessionId);
+            };
+            case (#err(error)) {
+                await emitInsight("error", "Session revocation failed: " # debug_show(error));
+            };
+        };
+        result
+    };
+
+    // Revoke all sessions for an identity
+    public shared func revokeAllSessions(identityId: Principal): async Result.Result<Nat, SessionManager.SessionError> {
+        await emitInsight("warning", "All sessions revocation requested for identity: " # Principal.toText(identityId));
+        
+        let result = await sessionManager.revokeAllSessions(identityId);
+        switch (result) {
+            case (#ok(count)) {
+                await emitInsight("info", "All sessions revoked for identity: " # Principal.toText(identityId) # " (count: " # debug_show(count) # ")");
+            };
+            case (#err(error)) {
+                await emitInsight("error", "Session revocation failed: " # debug_show(error));
+            };
+        };
+        result
+    };
+
+    // Get active sessions for an identity
+    public shared func getActiveSessions(identityId: Principal): async [SessionManager.Session] {
+        await sessionManager.getActiveSessions(identityId)
+    };
+
+    // Get session statistics
+    public shared func getSessionStats(): async {
+        totalSessions: Nat;
+        activeSessions: Nat;
+        expiredSessions: Nat;
+        revokedSessions: Nat;
+        devicesRegistered: Nat;
+        averageRiskScore: Float;
+    } {
+        await sessionManager.getSessionStats()
+    };
+
+    // Cleanup expired sessions (admin function)
+    public shared func cleanupExpiredSessions(): async Nat {
+        await emitInsight("info", "Cleaning up expired sessions");
+        let cleanedCount = await sessionManager.cleanupExpiredSessions();
+        await emitInsight("info", "Session cleanup completed: " # debug_show(cleanedCount) # " sessions removed");
+        cleanedCount
     };
 };

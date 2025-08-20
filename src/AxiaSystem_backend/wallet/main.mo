@@ -29,8 +29,54 @@ persistent actor WalletCanister {
         // await NamoraAI.pushInsight(insight);
     };
 
-    private transient let userProxy = UserCanisterProxy.UserCanisterProxy(Principal.fromText("xobql-2x777-77774-qaaja-cai"));
+    private transient let userProxy = UserCanisterProxy.UserCanisterProxy(Principal.fromText("uzt4z-lp777-77774-qaabq-cai"));
     private transient let tokenCanisterProxy = TokenCanisterProxy.TokenCanisterProxy(Principal.fromText("xad5d-bh777-77774-qaaia-cai"));
+
+    // Identity canister for session validation
+    private transient let IDENTITY_CANISTER_ID = "uxrrr-q7777-77774-qaaaq-cai";
+    
+    public type SessionScope = {
+        #wallet_read;
+        #wallet_transfer;
+        #wallet_admin;
+        #user_profile;
+        #user_admin;
+        #admin_security;
+        #admin_roles;
+        #ai_submit;
+        #ai_deliver;
+        #notify_send;
+        #notify_admin;
+        #gov_approve;
+        #system_admin;
+    };
+
+    public type SessionValidation = {
+        valid: Bool;
+        session: ?{ sessionId: Text; identityId: Principal; deviceId: Principal; riskScore: Nat8 };
+        reason: ?Text;
+        remaining: Nat64;
+        riskAssessment: { score: Nat8; factors: [Text]; action: { #allow; #challenge; #deny } };
+    };
+
+    // Validate session with identity canister
+    private func validateSessionInternal(sessionId: Text, requiredScopes: [SessionScope]): async SessionValidation {
+        let identityCanister = actor(IDENTITY_CANISTER_ID) : actor {
+            validateSession: (Text, [SessionScope]) -> async SessionValidation;
+        };
+        
+        try {
+            await identityCanister.validateSession(sessionId, requiredScopes)
+        } catch (_error) {
+            {
+                valid = false;
+                session = null;
+                reason = ?"Session validation service unavailable";
+                remaining = 0;
+                riskAssessment = { score = 10; factors = ["validation_error"]; action = #deny };
+            }
+        }
+    };
 
     private transient let tokenProxy = {
         getAllTokens = tokenCanisterProxy.getAllTokens;
@@ -115,6 +161,44 @@ persistent actor WalletCanister {
     // Credit a wallet (add funds)
     public func creditWallet(userId: Principal, amount: Nat): async Result.Result<Nat, Text> {
         await walletService.creditWallet(userId, amount);
+    };
+
+    // Session-validated credit wallet
+    public shared func creditWalletWithSession(userId: Principal, amount: Nat, sessionId: Text): async Result.Result<Nat, Text> {
+        await emitInsight("info", "Session-validated credit request for user: " # Principal.toText(userId) # " amount: " # Nat.toText(amount));
+        
+        // Validate session with required scope
+        let validation = await validateSessionInternal(sessionId, [#wallet_transfer]);
+        
+        if (not validation.valid) {
+            let reason = switch (validation.reason) { case (?r) r; case null "Invalid session" };
+            await emitInsight("error", "Credit denied due to session validation: " # reason);
+            return #err("Session validation failed: " # reason);
+        };
+        
+        // Check if session belongs to the user
+        switch (validation.session) {
+            case null {
+                await emitInsight("error", "Credit denied: No session information");
+                return #err("Session validation failed: No session information");
+            };
+            case (?session) {
+                if (session.identityId != userId) {
+                    await emitInsight("error", "Credit denied: Session identity mismatch");
+                    return #err("Session validation failed: Identity mismatch");
+                };
+                
+                // Check risk assessment
+                if (validation.riskAssessment.action == #deny) {
+                    await emitInsight("warning", "Credit denied due to high risk assessment");
+                    return #err("Operation denied due to security risk");
+                };
+                
+                // Proceed with credit
+                await emitInsight("info", "Session validated, proceeding with credit operation");
+                await walletService.creditWallet(userId, amount);
+            };
+        }
     };
 
     // Debit a wallet (withdraw funds)
